@@ -19,7 +19,9 @@ import {
   MapPin,
   Phone,
   DollarSign,
-  Database
+  Database,
+  X,
+  User
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { RESTAURANTS } from '../data/campusData';
@@ -50,10 +52,10 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
   // Metrics Calculation (Phase 5 Lifecycle)
   const totalOrdersCount = orders.length;
   const pendingOrdersCount = orders.filter((o) => o.status === 'PENDING_CONFIRMATION').length;
-  const activeOrdersCount = orders.filter((o) => ['CONFIRMED', 'PREPARING', 'READY', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(o.status)).length;
-  const confirmedOrdersCount = orders.filter((o) => ['CONFIRMED', 'PREPARING', 'READY', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(o.status)).length;
+  const preparingOrdersCount = orders.filter((o) => ['CONFIRMED', 'PREPARING', 'READY', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(o.status)).length;
   const deliveredOrdersCount = orders.filter((o) => o.status === 'DELIVERED').length;
   const cancelledOrdersCount = orders.filter((o) => ['CANCELLED', 'EXPIRED'].includes(o.status)).length;
+  const confirmedOrdersCount = preparingOrdersCount + deliveredOrdersCount;
   const totalRevenue = orders
     .filter((o) => !['CANCELLED', 'EXPIRED', 'PENDING_CONFIRMATION'].includes(o.status))
     .reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0), 0);
@@ -269,9 +271,10 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
 
         </section>
 
-        {/* SECTION 2: METRICS CARDS */}
-        <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800">
+        {/* SECTION 2: METRICS CARDS (5 Dashboard Summary Metrics) */}
+        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {/* 1. Total Orders */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Orders</span>
               <ShoppingBag size={18} className="text-blue-400" />
@@ -282,29 +285,8 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
             <div className="text-[11px] text-slate-500 mt-1">Recorded on Campus</div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Confirmed</span>
-              <CheckCircle2 size={18} className="text-emerald-400" />
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-['Outfit']">
-              {confirmedOrdersCount}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1">Ready / Delivered</div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Cancelled</span>
-              <XCircle size={18} className="text-rose-400" />
-            </div>
-            <div className="text-2xl sm:text-3xl font-black text-rose-400 font-['Outfit']">
-              {cancelledOrdersCount}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1">Manual & Timeout</div>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800">
+          {/* 2. Pending Orders */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Pending</span>
               <Clock size={18} className="text-amber-400" />
@@ -312,7 +294,43 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
             <div className="text-2xl sm:text-3xl font-black text-amber-400 font-['Outfit']">
               {pendingOrdersCount}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">In 30s Countdown</div>
+            <div className="text-[11px] text-slate-500 mt-1">In 30s Window</div>
+          </div>
+
+          {/* 3. Preparing Orders */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Preparing</span>
+              <Store size={18} className="text-blue-400" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-blue-400 font-['Outfit']">
+              {preparingOrdersCount}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1">Kitchen / Transit</div>
+          </div>
+
+          {/* 4. Delivered Orders */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Delivered</span>
+              <CheckCircle2 size={18} className="text-emerald-400" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-['Outfit']">
+              {deliveredOrdersCount}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1">Completed Orders</div>
+          </div>
+
+          {/* 5. Cancelled Orders */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 col-span-2 sm:col-span-1">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Cancelled</span>
+              <XCircle size={18} className="text-rose-400" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-rose-400 font-['Outfit']">
+              {cancelledOrdersCount}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1">Cancelled & Expired</div>
           </div>
         </section>
 
@@ -398,13 +416,20 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
                       <tr key={order.id || order.tempId} className="hover:bg-slate-800/40 transition-colors">
                         
                         {/* Order ID */}
-                        <td className="py-3.5 px-4 font-mono font-black text-blue-400 whitespace-nowrap">
+                        <td 
+                          onClick={() => setViewingOrder(order)}
+                          className="py-3.5 px-4 font-mono font-black text-blue-400 whitespace-nowrap cursor-pointer hover:underline"
+                          title="Click to view full order details"
+                        >
                           #{order.id || order.tempId}
                         </td>
 
                         {/* Student Details */}
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-white whitespace-nowrap">{order.studentName}</div>
+                        <td 
+                          onClick={() => setViewingOrder(order)}
+                          className="py-3.5 px-4 cursor-pointer"
+                        >
+                          <div className="font-bold text-white whitespace-nowrap hover:text-blue-400 transition-colors">{order.studentName}</div>
                           <div className="text-[11px] text-slate-400">{order.studentId || 'ID N/A'} • {order.studentPhone}</div>
                         </td>
 
@@ -476,9 +501,19 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
                           )}
                         </td>
 
-                        {/* Actions: [Advance Status], [Cancel Order], [Delete Order] */}
+                        {/* Actions: [Details], [Advance Status], [Cancel Order], [Delete Order] */}
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
+                            {/* Inspect Order Details */}
+                            <button
+                              onClick={() => setViewingOrder(order)}
+                              title="View Full Order Details"
+                              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <Eye size={11} />
+                              <span>Details</span>
+                            </button>
+
                             {/* Stage Stepper Buttons */}
                             {order.status === 'CONFIRMED' && (
                               <button
@@ -568,6 +603,255 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
         </section>
 
       </div>
+
+      {/* MODAL: COMPLETE ORDER DETAILS */}
+      {viewingOrder && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          onClick={() => setViewingOrder(null)}
+        >
+          <div 
+            className="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-6 animate-scale-in max-h-[90vh] overflow-y-auto text-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-800">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-mono font-black text-blue-400 text-lg sm:text-xl">
+                    #{viewingOrder.id || viewingOrder.tempId}
+                  </span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold border border-slate-700">
+                    {viewingOrder.restaurantName || 'Campus Kitchen'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Placed on {viewingOrder.createdAt ? new Date(viewingOrder.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Recent'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setViewingOrder(null)}
+                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-slate-700"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Student & Delivery Information */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <User size={13} className="text-blue-400" />
+                  <span>Student Details</span>
+                </div>
+                <div className="text-sm font-bold text-white">
+                  {viewingOrder.studentName}
+                </div>
+                <div className="text-xs text-slate-300 flex items-center gap-1.5">
+                  <Phone size={12} className="text-emerald-400" />
+                  <a href={`tel:${viewingOrder.studentPhone}`} className="hover:underline text-emerald-300 font-mono">
+                    +91 {viewingOrder.studentPhone}
+                  </a>
+                </div>
+                <div className="text-xs text-slate-400">
+                  Student ID: <span className="font-mono text-slate-300 font-semibold">{viewingOrder.studentId || 'N/A'}</span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin size={13} className="text-[#FF5722]" />
+                  <span>Delivery Destination</span>
+                </div>
+                <div className="text-xs font-semibold text-slate-200">
+                  {viewingOrder.deliveryLocation || 'Hostel Delivery'}
+                </div>
+                {viewingOrder.instructions && (
+                  <div className="text-xs text-amber-300 bg-amber-950/40 p-2 rounded-xl border border-amber-900/40">
+                    <span className="font-bold">Note: </span>{viewingOrder.instructions}
+                  </div>
+                )}
+                {viewingOrder.cancelledReason && (
+                  <div className="text-xs text-rose-300 bg-rose-950/40 p-2 rounded-xl border border-rose-900/40">
+                    <span className="font-bold">Cancellation Reason: </span>{viewingOrder.cancelledReason}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Complete Order Items Table */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <ShoppingBag size={13} className="text-blue-400" />
+                <span>Complete Order Items</span>
+              </h4>
+
+              <div className="rounded-2xl border border-slate-800 overflow-hidden bg-slate-950/60">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-800 bg-slate-900/80 text-slate-400 font-bold">
+                      <th className="py-2.5 px-3">Item Name</th>
+                      <th className="py-2.5 px-3 text-center">Qty</th>
+                      <th className="py-2.5 px-3 text-right">Unit Price</th>
+                      <th className="py-2.5 px-3 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {(viewingOrder.orderItems || viewingOrder.items || []).map((item, idx) => {
+                      const name = item.name || item.item_name || 'Dish';
+                      const qty = item.quantity || item.qty || 1;
+                      const unitPrice = parseFloat(item.unitPrice || item.price || item.unit_price || 0);
+                      const totalPrice = parseFloat(item.totalPrice || item.total_price || (unitPrice * qty));
+
+                      return (
+                        <tr key={idx} className="hover:bg-slate-800/30">
+                          <td className="py-2 px-3 font-semibold text-white">{name}</td>
+                          <td className="py-2 px-3 text-center font-bold text-slate-300">x{qty}</td>
+                          <td className="py-2 px-3 text-right font-mono text-slate-400">₹{unitPrice}</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">₹{totalPrice}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1.5 text-xs">
+              <div className="flex justify-between text-slate-400">
+                <span>Items Subtotal</span>
+                <span className="font-mono text-slate-200">
+                  ₹{Math.max(0, viewingOrder.totalAmount - 5)}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Campus Platform Fee</span>
+                <span className="font-mono text-slate-200">₹5</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Hostel Delivery</span>
+                <span className="font-mono text-emerald-400 font-bold">FREE</span>
+              </div>
+              <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-sm">
+                <span className="font-black text-white">Grand Total Amount</span>
+                <span className="font-mono font-black text-emerald-400 text-lg">
+                  ₹{viewingOrder.totalAmount}
+                </span>
+              </div>
+            </div>
+
+            {/* In-Modal Stage Action Buttons */}
+            <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                {viewingOrder.status === 'CONFIRMED' && (
+                  <button
+                    onClick={async () => {
+                      const updated = await advanceOrderStatus(viewingOrder.id, 'PREPARING');
+                      if (updated) setViewingOrder(updated);
+                    }}
+                    className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <span>🍳 Start Cooking</span>
+                  </button>
+                )}
+                {viewingOrder.status === 'PREPARING' && (
+                  <button
+                    onClick={async () => {
+                      const updated = await advanceOrderStatus(viewingOrder.id, 'READY');
+                      if (updated) setViewingOrder(updated);
+                    }}
+                    className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <span>📦 Mark Ready</span>
+                  </button>
+                )}
+                {viewingOrder.status === 'READY' && (
+                  <>
+                    <button
+                      onClick={async () => {
+                        const updated = await advanceOrderStatus(viewingOrder.id, 'PICKED_UP');
+                        if (updated) setViewingOrder(updated);
+                      }}
+                      className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      <span>🛵 Picked Up</span>
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const updated = await advanceOrderStatus(viewingOrder.id, 'OUT_FOR_DELIVERY');
+                        if (updated) setViewingOrder(updated);
+                      }}
+                      className="px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      <span>🚚 Send for Delivery</span>
+                    </button>
+                  </>
+                )}
+                {viewingOrder.status === 'PICKED_UP' && (
+                  <button
+                    onClick={async () => {
+                      const updated = await advanceOrderStatus(viewingOrder.id, 'OUT_FOR_DELIVERY');
+                      if (updated) setViewingOrder(updated);
+                    }}
+                    className="px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <span>🚚 Out for Delivery</span>
+                  </button>
+                )}
+                {viewingOrder.status === 'OUT_FOR_DELIVERY' && (
+                  <button
+                    onClick={async () => {
+                      const updated = await advanceOrderStatus(viewingOrder.id, 'DELIVERED');
+                      if (updated) setViewingOrder(updated);
+                    }}
+                    className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <span>✅ Mark Delivered</span>
+                  </button>
+                )}
+
+                {!['DELIVERED', 'CANCELLED', 'EXPIRED'].includes(viewingOrder.status) && (
+                  <button
+                    onClick={async () => {
+                      const cancelled = await cancelOrderByAdmin(viewingOrder.id);
+                      if (cancelled) setViewingOrder(cancelled);
+                    }}
+                    className="px-3 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <span>Cancel Order</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    const toDel = viewingOrder;
+                    setViewingOrder(null);
+                    setOrderToDelete(toDel);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  <Trash2 size={12} className="inline mr-1" />
+                  <span>Delete</span>
+                </button>
+
+                <button
+                  onClick={() => setViewingOrder(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* MODAL: DELETE CONFIRMATION DIALOG */}
       {orderToDelete && (

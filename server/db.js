@@ -63,6 +63,17 @@ export async function createOrderInDb({
     throw new Error('Invalid order payload: Missing student details, restaurant or items.');
   }
 
+  // Phase 5 & 6 Server-Side Guard: Validate master switch and restaurant status in database
+  const settingsRows = await sql`SELECT setting_value FROM system_settings WHERE setting_key = 'overall_ordering';`;
+  if (settingsRows.length > 0 && settingsRows[0].setting_value === 'false') {
+    throw new Error('Ordering is currently unavailable.');
+  }
+
+  const restRows = await sql`SELECT status FROM restaurant_statuses WHERE restaurant_id = ${restaurantId};`;
+  if (restRows.length > 0 && restRows[0].status === 'CLOSED') {
+    throw new Error('This restaurant is currently closed.');
+  }
+
   // 1. Validate prices from server-side menu catalog and calculate verified totals
   let verifiedSubtotal = 0;
   const verifiedItems = items.map((item) => {
@@ -415,18 +426,25 @@ export async function getAllOrdersFromDb() {
     SELECT 
       id,
       student_name AS "studentName",
+      student_name AS "student_name",
       student_phone AS "studentPhone",
+      student_phone AS "student_phone",
       student_id AS "studentId",
+      student_id AS "student_id",
       restaurant_id AS "restaurantId",
+      restaurant_id AS "restaurant_id",
       restaurant_name AS "restaurantName",
+      restaurant_name AS "restaurant_name",
       delivery_location AS "deliveryLocation",
       instructions,
       total_amount::float AS "totalAmount",
+      total_amount::float AS "total_amount",
       status,
       items,
       cancelled_reason AS "cancelledReason",
       confirmation_expires_at AS "confirmationExpiresAt",
       created_at AS "createdAt",
+      created_at AS "created_at",
       confirmed_at AS "confirmedAt",
       cancelled_at AS "cancelledAt",
       updated_at AS "updatedAt"
@@ -434,7 +452,27 @@ export async function getAllOrdersFromDb() {
     ORDER BY created_at DESC;
   `;
 
-  // Check and update any expired pending orders
+  // Fetch relational order items
+  const allOrderItems = await sql`
+    SELECT 
+      id,
+      order_id AS "orderId",
+      item_name AS "name",
+      quantity,
+      unit_price::float AS "unitPrice",
+      total_price::float AS "totalPrice",
+      created_at AS "createdAt"
+    FROM order_items
+    ORDER BY id ASC;
+  `;
+
+  const itemsByOrder = {};
+  for (const item of allOrderItems) {
+    if (!itemsByOrder[item.orderId]) itemsByOrder[item.orderId] = [];
+    itemsByOrder[item.orderId].push(item);
+  }
+
+  // Check and update any expired pending orders & attach relational order_items
   const nowTime = Date.now();
   for (const o of rows) {
     if (o.status === 'PENDING_CONFIRMATION' && o.confirmationExpiresAt) {
@@ -443,17 +481,58 @@ export async function getAllOrdersFromDb() {
         o.cancelledReason = 'Confirmation time expired (30 seconds)';
       }
     }
+
+    const relationalItems = itemsByOrder[o.id] || [];
+    if (relationalItems.length > 0) {
+      o.orderItems = relationalItems;
+      o.orderedItems = relationalItems;
+      o.items = relationalItems.map(i => ({
+        name: i.name,
+        qty: i.quantity,
+        quantity: i.quantity,
+        price: i.unitPrice,
+        unit_price: i.unitPrice,
+        total: i.totalPrice,
+        total_price: i.totalPrice
+      }));
+      o.quantity = relationalItems.reduce((sum, i) => sum + i.quantity, 0);
+    } else if (Array.isArray(o.items)) {
+      o.orderedItems = o.items;
+      o.quantity = o.items.reduce((sum, i) => sum + (i.qty || i.quantity || 1), 0);
+    } else {
+      o.orderedItems = [];
+      o.quantity = 1;
+    }
   }
 
   return rows;
 }
 
 /**
- * Delete order from Neon
+ * Delete order from Neon with cascading deletion of order_items
  */
 export async function deleteOrderFromDb(orderId) {
-  await sql`DELETE FROM orders WHERE id = ${orderId};`;
-  return { success: true };
+  const deleteItems = sql`DELETE FROM order_items WHERE order_id = ${orderId};`;
+  const deleteOrder = sql`DELETE FROM orders WHERE id = ${orderId};`;
+  await sql.transaction([deleteItems, deleteOrder]);
+  return { success: true, id: orderId };
+}
+
+export async function getOverallOrderingSettingFromDb() {
+  const rows = await sql`SELECT setting_value FROM system_settings WHERE setting_key = 'overall_ordering';`;
+  if (rows.length === 0) return true;
+  return rows[0].setting_value !== 'false';
+}
+
+export async function setOverallOrderingSettingInDb(enabled) {
+  const val = enabled ? 'true' : 'false';
+  await sql`
+    INSERT INTO system_settings (setting_key, setting_value, updated_at)
+    VALUES ('overall_ordering', ${val}, NOW())
+    ON CONFLICT (setting_key)
+    DO UPDATE SET setting_value = ${val}, updated_at = NOW();
+  `;
+  return { success: true, overallOrdering: Boolean(enabled) };
 }
 
 /**

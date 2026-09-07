@@ -107,3 +107,81 @@ export async function updateRestaurantStatus(restaurantId, status) {
   if (!res.ok) throw new Error(data.error || 'Failed to update restaurant status');
   return data;
 }
+
+// ==========================================
+// Explicit Admin API Endpoints
+// ==========================================
+
+export async function adminGetOrders() {
+  const res = await fetch(`${API_BASE}/admin/orders`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch admin orders');
+  return data.orders;
+}
+
+export async function adminUpdateOrderStatus(orderId, status, reason = null) {
+  const res = await fetch(`${API_BASE}/admin/orders/${encodeURIComponent(orderId)}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, reason })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update order status');
+  return data.order;
+}
+
+export async function adminCancelOrder(orderId, reason = 'Cancelled by Administrator') {
+  const res = await fetch(`${API_BASE}/admin/orders/${encodeURIComponent(orderId)}/cancel`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to cancel order');
+  return data.order;
+}
+
+export async function adminDeleteOrder(orderId) {
+  const res = await fetch(`${API_BASE}/admin/orders/${encodeURIComponent(orderId)}`, {
+    method: 'DELETE'
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to delete order');
+  return true;
+}
+
+export async function adminGetOrderingSetting() {
+  const res = await fetch(`${API_BASE}/admin/settings/ordering`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch overall ordering setting');
+  return data.overallOrdering;
+}
+
+export async function adminSetOrderingSetting(overallOrdering) {
+  const res = await fetch(`${API_BASE}/admin/settings/ordering`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ overallOrdering })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update overall ordering setting');
+  return data.overallOrdering;
+}
+
+export async function adminGetRestaurantStatuses() {
+  const res = await fetch(`${API_BASE}/admin/restaurants/status`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch restaurant statuses');
+  return data.restaurantStatuses;
+}
+
+export async function adminSetRestaurantStatus(restaurantId, status) {
+  const res = await fetch(`${API_BASE}/admin/restaurants/${encodeURIComponent(restaurantId)}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update restaurant status');
+  return data;
+}

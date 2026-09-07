@@ -11,7 +11,13 @@ import {
   getAllOrders as apiGetAllOrders,
   getSystemStatus as apiGetSystemStatus,
   updateSystemSettings as apiUpdateSystemSettings,
-  updateRestaurantStatus as apiUpdateRestaurantStatus
+  updateRestaurantStatus as apiUpdateRestaurantStatus,
+  adminGetOrders,
+  adminUpdateOrderStatus,
+  adminCancelOrder,
+  adminDeleteOrder,
+  adminSetOrderingSetting,
+  adminSetRestaurantStatus
 } from '../lib/api';
 
 const AppContext = createContext();
@@ -206,7 +212,7 @@ export function AppProvider({ children }) {
   const toggleOverallOrdering = async (enabled) => {
     setOverallOrderingEnabled(enabled);
     try {
-      await apiUpdateSystemSettings({ overallOrdering: enabled });
+      await adminSetOrderingSetting(enabled);
       showToast(
         enabled ? 'Master Ordering is now ACTIVE' : 'Master Ordering has been PAUSED',
         enabled ? 'success' : 'info'
@@ -222,7 +228,7 @@ export function AppProvider({ children }) {
     setRestaurantStatuses((prev) => ({ ...prev, [restaurantId]: next }));
 
     try {
-      await apiUpdateRestaurantStatus(restaurantId, next);
+      await adminSetRestaurantStatus(restaurantId, next);
       const restObj = RESTAURANTS.find((r) => r.id === restaurantId);
       const restName = restObj ? restObj.name : restaurantId;
       showToast(`${restName} is now ${next}`, next === 'OPEN' ? 'success' : 'info');
@@ -398,10 +404,10 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Phase 5: Admin Order Actions
+  // Phase 5 & Next Phase: Admin Order Actions
   const advanceOrderStatus = async (orderId, nextStatus) => {
     try {
-      const updated = await apiUpdateOrderStatus(orderId, nextStatus);
+      const updated = await adminUpdateOrderStatus(orderId, nextStatus);
       setOrders((prev) => prev.map(o => o.id === orderId ? updated : o));
       showToast(`Order #${orderId} moved to ${nextStatus}`, 'success');
       return updated;
@@ -413,21 +419,25 @@ export function AppProvider({ children }) {
 
   const cancelOrderByAdmin = async (orderId) => {
     try {
-      const cancelled = await apiCancelOrder(orderId, 'Cancelled by Administrator');
+      const cancelled = await adminCancelOrder(orderId, 'Cancelled by Administrator');
       setOrders((prev) => prev.map(o => o.id === orderId ? cancelled : o));
       showToast(`Order #${orderId} marked as Cancelled`, 'info');
+      return cancelled;
     } catch (err) {
       showToast(err.message || 'Failed to cancel order', 'error');
+      return null;
     }
   };
 
   const deleteOrderByAdmin = async (orderId) => {
     try {
-      await apiDeleteOrder(orderId);
+      await adminDeleteOrder(orderId);
       setOrders((prev) => prev.filter(o => o.id !== orderId));
       showToast(`Order #${orderId} deleted permanently`, 'info');
+      return true;
     } catch (err) {
       showToast(err.message || 'Failed to delete order', 'error');
+      return false;
     }
   };
 
