@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { getOrderById, getLiveDeliveryLocation } from '../lib/api';
 import DeliveryTrackingMap from '../components/DeliveryTrackingMap';
+import { useApp } from '../context/AppContext';
 
 const ORDER_STAGES = [
   {
@@ -87,6 +88,7 @@ const STAGE_INDEX_MAP = {
 const TERMINAL_STATUSES = ['DELIVERED', 'CANCELLED', 'EXPIRED'];
 
 export default function OrderTrackingPage({ orderId, onNavigateHome }) {
+  const { switchRole } = useApp();
   const [order, setOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -411,17 +413,25 @@ export default function OrderTrackingPage({ orderId, onNavigateHome }) {
                 </div>
               </div>
 
-              {order.deliveryPartnerPhone ? (
-                <a
-                  href={`tel:${order.deliveryPartnerPhone}`}
-                  className="px-4 py-2.5 rounded-2xl bg-[#ECFDF5] hover:bg-[#D1FAE5] text-[#059669] text-xs font-bold transition-colors flex items-center gap-1.5 no-underline"
+              <div className="flex items-center gap-2">
+                {order.deliveryPartnerPhone && (
+                  <a
+                    href={`tel:${order.deliveryPartnerPhone}`}
+                    className="px-3.5 py-2.5 rounded-2xl bg-[#ECFDF5] hover:bg-[#D1FAE5] text-[#059669] text-xs font-bold transition-colors flex items-center gap-1.5 no-underline"
+                  >
+                    <Phone size={14} />
+                    <span className="hidden sm:inline">Call Rider</span>
+                  </a>
+                )}
+                <button
+                  onClick={() => switchRole('delivery')}
+                  className="px-3.5 py-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                  title="Switch to Delivery Partner View to test GPS broadcasting"
                 >
-                  <Phone size={14} />
-                  <span>Call Rider</span>
-                </a>
-              ) : (
-                <span className="text-xs text-slate-400 font-mono">In Transit</span>
-              )}
+                  <Bike size={14} className="text-amber-600" />
+                  <span>Courier View</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

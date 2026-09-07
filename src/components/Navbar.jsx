@@ -10,7 +10,8 @@ import {
   Sparkles,
   ArrowRight,
   Store,
-  Clock
+  Clock,
+  Bike
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -120,6 +121,16 @@ export default function Navbar({ onNavigate, onOpenSearch }) {
                       ₹{cartSubtotal}
                     </span>
                   )}
+                </button>
+
+                {/* Delivery Partner Portal Link */}
+                <button
+                  onClick={() => switchRole('delivery')}
+                  className="px-3 py-2 rounded-xl text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 flex items-center gap-1.5 transition-colors cursor-pointer border border-amber-200"
+                  title="Switch to Delivery Partner Portal"
+                >
+                  <Bike size={14} className="text-amber-600" />
+                  <span className="hidden sm:inline">Delivery Partner</span>
                 </button>
 
                 {/* Admin Switch Portal Link */}

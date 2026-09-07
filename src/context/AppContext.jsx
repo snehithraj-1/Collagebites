@@ -227,14 +227,30 @@ export function AppProvider({ children }) {
 
   const switchRole = (newRole) => {
     if (newRole === 'admin') {
+      if (typeof window !== 'undefined') {
+        window.location.hash = 'admin';
+      }
       if (isAdminAuthenticated) {
         setUserRole('admin');
       } else {
         setUserRole('admin_login');
       }
     } else if (newRole === 'delivery' || newRole === 'delivery_partner') {
+      if (typeof window !== 'undefined') {
+        window.location.hash = 'delivery';
+      }
       setUserRole('delivery');
     } else {
+      if (typeof window !== 'undefined') {
+        if (window.location.hash.includes('admin') || window.location.hash.includes('delivery')) {
+          window.location.hash = '';
+        }
+        if (window.location.pathname.toLowerCase().includes('/admin') || window.location.pathname.toLowerCase().includes('/delivery')) {
+          if (window.history && window.history.pushState) {
+            window.history.pushState(null, '', '/');
+          }
+        }
+      }
       setUserRole('student');
     }
   };

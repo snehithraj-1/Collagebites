@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from './context/AppContext';
 import Navbar from './components/Navbar';
+import RoleSwitcherBar from './components/RoleSwitcherBar';
 import CartDrawer from './components/CartDrawer';
 import OrderConfirmationModal from './components/OrderConfirmationModal';
 import StudentOrdersModal from './components/StudentOrdersModal';
@@ -131,23 +132,33 @@ export default function App() {
     }
   };
 
-  // 1. ADMIN FLOW: If URL has #admin / /admin, or role is admin / admin_login
-  const shouldShowAdmin = userRole === 'admin' || userRole === 'admin_login' || isAdminRoute;
+  // Deterministic portal resolution:
+  // If URL explicitly indicates a role, that takes precedence over stale state
+  let activePortal = 'student';
+  if (isDeliveryRoute) {
+    activePortal = 'delivery';
+  } else if (isAdminRoute) {
+    activePortal = 'admin';
+  } else if (userRole === 'delivery' || userRole === 'delivery_partner') {
+    activePortal = 'delivery';
+  } else if (userRole === 'admin' || userRole === 'admin_login') {
+    activePortal = 'admin';
+  } else {
+    activePortal = 'student';
+  }
 
-  if (shouldShowAdmin) {
+  // 1. ADMIN FLOW
+  if (activePortal === 'admin') {
     if (isAdminAuthenticated) {
       return (
-        <div className="min-h-screen bg-[#0F172A]">
-          <AdminDashboardPage 
-            onSwitchToStudentView={() => {
-              window.location.hash = '';
-              if (window.location.pathname.toLowerCase().includes('/admin')) {
-                window.history.pushState(null, '', '/');
-              }
-              setIsAdminRoute(false);
-              setUserRole('student');
-            }} 
-          />
+        <div className="min-h-screen bg-[#0F172A] flex flex-col">
+          <RoleSwitcherBar activePortal={activePortal} />
+          <div className="flex-1">
+            <AdminDashboardPage 
+              onSwitchToStudentView={() => switchRole('student')}
+              onSwitchToDelivery={() => switchRole('delivery')}
+            />
+          </div>
           {renderToast(toast)}
         </div>
       );
@@ -155,94 +166,80 @@ export default function App() {
 
     // Admin login view if not authenticated
     return (
-      <>
-        <AdminLoginPage 
-          onSwitchToStudent={() => {
-            window.location.hash = '';
-            if (window.location.pathname.toLowerCase().includes('/admin')) {
-              window.history.pushState(null, '', '/');
-            }
-            setIsAdminRoute(false);
-            setUserRole('student');
-          }} 
-        />
+      <div className="min-h-screen bg-[#0F172A] flex flex-col">
+        <RoleSwitcherBar activePortal={activePortal} />
+        <div className="flex-1 flex flex-col justify-center">
+          <AdminLoginPage 
+            onSwitchToStudent={() => switchRole('student')}
+            onSwitchToDelivery={() => switchRole('delivery')}
+          />
+        </div>
         {renderToast(toast)}
-      </>
+      </div>
     );
   }
 
-  // 1.5 DELIVERY PARTNER FLOW: If URL has #delivery / /delivery, or role is delivery
-  const shouldShowDelivery = userRole === 'delivery' || userRole === 'delivery_partner' || isDeliveryRoute;
-
-  if (shouldShowDelivery) {
+  // 2. DELIVERY PARTNER FLOW
+  if (activePortal === 'delivery') {
     if (deliveryPartnerProfile) {
       return (
-        <div className="min-h-screen bg-[#0F172A]">
-          <DeliveryDashboardPage
-            partner={deliveryPartnerProfile}
-            onLogout={() => {
-              logoutDeliveryPartner();
-              window.location.hash = '';
-              setIsDeliveryRoute(false);
-            }}
-            onSwitchToStudent={() => {
-              window.location.hash = '';
-              if (window.location.pathname.toLowerCase().includes('/delivery')) {
-                window.history.pushState(null, '', '/');
-              }
-              setIsDeliveryRoute(false);
-              switchRole('student');
-            }}
-          />
+        <div className="min-h-screen bg-[#0F172A] flex flex-col">
+          <RoleSwitcherBar activePortal={activePortal} />
+          <div className="flex-1">
+            <DeliveryDashboardPage
+              partner={deliveryPartnerProfile}
+              onLogout={() => {
+                logoutDeliveryPartner();
+                switchRole('student');
+              }}
+              onSwitchToStudent={() => switchRole('student')}
+              onSwitchToAdmin={() => switchRole('admin')}
+            />
+          </div>
           {renderToast(toast)}
         </div>
       );
     }
 
     return (
-      <>
-        <DeliveryLoginPage
-          onLoginSuccess={(partner) => {
-            loginDeliveryPartner(partner);
-          }}
-          onSwitchToStudent={() => {
-            window.location.hash = '';
-            if (window.location.pathname.toLowerCase().includes('/delivery')) {
-              window.history.pushState(null, '', '/');
-            }
-            setIsDeliveryRoute(false);
-            switchRole('student');
-          }}
-          onSwitchToAdmin={() => {
-            window.location.hash = 'admin';
-            setIsDeliveryRoute(false);
-            switchRole('admin');
-          }}
-        />
+      <div className="min-h-screen bg-[#0F172A] flex flex-col">
+        <RoleSwitcherBar activePortal={activePortal} />
+        <div className="flex-1 flex flex-col justify-center">
+          <DeliveryLoginPage
+            onLoginSuccess={(partner) => {
+              loginDeliveryPartner(partner);
+            }}
+            onSwitchToStudent={() => switchRole('student')}
+            onSwitchToAdmin={() => switchRole('admin')}
+          />
+        </div>
         {renderToast(toast)}
-      </>
+      </div>
     );
   }
 
-  // 2. STUDENT NOT LOGGED IN -> STUDENT LOGIN VIEW
+  // 3. STUDENT NOT LOGGED IN -> STUDENT LOGIN VIEW
   if (!studentProfile || userRole !== 'student') {
     return (
-      <>
-        <StudentLoginPage 
-          onSwitchToAdmin={() => {
-            window.location.hash = 'admin';
-            setIsAdminRoute(true);
-            switchRole('admin');
-          }} 
-        />
+      <div className="min-h-screen bg-[#FAF8F5] flex flex-col">
+        <RoleSwitcherBar activePortal={activePortal} />
+        <div className="flex-1 flex flex-col justify-center">
+          <StudentLoginPage 
+            onSwitchToAdmin={() => switchRole('admin')}
+            onSwitchToDelivery={() => switchRole('delivery')}
+          />
+        </div>
         {renderToast(toast)}
-      </>
+      </div>
     );
   }
 
   // 4. AUTHENTICATED STUDENT VIEW
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF8F5]">
+      {/* Universal Top Multi-Role Switcher */}
+      <RoleSwitcherBar activePortal={activePortal} />
+
       {/* Universal Top Navigation */}
       <Navbar 
         onNavigate={handleNavigate}

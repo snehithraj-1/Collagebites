@@ -28,7 +28,7 @@ import { useApp } from '../context/AppContext';
 import { RESTAURANTS } from '../data/campusData';
 import { getDeliveryPartners } from '../lib/api';
 
-export default function AdminDashboardPage({ onSwitchToStudentView }) {
+export default function AdminDashboardPage({ onSwitchToStudentView, onSwitchToDelivery }) {
   const {
     overallOrderingEnabled,
     toggleOverallOrdering,
@@ -147,6 +147,15 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
               className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
             >
               <RefreshCw size={15} />
+            </button>
+
+            <button
+              onClick={onSwitchToDelivery}
+              className="px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-amber-500/40"
+              title="Open Delivery Partner Management & Live GPS Portal"
+            >
+              <Bike size={15} className="text-amber-400" />
+              <span>Delivery Portal 🛵</span>
             </button>
 
             <button
@@ -519,6 +528,23 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
                               CANCELLED ❌
                             </span>
                           )}
+
+                          {/* Courier Tag */}
+                          {order.deliveryPartnerName ? (
+                            <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400 font-semibold font-mono">
+                              <Bike size={11} className="text-emerald-400" />
+                              <span>{order.deliveryPartnerName}</span>
+                            </div>
+                          ) : order.status === 'READY' ? (
+                            <div 
+                              onClick={() => setViewingOrder(order)}
+                              className="mt-1 cursor-pointer inline-flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300 font-bold bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/30 transition-colors"
+                              title="Click to assign delivery partner"
+                            >
+                              <Bike size={10} />
+                              <span>Assign Courier</span>
+                            </div>
+                          ) : null}
                         </td>
 
                         {/* Actions: [Details], [Advance Status], [Cancel Order], [Delete Order] */}
@@ -722,15 +748,27 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
                     <span className="font-extrabold text-sm block">{viewingOrder.deliveryPartnerName}</span>
                     <span className="text-slate-400 font-mono text-[11px]">{viewingOrder.deliveryPartnerPhone || viewingOrder.deliveryPartnerId}</span>
                   </div>
-                  {viewingOrder.deliveryPartnerPhone && (
-                    <a
-                      href={`tel:${viewingOrder.deliveryPartnerPhone}`}
-                      className="px-3 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold transition-colors no-underline flex items-center gap-1"
+                  <div className="flex items-center gap-2">
+                    {viewingOrder.deliveryPartnerPhone && (
+                      <a
+                        href={`tel:${viewingOrder.deliveryPartnerPhone}`}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold transition-colors no-underline flex items-center gap-1"
+                      >
+                        <Phone size={11} />
+                        <span>Call</span>
+                      </a>
+                    )}
+                    <button
+                      onClick={() => {
+                        setViewingOrder(null);
+                        if (onSwitchToDelivery) onSwitchToDelivery();
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
                     >
-                      <Phone size={11} />
-                      <span>Call Courier</span>
-                    </a>
-                  )}
+                      <Bike size={12} />
+                      <span>Open Courier Portal</span>
+                    </button>
+                  </div>
                 </div>
               ) : viewingOrder.status === 'READY' ? (
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">

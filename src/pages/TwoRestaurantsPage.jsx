@@ -7,7 +7,8 @@ export default function TwoRestaurantsPage({ onSelectRestaurant }) {
   const { 
     studentProfile, 
     overallOrderingEnabled, 
-    restaurantStatuses 
+    restaurantStatuses,
+    switchRole
   } = useApp();
 
   return (
@@ -57,6 +58,35 @@ export default function TwoRestaurantsPage({ onSelectRestaurant }) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Delivery Partner Quick Access Banner */}
+      <div className="p-4 rounded-3xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold text-2xl shadow-md shadow-amber-500/20">
+            🛵
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-extrabold text-sm sm:text-base text-[#0F172A] font-['Outfit']">
+                Campus Delivery Partners Active
+              </h3>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase tracking-wider">
+                Live GPS
+              </span>
+            </div>
+            <p className="text-xs text-[#64748B] mt-0.5">
+              Assigned orders & live satellite location tracking across SRM-AP hostel gates.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => switchRole('delivery')}
+          className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold transition-all shadow-md shadow-amber-500/20 flex items-center justify-center gap-1.5 cursor-pointer border-none self-start sm:self-auto"
+        >
+          <span>Open Courier Portal</span>
+          <ArrowRight size={13} />
+        </button>
       </div>
 
       {/* Available Restaurants Section */}

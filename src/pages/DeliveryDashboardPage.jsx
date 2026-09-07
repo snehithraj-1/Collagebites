@@ -13,7 +13,8 @@ import {
   Clock, 
   ChevronRight, 
   Truck, 
-  Utensils 
+  Utensils,
+  ShieldCheck
 } from 'lucide-react';
 import { 
   getDeliveryOrders, 
@@ -31,7 +32,7 @@ const CAMPUS_SIMULATION_STEPS = [
   { lat: 16.5160, lng: 80.5195, desc: 'Arrived at Student Hostel' }
 ];
 
-export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStudent }) {
+export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStudent, onSwitchToAdmin }) {
   const [orders, setOrders] = useState([]);
   const [activeOrder, setActiveOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -244,7 +245,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => fetchOrders(false)}
               disabled={isRefreshing}
@@ -255,6 +256,28 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
             >
               <RefreshCw size={15} />
             </button>
+
+            {onSwitchToStudent && (
+              <button
+                onClick={onSwitchToStudent}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Switch to Student Dining View"
+              >
+                <Utensils size={13} className="text-[#FF5722]" />
+                <span className="hidden md:inline">Student View</span>
+              </button>
+            )}
+
+            {onSwitchToAdmin && (
+              <button
+                onClick={onSwitchToAdmin}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Switch to Admin Management Portal"
+              >
+                <ShieldCheck size={13} className="text-blue-400" />
+                <span className="hidden md:inline">Admin Portal</span>
+              </button>
+            )}
 
             <button
               onClick={onLogout}
