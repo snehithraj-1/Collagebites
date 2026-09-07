@@ -79,6 +79,62 @@ export async function recordStatusHistoryInDb(orderId, status, timestamp = new D
   }
 }
 
+// Phase 9: Delivery Partner & Live Location Tracking Tables in Neon
+let isDeliveryTablesReady = false;
+export async function ensureDeliveryTables() {
+  if (isDeliveryTablesReady) return;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS delivery_partners (
+        id VARCHAR(50) PRIMARY KEY,
+        user_id VARCHAR(50),
+        name VARCHAR(100) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        is_available BOOLEAN DEFAULT TRUE,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+
+    await sql`
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_partner_id VARCHAR(50);
+    `;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS delivery_locations (
+        id SERIAL PRIMARY KEY,
+        order_id VARCHAR(50) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        delivery_partner_id VARCHAR(50) NOT NULL,
+        latitude NUMERIC(10, 7) NOT NULL,
+        longitude NUMERIC(10, 7) NOT NULL,
+        accuracy NUMERIC(10, 2),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_delivery_locations_order_id ON delivery_locations(order_id);
+    `;
+
+    // Seed default partners if none exist
+    const countRows = await sql`SELECT COUNT(*)::int AS count FROM delivery_partners;`;
+    if (countRows[0].count === 0) {
+      await sql`
+        INSERT INTO delivery_partners (id, user_id, name, phone, is_available, is_active)
+        VALUES 
+          ('DP-101', 'USR-DP-101', 'Ramesh Kumar', '+91 7842960252', true, true),
+          ('DP-102', 'USR-DP-102', 'Suresh Reddy', '+91 9398414231', true, true),
+          ('DP-103', 'USR-DP-103', 'Anita Patel', '+91 9876543210', true, true);
+      `;
+    }
+
+    isDeliveryTablesReady = true;
+  } catch (err) {
+    console.warn('[Server DB] Note on ensureDeliveryTables:', err.message);
+  }
+}
+
 /**
  * Phase 3: Create Order in Neon Database
  * Atomic transaction inserting into orders and order_items
@@ -248,6 +304,8 @@ export async function getOrderByIdFromDb(orderId) {
       total_amount::float AS "totalAmount",
       status,
       items,
+      delivery_partner_id AS "deliveryPartnerId",
+      delivery_partner_id AS "delivery_partner_id",
       cancelled_reason AS "cancelledReason",
       confirmation_expires_at AS "confirmationExpiresAt",
       created_at AS "createdAt",
@@ -340,6 +398,19 @@ export async function getOrderByIdFromDb(orderId) {
   }
 
   order.statusHistory = statusHistory;
+
+  // Hydrate delivery partner details if assigned
+  if (order.deliveryPartnerId) {
+    await ensureDeliveryTables();
+    const partnerRows = await sql`
+      SELECT id, name, phone FROM delivery_partners WHERE id = ${order.deliveryPartnerId};
+    `;
+    if (partnerRows.length > 0) {
+      order.deliveryPartner = partnerRows[0];
+      order.deliveryPartnerName = partnerRows[0].name;
+      order.deliveryPartnerPhone = partnerRows[0].phone;
+    }
+  }
 
   return order;
 }
@@ -606,10 +677,12 @@ export async function getAllOrdersFromDb() {
  */
 export async function deleteOrderFromDb(orderId) {
   await ensureStatusHistoryTable();
+  await ensureDeliveryTables();
+  const deleteLocations = sql`DELETE FROM delivery_locations WHERE order_id = ${orderId};`;
   const deleteHistory = sql`DELETE FROM order_status_history WHERE order_id = ${orderId};`;
   const deleteItems = sql`DELETE FROM order_items WHERE order_id = ${orderId};`;
   const deleteOrder = sql`DELETE FROM orders WHERE id = ${orderId};`;
-  await sql.transaction([deleteHistory, deleteItems, deleteOrder]);
+  await sql.transaction([deleteLocations, deleteHistory, deleteItems, deleteOrder]);
   return { success: true, id: orderId };
 }
 
@@ -672,4 +745,246 @@ export async function updateRestaurantStatusInDb(restaurantId, status) {
     DO UPDATE SET status = ${status}, updated_at = NOW();
   `;
   return { success: true, restaurantId, status };
+}
+
+// ==========================================
+// PHASE 9: DELIVERY PARTNER & LOCATION LOGIC
+// ==========================================
+
+export async function getAllDeliveryPartnersFromDb() {
+  await ensureDeliveryTables();
+  const rows = await sql`
+    SELECT 
+      id,
+      user_id AS "userId",
+      name,
+      phone,
+      is_available AS "isAvailable",
+      is_active AS "isActive",
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
+    FROM delivery_partners
+    WHERE is_active = true
+    ORDER BY name ASC;
+  `;
+  return rows;
+}
+
+export async function getDeliveryPartnerByIdFromDb(partnerId) {
+  await ensureDeliveryTables();
+  const rows = await sql`
+    SELECT 
+      id,
+      user_id AS "userId",
+      name,
+      phone,
+      is_available AS "isAvailable",
+      is_active AS "isActive"
+    FROM delivery_partners
+    WHERE id = ${partnerId} OR phone = ${partnerId};
+  `;
+  return rows.length > 0 ? rows[0] : null;
+}
+
+export async function assignDeliveryPartnerToOrderInDb(orderId, deliveryPartnerId) {
+  await ensureDeliveryTables();
+  const order = await getOrderByIdFromDb(orderId);
+  if (!order) {
+    return { error: 'Order not found', code: 404 };
+  }
+
+  // Requirement: Verify the order is READY
+  if (order.status !== 'READY') {
+    return { 
+      error: `Delivery partner can only be assigned when order status is READY. Current status is ${order.status}.`, 
+      code: 400 
+    };
+  }
+
+  const partner = await getDeliveryPartnerByIdFromDb(deliveryPartnerId);
+  if (!partner) {
+    return { error: 'Delivery partner not found', code: 404 };
+  }
+
+  const now = new Date();
+  await sql`
+    UPDATE orders
+    SET 
+      delivery_partner_id = ${partner.id},
+      updated_at = ${now.toISOString()}
+    WHERE id = ${orderId};
+  `;
+
+  order.deliveryPartnerId = partner.id;
+  order.deliveryPartner = partner;
+  order.deliveryPartnerName = partner.name;
+  order.deliveryPartnerPhone = partner.phone;
+  order.updatedAt = now.toISOString();
+
+  return { success: true, order, partner };
+}
+
+export async function getOrdersForDeliveryPartnerFromDb(partnerId) {
+  await ensureDeliveryTables();
+  const rows = await sql`
+    SELECT 
+      o.id,
+      o.student_name AS "studentName",
+      o.student_phone AS "studentPhone",
+      o.student_id AS "studentId",
+      o.restaurant_id AS "restaurantId",
+      o.restaurant_name AS "restaurantName",
+      o.delivery_location AS "deliveryLocation",
+      o.instructions,
+      o.total_amount::float AS "totalAmount",
+      o.status,
+      o.items,
+      o.delivery_partner_id AS "deliveryPartnerId",
+      o.created_at AS "createdAt",
+      o.updated_at AS "updatedAt"
+    FROM orders o
+    WHERE o.delivery_partner_id = ${partnerId}
+    ORDER BY o.created_at DESC;
+  `;
+
+  for (const o of rows) {
+    if (Array.isArray(o.items)) {
+      o.orderedItems = o.items;
+      o.quantity = o.items.reduce((sum, i) => sum + (i.qty || i.quantity || 1), 0);
+    }
+  }
+
+  return rows;
+}
+
+export async function updateDeliveryOrderStatusInDb(orderId, nextStatus, partnerId) {
+  await ensureDeliveryTables();
+  const order = await getOrderByIdFromDb(orderId);
+  if (!order) {
+    return { error: 'Order not found', code: 404 };
+  }
+
+  // Verify partner is assigned to this order
+  if (order.deliveryPartnerId && order.deliveryPartnerId !== partnerId) {
+    return { error: 'Unauthorized: You are not assigned to this delivery order', code: 403 };
+  }
+
+  // Allowed transitions for delivery partner:
+  // READY -> PICKED_UP -> OUT_FOR_DELIVERY -> DELIVERED
+  const currentStatus = order.status;
+  const valid = (currentStatus === 'READY' && nextStatus === 'PICKED_UP') ||
+                (currentStatus === 'PICKED_UP' && nextStatus === 'OUT_FOR_DELIVERY') ||
+                (currentStatus === 'OUT_FOR_DELIVERY' && nextStatus === 'DELIVERED');
+
+  if (!valid) {
+    return {
+      error: `Invalid transition for delivery partner from ${currentStatus} to ${nextStatus}`,
+      code: 400
+    };
+  }
+
+  return await updateOrderStatusInDb(orderId, nextStatus);
+}
+
+export async function recordDeliveryLocationInDb({ orderId, deliveryPartnerId, latitude, longitude, accuracy = null }) {
+  await ensureDeliveryTables();
+  const order = await getOrderByIdFromDb(orderId);
+  if (!order) {
+    return { error: 'Order not found', code: 404 };
+  }
+
+  if (order.deliveryPartnerId && order.deliveryPartnerId !== deliveryPartnerId) {
+    return { error: 'Unauthorized: Partner not assigned to order', code: 403 };
+  }
+
+  // Location tracking is ONLY recorded for active deliveries
+  if (!['PICKED_UP', 'OUT_FOR_DELIVERY'].includes(order.status)) {
+    return { error: `Location cannot be recorded when order status is ${order.status}`, code: 400 };
+  }
+
+  const lat = parseFloat(latitude);
+  const lng = parseFloat(longitude);
+  const acc = accuracy !== null ? parseFloat(accuracy) : null;
+
+  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return { error: 'Invalid latitude or longitude values', code: 400 };
+  }
+
+  const now = new Date();
+  const insertRows = await sql`
+    INSERT INTO delivery_locations (
+      order_id,
+      delivery_partner_id,
+      latitude,
+      longitude,
+      accuracy,
+      created_at
+    ) VALUES (
+      ${orderId},
+      ${deliveryPartnerId},
+      ${lat},
+      ${lng},
+      ${acc},
+      ${now.toISOString()}
+    ) RETURNING id, order_id AS "orderId", latitude::float, longitude::float, accuracy::float, created_at AS "createdAt";
+  `;
+
+  return { success: true, location: insertRows[0] };
+}
+
+export async function getLatestDeliveryLocationFromDb(orderId) {
+  await ensureDeliveryTables();
+  const order = await getOrderByIdFromDb(orderId);
+  if (!order) {
+    return { error: 'Order not found', code: 404 };
+  }
+
+  // Privacy & Security requirement:
+  // Do not expose a delivery partner's location after delivery is completed.
+  // Stop location sharing after DELIVERED.
+  if (!['PICKED_UP', 'OUT_FOR_DELIVERY'].includes(order.status)) {
+    return {
+      active: false,
+      status: order.status,
+      message: 'Location tracking is inactive or order has completed delivery.',
+      location: null
+    };
+  }
+
+  const rows = await sql`
+    SELECT 
+      id,
+      order_id AS "orderId",
+      delivery_partner_id AS "deliveryPartnerId",
+      latitude::float,
+      longitude::float,
+      accuracy::float,
+      created_at AS "timestamp"
+    FROM delivery_locations
+    WHERE order_id = ${orderId}
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1;
+  `;
+
+  if (rows.length === 0) {
+    // Return default campus kitchen origin coordinates if partner hasn't pinged yet
+    return {
+      active: true,
+      status: order.status,
+      location: {
+        latitude: 16.5172,
+        longitude: 80.5210,
+        accuracy: 10,
+        timestamp: new Date().toISOString()
+      },
+      partner: order.deliveryPartner
+    };
+  }
+
+  return {
+    active: true,
+    status: order.status,
+    location: rows[0],
+    partner: order.deliveryPartner
+  };
 }

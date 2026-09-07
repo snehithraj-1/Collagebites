@@ -21,10 +21,12 @@ import {
   DollarSign,
   Database,
   X,
-  User
+  User,
+  Bike
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { RESTAURANTS } from '../data/campusData';
+import { getDeliveryPartners } from '../lib/api';
 
 export default function AdminDashboardPage({ onSwitchToStudentView }) {
   const {
@@ -36,6 +38,7 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
     advanceOrderStatus,
     cancelOrderByAdmin,
     deleteOrderByAdmin,
+    assignDeliveryPartner,
     refreshCloudData,
     logout,
     isNeonConnected
@@ -48,6 +51,23 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
   const [orderToDelete, setOrderToDelete] = useState(null);
   // Modal state for viewing order details
   const [viewingOrder, setViewingOrder] = useState(null);
+
+  // Delivery Partner State
+  const [couriers, setCouriers] = useState([]);
+  const [selectedCourierId, setSelectedCourierId] = useState('');
+
+  React.useEffect(() => {
+    async function loadCouriers() {
+      try {
+        const list = await getDeliveryPartners();
+        setCouriers(list);
+        if (list.length > 0) setSelectedCourierId(list[0].id);
+      } catch (e) {
+        console.error('Failed to load couriers:', e);
+      }
+    }
+    loadCouriers();
+  }, []);
 
   // Metrics Calculation (Phase 5 Lifecycle)
   const totalOrdersCount = orders.length;
@@ -680,6 +700,69 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Delivery Partner Assignment Section (Part 3) */}
+            <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Bike size={14} className="text-[#FF5722]" />
+                  <span>Delivery Courier Assignment</span>
+                </div>
+                {viewingOrder.deliveryPartnerName && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/40">
+                    Assigned
+                  </span>
+                )}
+              </div>
+
+              {viewingOrder.deliveryPartnerName ? (
+                <div className="flex items-center justify-between text-xs text-white">
+                  <div>
+                    <span className="font-extrabold text-sm block">{viewingOrder.deliveryPartnerName}</span>
+                    <span className="text-slate-400 font-mono text-[11px]">{viewingOrder.deliveryPartnerPhone || viewingOrder.deliveryPartnerId}</span>
+                  </div>
+                  {viewingOrder.deliveryPartnerPhone && (
+                    <a
+                      href={`tel:${viewingOrder.deliveryPartnerPhone}`}
+                      className="px-3 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold transition-colors no-underline flex items-center gap-1"
+                    >
+                      <Phone size={11} />
+                      <span>Call Courier</span>
+                    </a>
+                  )}
+                </div>
+              ) : viewingOrder.status === 'READY' ? (
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                  <select
+                    value={selectedCourierId}
+                    onChange={(e) => setSelectedCourierId(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-[#FF5722]"
+                  >
+                    {couriers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.phone})
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={async () => {
+                      if (!selectedCourierId) return;
+                      const updated = await assignDeliveryPartner(viewingOrder.id, selectedCourierId);
+                      if (updated) setViewingOrder(updated);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold transition-colors cursor-pointer border-none flex items-center justify-center gap-1 shadow-md shadow-[#FF5722]/20"
+                  >
+                    <Bike size={13} />
+                    <span>Assign Courier</span>
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic">
+                  Couriers can be assigned once the order status is marked as <strong>READY</strong>.
+                </p>
+              )}
             </div>
 
             {/* Complete Order Items Table */}

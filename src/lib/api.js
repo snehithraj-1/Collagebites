@@ -186,3 +186,61 @@ export async function adminSetRestaurantStatus(restaurantId, status) {
   if (!res.ok) throw new Error(data.error || 'Failed to update restaurant status');
   return data;
 }
+
+// ==========================================
+// DELIVERY PARTNER & LIVE LOCATION APIS
+// ==========================================
+
+export async function getDeliveryPartners() {
+  const res = await fetch(`${API_BASE}/delivery/partners`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch delivery partners');
+  return data.partners || [];
+}
+
+export async function adminAssignDeliveryPartner(orderId, deliveryPartnerId) {
+  const res = await fetch(`${API_BASE}/admin/orders/${encodeURIComponent(orderId)}/assign-delivery`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deliveryPartnerId })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to assign delivery partner');
+  return data;
+}
+
+export async function getDeliveryOrders(partnerId) {
+  const res = await fetch(`${API_BASE}/delivery/orders?partnerId=${encodeURIComponent(partnerId)}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch delivery orders');
+  return data;
+}
+
+export async function updateDeliveryOrderStatus(orderId, status, partnerId) {
+  const res = await fetch(`${API_BASE}/delivery/orders/${encodeURIComponent(orderId)}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, partnerId })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update delivery order status');
+  return data.order;
+}
+
+export async function sendDeliveryLocation({ orderId, deliveryPartnerId, latitude, longitude, accuracy }) {
+  const res = await fetch(`${API_BASE}/delivery/location`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId, deliveryPartnerId, latitude, longitude, accuracy })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to record delivery location');
+  return data.location;
+}
+
+export async function getLiveDeliveryLocation(orderId) {
+  const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(orderId)}/live-location`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch live location');
+  return data;
+}

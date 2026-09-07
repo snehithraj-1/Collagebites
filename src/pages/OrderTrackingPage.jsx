@@ -19,7 +19,8 @@ import {
   Receipt, 
   Utensils 
 } from 'lucide-react';
-import { getOrderById } from '../lib/api';
+import { getOrderById, getLiveDeliveryLocation } from '../lib/api';
+import DeliveryTrackingMap from '../components/DeliveryTrackingMap';
 
 const ORDER_STAGES = [
   {
@@ -93,6 +94,7 @@ export default function OrderTrackingPage({ orderId, onNavigateHome }) {
   const [copied, setCopied] = useState(false);
   const [isPollingActive, setIsPollingActive] = useState(true);
   const [lastPolledAt, setLastPolledAt] = useState(null);
+  const [liveLocation, setLiveLocation] = useState(null);
 
   const timerRef = useRef(null);
 
@@ -107,6 +109,20 @@ export default function OrderTrackingPage({ orderId, onNavigateHome }) {
       setOrder(liveOrder);
       setError(null);
       setLastPolledAt(new Date());
+
+      // If order is in delivery transit, fetch live GPS coordinates
+      if (['PICKED_UP', 'OUT_FOR_DELIVERY'].includes(liveOrder.status)) {
+        try {
+          const locRes = await getLiveDeliveryLocation(orderId);
+          if (locRes.active && locRes.location) {
+            setLiveLocation(locRes.location);
+          }
+        } catch (e) {
+          // Location endpoint fallback
+        }
+      } else if (liveOrder.status === 'DELIVERED') {
+        setLiveLocation(null);
+      }
 
       // Stop polling if order reached a terminal status
       if (TERMINAL_STATUSES.includes(liveOrder.status)) {
@@ -358,6 +374,57 @@ export default function OrderTrackingPage({ orderId, onNavigateHome }) {
             )}
           </div>
         </div>
+
+        {/* Live Delivery Map & Courier Card (Part 6 & 7: PICKED_UP or OUT_FOR_DELIVERY) */}
+        {!isCancelled && !isExpired && ['PICKED_UP', 'OUT_FOR_DELIVERY'].includes(currentStatus) && (
+          <div className="space-y-4">
+            <DeliveryTrackingMap
+              partnerLocation={liveLocation}
+              restaurantId={order.restaurantId || order.restaurant_id}
+              restaurantName={order.restaurantName || order.restaurant_name}
+              deliveryLocation={order.deliveryLocation}
+              partnerName={order.deliveryPartnerName || 'Campus Courier Rider'}
+              status={currentStatus}
+            />
+
+            {/* Assigned Courier Details Card */}
+            <div className="p-4 sm:p-5 bg-white rounded-3xl border border-[#F1EAE4] shadow-xs flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#FFF0EB] text-[#FF5722] flex items-center justify-center font-black text-2xl font-['Outfit']">
+                  🛵
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-extrabold text-sm text-[#0F172A]">
+                      {order.deliveryPartnerName || 'Campus Courier Rider'}
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                      Assigned Courier
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#64748B] mt-0.5">SRM-AP Campus Express Courier</p>
+                  <div className="flex items-center gap-2 text-[11px] text-emerald-600 font-bold mt-1">
+                    <span>★ 4.9 Rating</span>
+                    <span>•</span>
+                    <span className="text-slate-500">Live GPS Broadcasting</span>
+                  </div>
+                </div>
+              </div>
+
+              {order.deliveryPartnerPhone ? (
+                <a
+                  href={`tel:${order.deliveryPartnerPhone}`}
+                  className="px-4 py-2.5 rounded-2xl bg-[#ECFDF5] hover:bg-[#D1FAE5] text-[#059669] text-xs font-bold transition-colors flex items-center gap-1.5 no-underline"
+                >
+                  <Phone size={14} />
+                  <span>Call Rider</span>
+                </a>
+              ) : (
+                <span className="text-xs text-slate-400 font-mono">In Transit</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Visual Order Progress Timeline (Part 2) */}
         {!isCancelled && !isExpired && (

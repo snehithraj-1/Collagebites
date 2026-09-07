@@ -17,7 +17,8 @@ import {
   adminCancelOrder,
   adminDeleteOrder,
   adminSetOrderingSetting,
-  adminSetRestaurantStatus
+  adminSetRestaurantStatus,
+  adminAssignDeliveryPartner
 } from '../lib/api';
 
 const AppContext = createContext();
@@ -46,6 +47,15 @@ export function AppProvider({ children }) {
       return localStorage.getItem('cb_admin_auth') === 'true';
     } catch {
       return false;
+    }
+  });
+
+  const [deliveryPartnerProfile, setDeliveryPartnerProfile] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cb_delivery_partner');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
     }
   });
 
@@ -107,6 +117,13 @@ export function AppProvider({ children }) {
       localStorage.setItem('cb_admin_auth', isAdminAuthenticated ? 'true' : 'false');
     } catch (e) { console.error(e); }
   }, [isAdminAuthenticated]);
+
+  useEffect(() => {
+    try {
+      if (deliveryPartnerProfile) localStorage.setItem('cb_delivery_partner', JSON.stringify(deliveryPartnerProfile));
+      else localStorage.removeItem('cb_delivery_partner');
+    } catch (e) { console.error(e); }
+  }, [deliveryPartnerProfile]);
 
   useEffect(() => {
     try {
@@ -196,6 +213,18 @@ export function AppProvider({ children }) {
     showToast('Signed out successfully', 'info');
   };
 
+  const loginDeliveryPartner = (partnerData) => {
+    setDeliveryPartnerProfile(partnerData);
+    setUserRole('delivery');
+    showToast(`Welcome, Courier ${partnerData.name}! 🛵`);
+  };
+
+  const logoutDeliveryPartner = () => {
+    setDeliveryPartnerProfile(null);
+    setUserRole('student');
+    showToast('Signed out of Courier Portal', 'info');
+  };
+
   const switchRole = (newRole) => {
     if (newRole === 'admin') {
       if (isAdminAuthenticated) {
@@ -203,6 +232,8 @@ export function AppProvider({ children }) {
       } else {
         setUserRole('admin_login');
       }
+    } else if (newRole === 'delivery' || newRole === 'delivery_partner') {
+      setUserRole('delivery');
     } else {
       setUserRole('student');
     }
@@ -441,6 +472,18 @@ export function AppProvider({ children }) {
     }
   };
 
+  const assignDeliveryPartner = async (orderId, deliveryPartnerId) => {
+    try {
+      const res = await adminAssignDeliveryPartner(orderId, deliveryPartnerId);
+      setOrders((prev) => prev.map(o => o.id === orderId ? res.order : o));
+      showToast(`Assigned ${res.partner.name} to order #${orderId}! 🛵`, 'success');
+      return res.order;
+    } catch (err) {
+      showToast(err.message || 'Failed to assign delivery partner', 'error');
+      return null;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -453,6 +496,10 @@ export function AppProvider({ children }) {
         loginAdmin,
         logout,
         switchRole,
+        deliveryPartnerProfile,
+        loginDeliveryPartner,
+        logoutDeliveryPartner,
+        assignDeliveryPartner,
 
         // System Settings
         overallOrderingEnabled,

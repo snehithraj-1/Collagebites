@@ -14,7 +14,14 @@ import {
   getOverallOrderingSettingFromDb,
   setOverallOrderingSettingInDb,
   getRestaurantStatusesFromDb,
-  updateRestaurantStatusInDb
+  updateRestaurantStatusInDb,
+  getAllDeliveryPartnersFromDb,
+  getDeliveryPartnerByIdFromDb,
+  assignDeliveryPartnerToOrderInDb,
+  getOrdersForDeliveryPartnerFromDb,
+  updateDeliveryOrderStatusInDb,
+  recordDeliveryLocationInDb,
+  getLatestDeliveryLocationFromDb
 } from './db.js';
 
 const router = express.Router();
@@ -429,6 +436,193 @@ router.patch('/restaurants/:id/status', async (req, res) => {
     return res.status(500).json({
       success: false,
       error: error.message || 'Failed to update restaurant status.'
+    });
+  }
+});
+
+// ==========================================
+// 4. DELIVERY PARTNER & LIVE LOCATION ENDPOINTS
+// ==========================================
+
+// GET /api/delivery/partners - List all available delivery partners
+router.get('/delivery/partners', async (req, res) => {
+  try {
+    const partners = await getAllDeliveryPartnersFromDb();
+    return res.json({
+      success: true,
+      partners
+    });
+  } catch (error) {
+    console.error('[API GET /delivery/partners] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch delivery partners.'
+    });
+  }
+});
+
+// PATCH /api/admin/orders/:id/assign-delivery - Assign partner when order is READY (Part 3)
+router.patch('/admin/orders/:id/assign-delivery', adminAuthMiddleware, async (req, res) => {
+  try {
+    const { deliveryPartnerId } = req.body;
+    if (!deliveryPartnerId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required deliveryPartnerId in request body.'
+      });
+    }
+
+    const result = await assignDeliveryPartnerToOrderInDb(req.params.id, deliveryPartnerId);
+    if (result.error) {
+      return res.status(result.code || 400).json({
+        success: false,
+        error: result.error
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Assigned delivery partner ${result.partner.name} to order #${req.params.id}`,
+      order: result.order,
+      partner: result.partner
+    });
+  } catch (error) {
+    console.error('[API PATCH /admin/orders/:id/assign-delivery] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to assign delivery partner.'
+    });
+  }
+});
+
+// GET /api/delivery/orders - Get orders assigned to a partner (Part 4)
+router.get('/delivery/orders', async (req, res) => {
+  try {
+    const partnerId = req.query.partnerId || req.headers['x-delivery-partner-id'];
+    if (!partnerId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing partnerId parameter or x-delivery-partner-id header.'
+      });
+    }
+
+    const allAssigned = await getOrdersForDeliveryPartnerFromDb(partnerId);
+    const activeOrders = allAssigned.filter(o => ['READY', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(o.status));
+    const completedOrders = allAssigned.filter(o => o.status === 'DELIVERED');
+
+    return res.json({
+      success: true,
+      partnerId,
+      orders: allAssigned,
+      activeOrders,
+      completedOrders
+    });
+  } catch (error) {
+    console.error('[API GET /delivery/orders] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch delivery orders.'
+    });
+  }
+});
+
+// PATCH /api/delivery/orders/:id/status - Update order status by delivery partner (Part 4)
+router.patch('/delivery/orders/:id/status', async (req, res) => {
+  try {
+    const { status, partnerId } = req.body;
+    if (!status || !partnerId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing status or partnerId in request body.'
+      });
+    }
+
+    const result = await updateDeliveryOrderStatusInDb(req.params.id, status, partnerId);
+    if (result.error) {
+      return res.status(result.code || 400).json({
+        success: false,
+        error: result.error
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Delivery status updated to ${status}`,
+      order: result.order
+    });
+  } catch (error) {
+    console.error('[API PATCH /delivery/orders/:id/status] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update delivery status.'
+    });
+  }
+});
+
+// POST /api/delivery/location - Record GPS location ping (Part 5)
+router.post('/delivery/location', async (req, res) => {
+  try {
+    const { orderId, deliveryPartnerId, latitude, longitude, accuracy } = req.body;
+    if (!orderId || !deliveryPartnerId || latitude === undefined || longitude === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required location fields: orderId, deliveryPartnerId, latitude, and longitude.'
+      });
+    }
+
+    const result = await recordDeliveryLocationInDb({
+      orderId,
+      deliveryPartnerId,
+      latitude,
+      longitude,
+      accuracy
+    });
+
+    if (result.error) {
+      return res.status(result.code || 400).json({
+        success: false,
+        error: result.error
+      });
+    }
+
+    return res.json({
+      success: true,
+      location: result.location
+    });
+  } catch (error) {
+    console.error('[API POST /delivery/location] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to record delivery location.'
+    });
+  }
+});
+
+// GET /api/orders/:id/live-location - Student live delivery location polling (Part 6 & 8)
+router.get('/orders/:id/live-location', async (req, res) => {
+  try {
+    const result = await getLatestDeliveryLocationFromDb(req.params.id);
+    if (result.error) {
+      return res.status(result.code || 404).json({
+        success: false,
+        error: result.error
+      });
+    }
+
+    // Privacy & Security: Only exposes coordinates when active, null once DELIVERED
+    return res.json({
+      success: true,
+      orderId: req.params.id,
+      active: result.active,
+      status: result.status,
+      location: result.location,
+      partner: result.partner
+    });
+  } catch (error) {
+    console.error('[API GET /orders/:id/live-location] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch live location.'
     });
   }
 });
