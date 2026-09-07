@@ -1,319 +1,195 @@
 import React, { useState, useEffect } from 'react';
+import { useApp } from './context/AppContext';
 import Navbar from './components/Navbar';
-import BottomNav from './components/BottomNav';
 import CartDrawer from './components/CartDrawer';
-import FoodDetailModal from './components/FoodDetailModal';
-import SearchModal from './components/SearchModal';
-import CheckoutModal from './components/CheckoutModal';
-import HomePage from './pages/HomePage';
-import VendorPage from './pages/VendorPage';
-import OrderTrackingPage from './pages/OrderTrackingPage';
-import ProfilePage from './pages/ProfilePage';
-import { useCart } from './context/CartContext';
-import { ChevronRight, Clock, Sparkles } from 'lucide-react';
+import OrderConfirmationModal from './components/OrderConfirmationModal';
+import StudentOrdersModal from './components/StudentOrdersModal';
+import StudentLoginPage from './pages/StudentLoginPage';
+import AdminLoginPage from './pages/AdminLoginPage';
+import TwoRestaurantsPage from './pages/TwoRestaurantsPage';
+import RestaurantMenuPage from './pages/RestaurantMenuPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
 
 export default function App() {
-  // Navigation state: 'home' | 'vendor' | 'tracking' | 'profile'
-  const [currentPage, setCurrentPage] = useState('home');
-  const [selectedVendorId, setSelectedVendorId] = useState(null);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const {
+    userRole,
+    setUserRole,
+    studentProfile,
+    isAdminAuthenticated,
+    switchRole,
+    toast
+  } = useApp();
 
-  const { 
-    isCartOpen, 
-    setIsCartOpen, 
-    selectedFoodItem, 
-    setSelectedFoodItem, 
-    activeOrder,
-    toast 
-  } = useCart();
+  // Internal page navigation for student: 'restaurants' | 'menu'
+  const [currentView, setCurrentView] = useState('restaurants');
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState('local-home-kitchen');
+  const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
 
-  // Scroll to top on page navigation
+  // Sync URL hash or path with admin route
+  useEffect(() => {
+    const checkAdminRoute = () => {
+      const isPathAdmin = window.location.pathname.toLowerCase().includes('/admin');
+      const isHashAdmin = window.location.hash.toLowerCase().includes('admin');
+      if ((isPathAdmin || isHashAdmin) && userRole !== 'admin') {
+        if (isAdminAuthenticated) {
+          setUserRole('admin');
+        } else {
+          setUserRole('admin_login');
+        }
+      }
+    };
+
+    checkAdminRoute();
+    window.addEventListener('hashchange', checkAdminRoute);
+    window.addEventListener('popstate', checkAdminRoute);
+
+    return () => {
+      window.removeEventListener('hashchange', checkAdminRoute);
+      window.removeEventListener('popstate', checkAdminRoute);
+    };
+  }, [userRole, isAdminAuthenticated, setUserRole]);
+
+  // Scroll to top on view changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentPage, selectedVendorId]);
+  }, [currentView, selectedRestaurantId]);
 
-  const handleNavigate = (page, vendorId = null) => {
-    if (vendorId) {
-      setSelectedVendorId(vendorId);
+  const handleSelectRestaurant = (restaurantId) => {
+    setSelectedRestaurantId(restaurantId);
+    setCurrentView('menu');
+  };
+
+  const handleBackToRestaurants = () => {
+    setCurrentView('restaurants');
+  };
+
+  const handleNavigate = (page) => {
+    if (page === 'orders') {
+      setIsOrdersModalOpen(true);
+    } else if (page === 'restaurants') {
+      setCurrentView('restaurants');
     }
-    setCurrentPage(page);
   };
 
-  const handleSelectVendor = (vendorOrId) => {
-    const vId = typeof vendorOrId === 'object' && vendorOrId ? vendorOrId.id : vendorOrId;
-    setSelectedVendorId(vId);
-    setCurrentPage('vendor');
-  };
+  // 1. ADMIN LOGIN VIEW
+  if (userRole === 'admin_login' || (!userRole && window.location.hash === '#admin')) {
+    return (
+      <>
+        <AdminLoginPage onSwitchToStudent={() => setUserRole('student')} />
+        {renderToast(toast)}
+      </>
+    );
+  }
 
+  // 2. ADMIN DASHBOARD VIEW (Protected)
+  if (userRole === 'admin' && isAdminAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#0F172A]">
+        <AdminDashboardPage 
+          onSwitchToStudentView={() => setUserRole('student')} 
+        />
+        {renderToast(toast)}
+      </div>
+    );
+  }
+
+  // 3. STUDENT NOT LOGGED IN -> STUDENT LOGIN VIEW
+  if (!studentProfile || userRole !== 'student') {
+    return (
+      <>
+        <StudentLoginPage onSwitchToAdmin={() => switchRole('admin')} />
+        {renderToast(toast)}
+      </>
+    );
+  }
+
+  // 4. AUTHENTICATED STUDENT VIEW
   return (
-    <div className="app-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#FAF8F5' }}>
-      {/* Top Navigation Bar */}
+    <div className="min-h-screen flex flex-col bg-[#FAF8F5]">
+      {/* Universal Top Navigation */}
       <Navbar 
-        currentPage={currentPage}
         onNavigate={handleNavigate}
-        onOpenSearch={() => setIsSearchOpen(true)}
+        onOpenSearch={() => {}}
       />
 
-      {/* Main Content Area */}
-      <main style={{ flex: 1, paddingBottom: '70px' }}>
-        {currentPage === 'home' && (
-          <HomePage 
-            onSelectVendor={handleSelectVendor}
-            onOpenFoodDetail={(food) => setSelectedFoodItem(food)}
-            onOpenFoodDetails={(food) => setSelectedFoodItem(food)}
-            onOpenSearch={() => setIsSearchOpen(true)}
-            onNavigate={handleNavigate}
+      {/* Main Student Experience */}
+      <main className="flex-1 pb-16">
+        {currentView === 'restaurants' ? (
+          <TwoRestaurantsPage 
+            onSelectRestaurant={handleSelectRestaurant} 
           />
-        )}
-
-        {currentPage === 'vendor' && (
-          <VendorPage 
-            vendorId={selectedVendorId}
-            onBack={() => setCurrentPage('home')}
-            onOpenFoodDetail={(food) => setSelectedFoodItem(food)}
-          />
-        )}
-
-        {currentPage === 'tracking' && (
-          <OrderTrackingPage 
-            onNavigate={handleNavigate}
-          />
-        )}
-
-        {currentPage === 'profile' && (
-          <ProfilePage 
-            onNavigate={handleNavigate}
+        ) : (
+          <RestaurantMenuPage
+            restaurantId={selectedRestaurantId}
+            onBack={handleBackToRestaurants}
           />
         )}
       </main>
 
-      {/* Floating Active Order Live Pill (visible when active order exists and user is browsing other pages) */}
-      {activeOrder && activeOrder.currentStage < 5 && currentPage !== 'tracking' && (
-        <div 
-          onClick={() => setCurrentPage('tracking')}
-          style={{
-            position: 'fixed',
-            bottom: 84,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'linear-gradient(135deg, #0F172A, #1E293B)',
-            color: 'white',
-            padding: '10px 20px',
-            borderRadius: 30,
-            boxShadow: '0 10px 30px rgba(15, 23, 42, 0.4), 0 0 0 1px rgba(255, 87, 34, 0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            cursor: 'pointer',
-            zIndex: 90,
-            animation: 'pulse 2s infinite',
-            maxWidth: '90%',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <span style={{ fontSize: 20 }}>🛵</span>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#FF7A50' }}>
-              Order #{activeOrder.id} in progress
-            </span>
-            <span style={{ fontSize: 11, color: '#94A3B8' }}>
-              Stage {activeOrder.currentStage}/5 • Est. ~{activeOrder.estimatedMinutes || 20}m
-            </span>
-          </div>
-          <ChevronRight size={18} color="#FF7A50" />
-        </div>
-      )}
+      {/* Cart Drawer */}
+      <CartDrawer />
 
-      {/* Desktop & Tablet Footer */}
-      <footer 
-        style={{
-          background: '#0F172A',
-          color: '#94A3B8',
-          padding: '48px 24px 80px',
-          borderTop: '1px solid #1E293B',
-          fontSize: 14
-        }}
-      >
-        <div 
-          style={{
-            maxWidth: 1200,
-            margin: '0 auto',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 32,
-            marginBottom: 36
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-              <div 
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 12,
-                  background: 'linear-gradient(135deg, #FF5722, #FF8A65)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontSize: 20
-                }}
-              >
-                🍔
-              </div>
-              <span style={{ fontSize: 20, fontWeight: 800, color: 'white', letterSpacing: -0.5 }}>
-                Campus<span style={{ color: '#FF5722' }}>Bites</span>
-              </span>
-            </div>
-            <p style={{ lineHeight: 1.6, fontSize: 13, color: '#64748B' }}>
-              The modern food ordering platform tailored for students, faculty, and campus vendors. Quick dorm delivery, transparent prep times, and zero hassle.
-            </p>
-          </div>
+      {/* 30-Second Confirmation Modal */}
+      <OrderConfirmationModal />
 
-          <div>
-            <h4 style={{ color: 'white', fontSize: 15, fontWeight: 700, marginBottom: 16 }}>
-              Quick Navigation
-            </h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <li>
-                <button 
-                  onClick={() => setCurrentPage('home')}
-                  style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 0, fontSize: 13 }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = '#FF5722'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = '#94A3B8'}
-                >
-                  Explore Campus Menus
-                </button>
-              </li>
-              <li>
-                <button 
-                  onClick={() => setIsSearchOpen(true)}
-                  style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 0, fontSize: 13 }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = '#FF5722'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = '#94A3B8'}
-                >
-                  Search Biryani, Rolls & Shakes
-                </button>
-              </li>
-              <li>
-                <button 
-                  onClick={() => setCurrentPage('profile')}
-                  style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 0, fontSize: 13 }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = '#FF5722'}
-                  onMouseLeave={(e) => e.currentTarget.style.color = '#94A3B8'}
-                >
-                  Order History & Addresses
-                </button>
-              </li>
-            </ul>
-          </div>
+      {/* Student Past Orders Modal */}
+      <StudentOrdersModal 
+        isOpen={isOrdersModalOpen}
+        onClose={() => setIsOrdersModalOpen(false)}
+      />
 
-          <div>
-            <h4 style={{ color: 'white', fontSize: 15, fontWeight: 700, marginBottom: 16 }}>
-              Campus Food Partners
-            </h4>
-            <p style={{ fontSize: 13, lineHeight: 1.6, color: '#64748B' }}>
-              Featuring Hotel Bheemasena, Campus Roll Express, Khaana Peena Bites, Annapurna South Tiffins, and The Caffeine Lab.
-            </p>
-          </div>
+      {/* Toast Notification Container */}
+      {renderToast(toast)}
 
+      {/* Professional Footer */}
+      <footer className="bg-[#0F172A] text-slate-400 py-10 border-t border-slate-800 text-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <div>
-            <h4 style={{ color: 'white', fontSize: 15, fontWeight: 700, marginBottom: 16 }}>
-              Delivery Locations
-            </h4>
-            <p style={{ fontSize: 13, lineHeight: 1.6, color: '#64748B' }}>
-              Hostel Blocks A, B, C, D, Central Library, Dining Hall 1 & 2, Academic Blocks, and Main Gate.
-            </p>
+            <span className="font-extrabold text-white font-['Outfit'] text-base">CampusBites</span>
+            <p className="text-slate-500 mt-0.5">SRM-AP Campus Food Ordering & Delivery Network</p>
           </div>
-        </div>
-
-        {/* Required Unofficial Redesign Disclaimer */}
-        <div 
-          style={{
-            borderTop: '1px solid #1E293B',
-            paddingTop: 24,
-            maxWidth: 1200,
-            margin: '0 auto',
-            textAlign: 'center',
-            fontSize: 12,
-            color: '#64748B',
-            lineHeight: 1.6
-          }}
-        >
-          <div style={{ marginBottom: 6, fontWeight: 600, color: '#94A3B8' }}>
-            Unofficial UI/UX Redesign Concept. Created independently as a design and development demonstration. Not affiliated with or endorsed by any existing platform.
-          </div>
-          <div>
-            © {new Date().getFullYear()} CampusBites Prototype • Built for Students with ❤️
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => switchRole('admin')}
+              className="hover:text-white transition-colors cursor-pointer border-none bg-transparent text-slate-400 font-semibold"
+            >
+              Admin Management Portal
+            </button>
+            <span className="text-slate-600">•</span>
+            <span>Neerukonda, Amaravati, AP</span>
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
 
-      {/* Mobile Floating Bottom Bar */}
-      <BottomNav 
-        currentPage={currentPage}
-        onNavigate={handleNavigate}
-        onOpenSearch={() => setIsSearchOpen(true)}
-      />
+// Helper Toast Renderer
+function renderToast(toast) {
+  if (!toast) return null;
 
-      {/* Slide-over Shopping Cart */}
-      <CartDrawer 
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onProceedToCheckout={() => {
-          setIsCartOpen(false);
-          setIsCheckoutOpen(true);
-        }}
-      />
+  const isError = toast.type === 'error';
+  const isInfo = toast.type === 'info';
 
-      {/* Food Detail Modal */}
-      {selectedFoodItem && (
-        <FoodDetailModal 
-          foodItem={selectedFoodItem}
-          onClose={() => setSelectedFoodItem(null)}
-        />
-      )}
-
-      {/* Search Modal */}
-      <SearchModal 
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        onSelectFood={(food) => setSelectedFoodItem(food)}
-        onSelectVendor={handleSelectVendor}
-      />
-
-      {/* Checkout Modal */}
-      <CheckoutModal 
-        isOpen={isCheckoutOpen}
-        onClose={() => setIsCheckoutOpen(false)}
-        onOrderSuccess={() => setCurrentPage('tracking')}
-      />
-
-      {/* Toast Notification */}
-      {toast && (
-        <div 
-          style={{
-            position: 'fixed',
-            top: 24,
-            right: 24,
-            zIndex: 9999,
-            background: toast.type === 'error' ? '#EF4444' : '#10B981',
-            color: 'white',
-            padding: '12px 20px',
-            borderRadius: 14,
-            boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-            fontWeight: 600,
-            fontSize: 14,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            animation: 'fadeInDown 0.3s ease-out'
-          }}
-        >
-          <span>{toast.message}</span>
-        </div>
-      )}
+  return (
+    <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+      <div className={`px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold border backdrop-blur-md ${
+        isError 
+          ? 'bg-rose-950/90 text-rose-200 border-rose-800/80 shadow-rose-950/40'
+          : isInfo 
+          ? 'bg-slate-900/90 text-slate-200 border-slate-700 shadow-slate-950/40'
+          : 'bg-emerald-950/90 text-emerald-200 border-emerald-800/80 shadow-emerald-950/40'
+      }`}>
+        {isError ? (
+          <XCircle size={16} className="text-rose-400 flex-shrink-0" />
+        ) : isInfo ? (
+          <Info size={16} className="text-blue-400 flex-shrink-0" />
+        ) : (
+          <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
+        )}
+        <span>{toast.message}</span>
+      </div>
     </div>
   );
 }

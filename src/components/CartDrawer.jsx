@@ -1,9 +1,23 @@
 import React, { useState } from 'react';
-import { X, Trash2, Plus, Minus, ArrowRight, Tag, ShoppingBag, MapPin, Sparkles, AlertCircle } from 'lucide-react';
-import { useCart } from '../context/CartContext';
+import { 
+  X, 
+  Trash2, 
+  Plus, 
+  Minus, 
+  ArrowRight, 
+  ShoppingBag, 
+  MapPin, 
+  AlertTriangle, 
+  Sparkles, 
+  Phone, 
+  User, 
+  ShieldCheck,
+  Building
+} from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { CAMPUS_LOCATIONS } from '../data/campusData';
 
-export default function CartDrawer({ onOpenCheckout, onProceedToCheckout }) {
-  const handleProceed = onOpenCheckout || onProceedToCheckout;
+export default function CartDrawer() {
   const {
     cart,
     isCartOpen,
@@ -12,26 +26,48 @@ export default function CartDrawer({ onOpenCheckout, onProceedToCheckout }) {
     removeFromCart,
     clearCart,
     cartSubtotal,
-    deliveryFee,
     platformFee,
-    discountAmount,
-    finalTotal,
-    appliedCoupon,
-    couponError,
-    applyCoupon,
-    removeCoupon,
-    selectedLocation
-  } = useCart();
+    deliveryFee,
+    cartTotal,
+    startOrderConfirmation,
+    overallOrderingEnabled,
+    restaurantStatuses,
+    studentProfile
+  } = useApp();
 
-  const [couponInput, setCouponInput] = useState('');
+  const [selectedHostel, setSelectedHostel] = useState(
+    studentProfile?.hostel || 'Hostel Block B (Boys)'
+  );
+  const [roomNumber, setRoomNumber] = useState(
+    studentProfile?.roomNumber || 'Room 412'
+  );
+  const [contactPhone, setContactPhone] = useState(
+    studentProfile?.phone || '9989955833'
+  );
+  const [specialInstructions, setSpecialInstructions] = useState('');
 
   if (!isCartOpen) return null;
 
-  const handleApplyCoupon = (e) => {
-    e.preventDefault();
-    if (!couponInput) return;
-    const success = applyCoupon(couponInput);
-    if (success) setCouponInput('');
+  // Check restaurant status of current cart items
+  const currentRestaurantId = cart[0]?.restaurantId;
+  const currentRestaurantName = cart[0]?.restaurantName || 'Restaurant';
+  const isRestaurantOpen = currentRestaurantId 
+    ? (restaurantStatuses[currentRestaurantId] || 'OPEN') === 'OPEN' 
+    : true;
+
+  const canPlaceOrder = overallOrderingEnabled && isRestaurantOpen && cart.length > 0;
+
+  const handleCheckoutClick = () => {
+    if (!canPlaceOrder) return;
+
+    startOrderConfirmation({
+      hostel: selectedHostel,
+      roomNumber: roomNumber,
+      phone: contactPhone,
+      instructions: specialInstructions,
+      name: studentProfile?.name,
+      studentId: studentProfile?.studentId
+    });
   };
 
   return (
@@ -44,33 +80,40 @@ export default function CartDrawer({ onOpenCheckout, onProceedToCheckout }) {
         
         {/* Drawer Header */}
         <div className="px-6 py-4 border-b border-[#F1EAE4] flex items-center justify-between bg-[#FAF8F5]">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#FFF0EB] flex items-center justify-center text-[#FF5722]">
               <ShoppingBag size={18} />
             </div>
             <div>
               <h2 className="text-lg font-extrabold text-[#0F172A] font-['Outfit']">Your Campus Cart</h2>
-              <p className="text-xs text-[#64748B]">{cart.length} unique dishes</p>
+              <p className="text-xs text-[#64748B]">
+                {cart.length > 0 ? `${cart.reduce((a, b) => a + b.qty, 0)} items from ${currentRestaurantName}` : 'No items yet'}
+              </p>
             </div>
           </div>
           <button
             onClick={() => setIsCartOpen(false)}
-            className="w-8 h-8 rounded-full bg-white border border-[#F1EAE4] flex items-center justify-center text-[#64748B] hover:text-[#0F172A] hover:bg-[#F4EFEA] transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full bg-white border border-[#E2D9D0] flex items-center justify-center text-[#64748B] hover:text-[#0F172A] hover:bg-[#F4EFEA] transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
         </div>
 
-        {/* Drop-Off Location Pill */}
-        <div className="px-6 py-3 bg-[#FFF0EB] border-b border-[#FFD3C4] flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2 text-[#9A3412] font-semibold">
-            <MapPin size={15} className="text-[#FF5722] flex-shrink-0" />
-            <span className="truncate">Delivering to: <strong>{selectedLocation.name}</strong></span>
+        {/* Master Ordering Warning if Disabled */}
+        {!overallOrderingEnabled && (
+          <div className="px-5 py-3 bg-amber-500/10 border-b border-amber-500/30 flex items-center gap-2 text-xs font-bold text-amber-900">
+            <AlertTriangle size={15} className="text-amber-600 flex-shrink-0" />
+            <span>Ordering is currently unavailable campus-wide.</span>
           </div>
-          <span className="text-[11px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-full shadow-xs">
-            Free Delivery
-          </span>
-        </div>
+        )}
+
+        {/* Restaurant Closed Warning if Specific Restaurant is Closed */}
+        {overallOrderingEnabled && !isRestaurantOpen && cart.length > 0 && (
+          <div className="px-5 py-3 bg-rose-50 border-b border-rose-200 flex items-center gap-2 text-xs font-bold text-rose-800">
+            <AlertTriangle size={15} className="text-rose-600 flex-shrink-0" />
+            <span>{currentRestaurantName} is currently CLOSED by admin.</span>
+          </div>
+        )}
 
         {/* Cart Items List or Empty State */}
         <div className="flex-1 overflow-y-auto px-6 py-4 divide-y divide-[#F1EAE4]">
@@ -81,167 +124,170 @@ export default function CartDrawer({ onOpenCheckout, onProceedToCheckout }) {
               </div>
               <h3 className="font-extrabold text-lg text-[#0F172A] mb-1 font-['Outfit']">Your Cart is Empty</h3>
               <p className="text-xs text-[#64748B] max-w-xs mb-6">
-                Explore popular biryanis, rolls, and midnight snacks from campus food corners!
+                Explore Local Home Kitchen for authentic Biryanis, Fried Rice, and Starters!
               </p>
               <button
                 onClick={() => setIsCartOpen(false)}
-                className="btn-primary"
+                className="btn-primary py-2.5 px-5 text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-md"
               >
-                <span>Browse Campus Menu</span>
-                <ArrowRight size={16} />
+                <span>Browse Restaurant Menu</span>
+                <ArrowRight size={15} />
               </button>
             </div>
           ) : (
-            cart.map((item) => (
-              <div key={item.id} className="py-3.5 flex items-center gap-3.5">
-                {/* Item Image */}
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-16 h-16 rounded-xl object-cover border border-[#F1EAE4] flex-shrink-0"
-                />
+            <div className="space-y-4">
+              {/* Clear cart quick action */}
+              <div className="flex items-center justify-between pb-2 text-xs text-[#64748B]">
+                <span className="font-bold text-[#0F172A]">Kitchen: {currentRestaurantName}</span>
+                <button
+                  onClick={clearCart}
+                  className="text-rose-500 hover:text-rose-700 flex items-center gap-1 font-semibold cursor-pointer"
+                >
+                  <Trash2 size={13} />
+                  <span>Clear Cart</span>
+                </button>
+              </div>
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <div className={item.isVeg ? 'veg-badge' : 'nonveg-badge'} />
-                    <h4 className="font-bold text-sm text-[#0F172A] truncate">{item.name}</h4>
+              {cart.map((item) => (
+                <div key={item.id} className="py-3 flex items-center justify-between gap-3 border-b border-[#F1EAE4]">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${item.isVeg ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      <h4 className="font-extrabold text-sm text-[#0F172A] truncate font-['Outfit']">
+                        {item.name}
+                      </h4>
+                    </div>
+                    <div className="text-xs text-[#64748B] mt-0.5">
+                      ₹{item.price} {item.portion ? `• ${item.portion}` : ''}
+                    </div>
                   </div>
-                  <p className="text-[11px] text-[#94A3B8] truncate">{item.vendorName}</p>
-                  <div className="font-black text-sm text-[#0F172A] font-['Outfit'] mt-1">
+
+                  {/* Quantity Stepper */}
+                  <div className="flex items-center gap-2 bg-[#FAF8F5] border border-[#E2D9D0] rounded-xl px-2 py-1">
+                    <button
+                      onClick={() => updateQuantity(item.id, item.qty - 1)}
+                      className="w-6 h-6 rounded-lg bg-white border border-[#E2D9D0] flex items-center justify-center text-[#64748B] hover:text-[#0F172A] cursor-pointer"
+                    >
+                      <Minus size={12} />
+                    </button>
+                    <span className="text-xs font-extrabold text-[#0F172A] w-5 text-center font-mono">
+                      {item.qty}
+                    </span>
+                    <button
+                      onClick={() => updateQuantity(item.id, item.qty + 1)}
+                      className="w-6 h-6 rounded-lg bg-[#FF5722] text-white flex items-center justify-center cursor-pointer shadow-xs"
+                    >
+                      <Plus size={12} />
+                    </button>
+                  </div>
+
+                  {/* Total item price */}
+                  <div className="text-xs font-black text-[#0F172A] font-mono w-14 text-right">
                     ₹{item.price * item.qty}
                   </div>
                 </div>
+              ))}
 
-                {/* Steppers */}
-                <div className="flex items-center gap-2 bg-[#FAF8F5] border border-[#E2D9D0] rounded-xl px-2 py-1 flex-shrink-0">
-                  <button
-                    onClick={() => updateQuantity(item.id, item.qty - 1)}
-                    className="w-5 h-5 rounded flex items-center justify-center text-[#475569] hover:bg-white transition-colors cursor-pointer border-none bg-transparent"
+              {/* Delivery Details Form */}
+              <div className="pt-4 space-y-3 bg-[#FAF8F5] p-4 rounded-2xl border border-[#F1EAE4]">
+                <h4 className="text-xs font-black text-[#0F172A] uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin size={13} className="text-[#FF5722]" />
+                  <span>Campus Delivery Details</span>
+                </h4>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#64748B] mb-1">Hostel Block</label>
+                  <select
+                    value={selectedHostel}
+                    onChange={(e) => setSelectedHostel(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#E2D9D0] bg-white text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#FF5722]"
                   >
-                    <Minus size={11} />
-                  </button>
-                  <span className="font-bold text-xs text-[#0F172A] min-w-[14px] text-center">
-                    {item.qty}
-                  </span>
-                  <button
-                    onClick={() => updateQuantity(item.id, item.qty + 1)}
-                    className="w-5 h-5 rounded flex items-center justify-center text-[#FF5722] hover:bg-white transition-colors cursor-pointer border-none bg-transparent"
-                  >
-                    <Plus size={11} />
-                  </button>
+                    {CAMPUS_LOCATIONS.map((loc) => (
+                      <option key={loc.id} value={loc.name}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Remove button */}
-                <button
-                  onClick={() => removeFromCart(item.id)}
-                  className="text-[#94A3B8] hover:text-[#EF4444] p-1 border-none bg-transparent cursor-pointer transition-colors"
-                  title="Remove item"
-                >
-                  <Trash2 size={15} />
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#64748B] mb-1">Room / Floor</label>
+                    <input
+                      type="text"
+                      value={roomNumber}
+                      onChange={(e) => setRoomNumber(e.target.value)}
+                      placeholder="Room 412"
+                      className="w-full px-3 py-2 rounded-xl border border-[#E2D9D0] bg-white text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#FF5722]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#64748B] mb-1">Contact Phone</label>
+                    <input
+                      type="text"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      placeholder="9989955833"
+                      className="w-full px-3 py-2 rounded-xl border border-[#E2D9D0] bg-white text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#FF5722]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-[#64748B] mb-1">Cooking / Delivery Note (Optional)</label>
+                  <input
+                    type="text"
+                    value={specialInstructions}
+                    onChange={(e) => setSpecialInstructions(e.target.value)}
+                    placeholder="e.g. Extra raita, mild spicy, call upon arrival"
+                    className="w-full px-3 py-2 rounded-xl border border-[#E2D9D0] bg-white text-xs text-[#0F172A] focus:outline-none focus:border-[#FF5722]"
+                  />
+                </div>
               </div>
-            ))
+            </div>
           )}
         </div>
 
-        {/* Bottom Checkout & Bill Section */}
+        {/* Footer Checkout Summary */}
         {cart.length > 0 && (
-          <div className="border-t border-[#F1EAE4] bg-[#FAF8F5] p-6 flex flex-col gap-4">
-            
-            {/* Coupon Code Input & Chips */}
-            <div>
-              {appliedCoupon ? (
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0] text-xs">
-                  <div className="flex items-center gap-2 text-[#065F46] font-bold">
-                    <Sparkles size={14} className="text-emerald-600" />
-                    <span>Coupon <strong>{appliedCoupon.code}</strong> Applied!</span>
-                  </div>
-                  <button
-                    onClick={removeCoupon}
-                    className="text-[#EF4444] font-bold hover:underline border-none bg-transparent cursor-pointer text-xs"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleApplyCoupon} className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Tag size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
-                    <input
-                      type="text"
-                      placeholder="Promo code (e.g. CAMPUS50)"
-                      value={couponInput}
-                      onChange={(e) => setCouponInput(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-[#E2D9D0] bg-white focus:outline-none focus:border-[#FF5722] uppercase font-semibold"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-xl bg-[#0F172A] text-white text-xs font-bold hover:bg-[#1E293B] transition-colors cursor-pointer border-none"
-                  >
-                    Apply
-                  </button>
-                </form>
-              )}
-              {couponError && (
-                <p className="text-[11px] text-[#EF4444] font-semibold mt-1.5 flex items-center gap-1">
-                  <AlertCircle size={12} />
-                  <span>{couponError}</span>
-                </p>
-              )}
-
-              {/* Quick Coupon Chip */}
-              {!appliedCoupon && (
-                <div className="flex items-center gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => applyCoupon('CAMPUS50')}
-                    className="text-[10px] font-bold px-2 py-1 rounded-md bg-white border border-[#E2D9D0] text-[#D97706] hover:border-[#FF5722] cursor-pointer flex items-center gap-1"
-                  >
-                    <span>⚡ Use <strong>CAMPUS50</strong> (50% OFF)</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Bill Summary */}
-            <div className="space-y-1.5 text-xs text-[#475569]">
-              <div className="flex justify-between">
+          <div className="p-6 border-t border-[#F1EAE4] bg-[#FAF8F5] space-y-3">
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between text-[#64748B]">
                 <span>Item Subtotal</span>
-                <span className="font-semibold text-[#0F172A]">₹{cartSubtotal}</span>
+                <span className="font-bold text-[#0F172A]">₹{cartSubtotal}</span>
               </div>
-              {discountAmount > 0 && (
-                <div className="flex justify-between text-emerald-600 font-bold">
-                  <span>Promo Discount</span>
-                  <span>-₹{discountAmount}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
+              <div className="flex justify-between text-[#64748B]">
                 <span>Campus Delivery Fee</span>
-                <span className="text-emerald-600 font-bold">FREE</span>
+                <span className="font-bold text-emerald-600">FREE</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between text-[#64748B]">
                 <span>Platform & Packaging Fee</span>
-                <span className="font-semibold text-[#0F172A]">₹{platformFee}</span>
+                <span className="font-bold text-[#0F172A]">₹{platformFee}</span>
               </div>
-              <div className="pt-2 border-t border-[#E2D9D0] flex justify-between text-base font-extrabold text-[#0F172A] font-['Outfit']">
-                <span>Grand Total</span>
-                <span className="text-[#FF5722]">₹{finalTotal}</span>
+              <div className="pt-2 border-t border-[#E2D9D0] flex justify-between items-center text-base">
+                <span className="font-extrabold text-[#0F172A] font-['Outfit']">Total Payable</span>
+                <span className="font-black text-xl text-[#FF5722] font-mono">₹{cartTotal}</span>
               </div>
             </div>
 
             {/* Checkout Action Button */}
             <button
-              onClick={() => {
-                setIsCartOpen(false);
-                if (handleProceed) handleProceed();
-              }}
-              className="btn-primary w-full py-3.5 text-sm font-bold shadow-lg shadow-[#FF5722]/30 flex items-center justify-center gap-2 cursor-pointer"
+              onClick={handleCheckoutClick}
+              disabled={!canPlaceOrder}
+              className={`w-full py-3.5 px-6 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-xl transition-all cursor-pointer ${
+                canPlaceOrder 
+                  ? 'bg-gradient-to-r from-[#FF5722] to-[#FF7A50] text-white hover:brightness-105 shadow-[#FF5722]/30 active:scale-[0.99]'
+                  : 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+              }`}
             >
-              <span>Proceed to Checkout</span>
-              <ArrowRight size={17} />
+              <span>{canPlaceOrder ? 'Proceed to 30s Confirmation' : 'Ordering Unavailable'}</span>
+              <ArrowRight size={16} />
             </button>
+
+            <p className="text-center text-[11px] text-[#94A3B8]">
+              You will have 30 seconds to review and confirm your order.
+            </p>
           </div>
         )}
 
