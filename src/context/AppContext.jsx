@@ -131,9 +131,14 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  // On initial mount: sync data and check for active pending confirmation
+  // On initial mount: sync data, poll updates every 4s, and check for active pending confirmation
   useEffect(() => {
     refreshCloudData();
+
+    // Live background polling to automatically synchronize order status changes (every 4 seconds)
+    const interval = setInterval(() => {
+      refreshCloudData();
+    }, 4000);
 
     // Check if there is an active pending order in local storage (Page refresh recovery)
     const savedPendingOrderId = localStorage.getItem('cb_pending_order_id');
@@ -156,6 +161,8 @@ export function AppProvider({ children }) {
           localStorage.removeItem('cb_pending_order_id');
         });
     }
+
+    return () => clearInterval(interval);
   }, [refreshCloudData]);
 
   // Auth Functions

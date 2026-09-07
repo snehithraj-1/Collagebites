@@ -1,9 +1,23 @@
-import React from 'react';
-import { X, Clock, CheckCircle2, XCircle, ShoppingBag, MapPin } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, Clock, CheckCircle2, XCircle, ShoppingBag, MapPin, RefreshCw, ChefHat, Package, Bike, Truck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function StudentOrdersModal({ isOpen, onClose }) {
-  const { orders, studentProfile } = useApp();
+  const { orders, studentProfile, refreshCloudData } = useApp();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Sync latest orders when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      refreshCloudData();
+    }
+  }, [isOpen, refreshCloudData]);
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshCloudData();
+    setTimeout(() => setIsRefreshing(false), 600);
+  };
 
   if (!isOpen) return null;
 
@@ -31,12 +45,25 @@ export default function StudentOrdersModal({ isOpen, onClose }) {
               <p className="text-xs text-[#64748B]">Orders placed under {studentProfile?.name || 'your profile'}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white border border-[#E2D9D0] flex items-center justify-center text-[#64748B] hover:text-[#0F172A] cursor-pointer"
-          >
-            <X size={18} />
-          </button>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleManualRefresh}
+              title="Refresh Orders"
+              className={`w-8 h-8 rounded-full bg-white border border-[#E2D9D0] flex items-center justify-center text-[#64748B] hover:text-[#FF5722] transition-colors cursor-pointer ${
+                isRefreshing ? 'animate-spin text-[#FF5722]' : ''
+              }`}
+            >
+              <RefreshCw size={14} />
+            </button>
+
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-white border border-[#E2D9D0] flex items-center justify-center text-[#64748B] hover:text-[#0F172A] cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Orders list */}
@@ -48,49 +75,83 @@ export default function StudentOrdersModal({ isOpen, onClose }) {
               <p className="text-xs mt-1">Place an order from Local Home Kitchen or Campus Delight!</p>
             </div>
           ) : (
-            studentOrders.map((order) => (
-              <div 
-                key={order.id || order.tempId} 
-                className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#F1EAE4] space-y-2.5"
-              >
-                <div className="flex items-center justify-between pb-2 border-b border-[#F1EAE4]">
-                  <div>
-                    <span className="text-xs font-black text-[#FF5722] font-mono">#{order.id || order.tempId}</span>
-                    <h4 className="text-sm font-black text-[#0F172A] font-['Outfit']">{order.restaurantName}</h4>
-                  </div>
-                  <div className="text-right">
-                    {order.status === 'CONFIRMED' ? (
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-black uppercase tracking-wider">
-                        CONFIRMED
-                      </span>
-                    ) : order.status === 'CANCELLED' ? (
-                      <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[11px] font-black uppercase tracking-wider">
-                        CANCELLED
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-black uppercase tracking-wider">
-                        PENDING
-                      </span>
-                    )}
-                    <div className="text-xs font-black text-[#0F172A] font-mono mt-1">₹{order.totalAmount}</div>
-                  </div>
-                </div>
+            studentOrders.map((order) => {
+              const formattedDishes = order.items
+                ?.map((i) => `${i.name || i.item_name || 'Dish'} (x${i.qty || i.quantity || 1})`)
+                .join(', ') || 'No items listed';
 
-                <div className="space-y-1 text-xs text-[#475569]">
-                  <p><strong>Dishes:</strong> {order.items?.map((i) => `${i.name} (x${i.qty})`).join(', ')}</p>
-                  <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
-                    <MapPin size={12} className="text-[#FF5722]" />
-                    <span>{order.deliveryLocation}</span>
+              return (
+                <div 
+                  key={order.id || order.tempId} 
+                  className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#F1EAE4] space-y-2.5 transition-all hover:border-[#FF5722]/30"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-[#F1EAE4]">
+                    <div>
+                      <span className="text-xs font-black text-[#FF5722] font-mono">#{order.id || order.tempId}</span>
+                      <h4 className="text-sm font-black text-[#0F172A] font-['Outfit']">{order.restaurantName}</h4>
+                    </div>
+                    
+                    {/* Status Badge with all Phase 5 stages */}
+                    <div className="text-right">
+                      {order.status === 'DELIVERED' ? (
+                        <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-black uppercase tracking-wider">
+                          DELIVERED ✅
+                        </span>
+                      ) : order.status === 'OUT_FOR_DELIVERY' ? (
+                        <span className="px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-300 text-[10px] font-black uppercase tracking-wider animate-pulse">
+                          ON THE WAY 🚚
+                        </span>
+                      ) : order.status === 'PICKED_UP' ? (
+                        <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 border border-purple-300 text-[10px] font-black uppercase tracking-wider">
+                          PICKED UP 🛵
+                        </span>
+                      ) : order.status === 'READY' ? (
+                        <span className="px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-300 text-[10px] font-black uppercase tracking-wider">
+                          READY 📦
+                        </span>
+                      ) : order.status === 'PREPARING' ? (
+                        <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-300 text-[10px] font-black uppercase tracking-wider">
+                          COOKING 🍳
+                        </span>
+                      ) : order.status === 'CONFIRMED' ? (
+                        <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase tracking-wider">
+                          CONFIRMED 👍
+                        </span>
+                      ) : order.status === 'PENDING_CONFIRMATION' ? (
+                        <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider">
+                          PENDING ⏱️
+                        </span>
+                      ) : order.status === 'EXPIRED' ? (
+                        <span className="px-2.5 py-1 rounded-full bg-slate-200 text-slate-700 border border-slate-300 text-[10px] font-black uppercase tracking-wider">
+                          EXPIRED ⌛
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-black uppercase tracking-wider">
+                          CANCELLED ❌
+                        </span>
+                      )}
+
+                      <div className="text-xs font-black text-[#0F172A] font-mono mt-1">₹{order.totalAmount}</div>
+                    </div>
                   </div>
-                  {order.cancelledReason && (
-                    <p className="text-rose-600 text-[11px] font-semibold">Reason: {order.cancelledReason}</p>
-                  )}
+
+                  <div className="space-y-1 text-xs text-[#475569]">
+                    <p><strong>Dishes:</strong> {formattedDishes}</p>
+                    <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
+                      <MapPin size={12} className="text-[#FF5722]" />
+                      <span>{order.deliveryLocation || 'Hostel Delivery'}</span>
+                    </div>
+                    {order.cancelledReason && (
+                      <p className="text-rose-600 text-[11px] font-semibold">Reason: {order.cancelledReason}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
     </div>
   );
 }
+
