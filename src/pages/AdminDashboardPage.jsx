@@ -483,6 +483,7 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
                             {order.status === 'CONFIRMED' && (
                               <button
                                 onClick={() => advanceOrderStatus(order.id, 'PREPARING')}
+                                title="Start Cooking / Preparing"
                                 className="px-2 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 text-[11px] font-bold transition-colors cursor-pointer"
                               >
                                 <span>🍳 Cook</span>
@@ -491,14 +492,34 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
                             {order.status === 'PREPARING' && (
                               <button
                                 onClick={() => advanceOrderStatus(order.id, 'READY')}
+                                title="Mark as Ready"
                                 className="px-2 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-[11px] font-bold transition-colors cursor-pointer"
                               >
                                 <span>📦 Ready</span>
                               </button>
                             )}
                             {order.status === 'READY' && (
+                              <>
+                                <button
+                                  onClick={() => advanceOrderStatus(order.id, 'PICKED_UP')}
+                                  title="Mark as Picked Up by Delivery Boy"
+                                  className="px-2 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-[11px] font-bold transition-colors cursor-pointer"
+                                >
+                                  <span>🛵 Pick Up</span>
+                                </button>
+                                <button
+                                  onClick={() => advanceOrderStatus(order.id, 'OUT_FOR_DELIVERY')}
+                                  title="Send Out for Delivery"
+                                  className="px-2 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-[11px] font-bold transition-colors cursor-pointer"
+                                >
+                                  <span>🚚 Deliver</span>
+                                </button>
+                              </>
+                            )}
+                            {order.status === 'PICKED_UP' && (
                               <button
                                 onClick={() => advanceOrderStatus(order.id, 'OUT_FOR_DELIVERY')}
+                                title="Send Out for Delivery"
                                 className="px-2 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-[11px] font-bold transition-colors cursor-pointer"
                               >
                                 <span>🚚 Deliver</span>
@@ -507,6 +528,7 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
                             {order.status === 'OUT_FOR_DELIVERY' && (
                               <button
                                 onClick={() => advanceOrderStatus(order.id, 'DELIVERED')}
+                                title="Mark as Delivered to Student"
                                 className="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition-colors cursor-pointer"
                               >
                                 <span>✅ Done</span>
