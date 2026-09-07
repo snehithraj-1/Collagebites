@@ -100,7 +100,7 @@ export default function OrderTrackingPage({ orderId, onNavigateHome }) {
 
   const timerRef = useRef(null);
 
-  // Fetch latest order from Neon PostgreSQL
+  // 1. Fetch latest order metadata from Neon PostgreSQL
   const fetchOrder = useCallback(async (isSilent = false) => {
     if (!orderId) return;
 
@@ -112,47 +112,42 @@ export default function OrderTrackingPage({ orderId, onNavigateHome }) {
       setError(null);
       setLastPolledAt(new Date());
 
-      // If order is in delivery transit, fetch live GPS coordinates
-      if (['PICKED_UP', 'OUT_FOR_DELIVERY'].includes(liveOrder.status)) {
-        try {
-          const locRes = await getLiveDeliveryLocation(orderId);
-          if (locRes.active && locRes.location) {
-            setLiveLocation(locRes.location);
-          }
-        } catch (e) {
-          // Location endpoint fallback
-        }
-      } else if (liveOrder.status === 'DELIVERED') {
-        setLiveLocation(null);
-      }
-
       // Stop polling if order reached a terminal status
       if (TERMINAL_STATUSES.includes(liveOrder.status)) {
         setIsPollingActive(false);
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
       }
     } catch (err) {
       console.error('[OrderTrackingPage] Error fetching order:', err);
-      // Only show error on initial load or if no prior data exists
-      if (!order) {
+      if (!isSilent) {
         setError(err.message || `Could not find order #${orderId}`);
       }
     } finally {
-      setIsLoading(false);
+      if (!isSilent) setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [orderId, order]);
+  }, [orderId]);
 
-  // Set up 5-second polling on mount & clean up on unmount
+  // 2. Fetch live GPS coordinates directly (fast 3s cadence during transit)
+  const fetchLiveLocation = useCallback(async () => {
+    if (!orderId) return;
+    try {
+      const locRes = await getLiveDeliveryLocation(orderId);
+      if (locRes.active && locRes.location) {
+        setLiveLocation(locRes.location);
+      } else if (locRes.status === 'DELIVERED') {
+        setLiveLocation(null);
+      }
+    } catch (e) {
+      // Graceful network fallback
+    }
+  }, [orderId]);
+
+  // Order metadata poller (5 seconds)
   useEffect(() => {
     setIsLoading(true);
     setIsPollingActive(true);
     fetchOrder(false);
 
-    // Initial 5-second polling interval
     timerRef.current = setInterval(() => {
       fetchOrder(true);
     }, 5000);
@@ -163,7 +158,18 @@ export default function OrderTrackingPage({ orderId, onNavigateHome }) {
         timerRef.current = null;
       }
     };
-  }, [orderId]);
+  }, [fetchOrder]);
+
+  // Dedicated fast GPS location poller (every 3s while courier is in transit)
+  useEffect(() => {
+    const isTransit = order && ['PICKED_UP', 'OUT_FOR_DELIVERY'].includes(order.status);
+    if (!isTransit || !isPollingActive) return;
+
+    fetchLiveLocation();
+    const locInterval = setInterval(fetchLiveLocation, 3000);
+
+    return () => clearInterval(locInterval);
+  }, [order?.status, isPollingActive, fetchLiveLocation]);
 
   // Copy order ID helper
   const handleCopyOrderId = () => {

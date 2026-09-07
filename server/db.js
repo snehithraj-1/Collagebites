@@ -920,7 +920,7 @@ export async function recordDeliveryLocationInDb({ orderId, deliveryPartnerId, l
       accuracy,
       created_at
     ) VALUES (
-      ${orderId},
+      ${order.id},
       ${deliveryPartnerId},
       ${lat},
       ${lng},
@@ -961,7 +961,7 @@ export async function getLatestDeliveryLocationFromDb(orderId) {
       accuracy::float,
       created_at AS "timestamp"
     FROM delivery_locations
-    WHERE order_id = ${orderId}
+    WHERE order_id = ${order.id}
     ORDER BY created_at DESC, id DESC
     LIMIT 1;
   `;
