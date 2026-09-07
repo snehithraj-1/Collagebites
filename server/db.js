@@ -967,14 +967,14 @@ export async function getLatestDeliveryLocationFromDb(orderId) {
   `;
 
   if (rows.length === 0) {
-    // Return default campus kitchen origin coordinates if partner hasn't pinged yet
+    // Return default campus kitchen origin coordinates (SRM-AP Central Dining) if partner hasn't pinged yet
     return {
       active: true,
       status: order.status,
       location: {
-        latitude: 16.5172,
-        longitude: 80.5210,
-        accuracy: 10,
+        latitude: 16.4638,
+        longitude: 80.5072,
+        accuracy: 8,
         timestamp: new Date().toISOString()
       },
       partner: order.deliveryPartner

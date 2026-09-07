@@ -26,15 +26,15 @@ import {
   sendDeliveryLocation 
 } from '../lib/api';
 
-// SRM-AP Campus Coordinates
+// Real SRM-AP Campus Coordinates (Neerukonda, Amaravati, AP: 16.4631° N, 80.5065° E)
 const CAMPUS_POINTS = {
-  'local-home-kitchen': [16.5175, 80.5215],
-  'campus-delight-dhaba': [16.5170, 80.5220],
-  'default-kitchen': [16.5172, 80.5210],
-  'hostel-b': [16.5165, 80.5200],
-  'hostel-c': [16.5160, 80.5195],
-  'hostel-a': [16.5155, 80.5190],
-  'default-destination': [16.5160, 80.5195]
+  'local-home-kitchen': [16.4638, 80.5072], // Central Dining Block
+  'campus-delight-dhaba': [16.4645, 80.5080], // North Food Court
+  'default-kitchen': [16.4638, 80.5072],
+  'hostel-a': [16.4618, 80.5050], // Ganga Hostel Block
+  'hostel-b': [16.4612, 80.5055], // Yamuna Hostel Block
+  'hostel-c': [16.4608, 80.5060], // Krishna Hostel Block
+  'default-destination': [16.4612, 80.5055]
 };
 
 // Generate 10 smooth waypoints between start and end
