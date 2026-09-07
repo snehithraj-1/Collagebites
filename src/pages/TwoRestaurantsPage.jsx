@@ -72,11 +72,11 @@ export default function TwoRestaurantsPage({ onSelectRestaurant }) {
                 Campus Delivery Partners Active
               </h3>
               <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase tracking-wider">
-                Live GPS
+                Doorstep Drop
               </span>
             </div>
             <p className="text-xs text-[#64748B] mt-0.5">
-              Assigned orders & live satellite location tracking across SRM-AP hostel gates.
+              Fast delivery from Neerukonda Village kitchens directly to your SRM-AP hostel blocks.
             </p>
           </div>
         </div>
