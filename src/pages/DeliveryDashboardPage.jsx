@@ -23,7 +23,8 @@ import {
   Smartphone,
   HelpCircle,
   X,
-  Target
+  Target,
+  Radio
 } from 'lucide-react';
 import { 
   getDeliveryOrders, 
@@ -32,11 +33,12 @@ import {
 } from '../lib/api';
 import DeliveryTrackingMap from '../components/DeliveryTrackingMap';
 
-// Real SRM-AP Campus Coordinates (Neerukonda, Amaravati, AP: 16.4631° N, 80.5065° E)
+// Exact Verified Coordinates from Google Maps (https://maps.app.goo.gl/AFSw8xGrMji3TbDJ9)
+// Local Home Kitchen: Beside Ayyappa PG Hostel, Neerukonda Village (16.457955° N, 80.494493° E)
 const CAMPUS_POINTS = {
-  'local-home-kitchen': [16.4638, 80.5072], // Central Dining Block
+  'local-home-kitchen': [16.457955, 80.494493], // Real Verified Restaurant Location
   'campus-delight-dhaba': [16.4645, 80.5080], // North Food Court
-  'default-kitchen': [16.4638, 80.5072],
+  'default-kitchen': [16.457955, 80.494493],
   'hostel-a': [16.4618, 80.5050], // Ganga Hostel Block
   'hostel-b': [16.4612, 80.5055], // Yamuna Hostel Block
   'hostel-c': [16.4608, 80.5060], // Krishna Hostel Block
@@ -45,7 +47,8 @@ const CAMPUS_POINTS = {
 
 // Real SRM-AP Campus Landmarks for 1-Tap Pinpoint Positioning
 const CAMPUS_LANDMARKS = [
-  { id: 'kitchen', name: 'Central Dining', icon: '🍳', subtitle: 'Kitchen Pickup', coords: [16.4638, 80.5072] },
+  { id: 'local-kitchen', name: 'Local Home Kitchen', icon: '🍳', subtitle: 'Neerukonda (Real Restaurant)', coords: [16.457955, 80.494493] },
+  { id: 'dining-court', name: 'Central Dining Court', icon: '🍲', subtitle: 'Academic Block', coords: [16.4638, 80.5072] },
   { id: 'academic', name: 'Academic Block 1', icon: '🏫', subtitle: 'Lecture Complex', coords: [16.4635, 80.5065] },
   { id: 'library', name: 'Central Library', icon: '📚', subtitle: 'Study Commons', coords: [16.4640, 80.5058] },
   { id: 'admin', name: 'Admin Block', icon: '🏢', subtitle: 'University Center', coords: [16.4648, 80.5062] },
@@ -60,8 +63,8 @@ function generateRouteWaypoints(startCoord, endCoord, count = 10) {
   const waypoints = [];
   for (let i = 0; i <= count; i++) {
     const t = i / count;
-    // Slight curve to simulate campus pathways
-    const curveOffset = Math.sin(t * Math.PI) * 0.0003;
+    // Slight curve to simulate road pathway from Neerukonda to Campus
+    const curveOffset = Math.sin(t * Math.PI) * 0.0004;
     const lat = startCoord[0] + (endCoord[0] - startCoord[0]) * t + curveOffset;
     const lng = startCoord[1] + (endCoord[1] - startCoord[1]) * t;
     waypoints.push({
@@ -81,17 +84,18 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
   const [isUpdating, setIsUpdating] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // GPS Tracking State
+  // GPS Tracking State - Defaults to REAL PHONE GPS (false) for real tracking
   const [isGpsActive, setIsGpsActive] = useState(false);
   const [gpsError, setGpsError] = useState(null);
   const [currentCoords, setCurrentCoords] = useState(null);
   const [lastPingTime, setLastPingTime] = useState(null);
   const [pingSuccessCount, setPingSuccessCount] = useState(0);
-  const [simulationMode, setSimulationMode] = useState(true); // Default ON for reliable campus testing
+  const [simulationMode, setSimulationMode] = useState(false); // REAL PHONE GPS BY DEFAULT!
   const [simStepIndex, setSimStepIndex] = useState(0);
   const [isGpsModalOpen, setIsGpsModalOpen] = useState(false);
 
   const watchIdRef = useRef(null);
+  const generalWatcherRef = useRef(null);
   const simTimerRef = useRef(null);
   const lastSentTimeRef = useRef(0);
   const waypointsRef = useRef([]);
@@ -107,6 +111,32 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
     else if (loc.includes('block c')) end = CAMPUS_POINTS['hostel-c'];
     return { start, end };
   }, []);
+
+  // Send Location to Neon backend
+  const transmitLocation = useCallback(async (targetOrderId, lat, lng, acc = 5, force = false) => {
+    const now = Date.now();
+    if (!force && now - lastSentTimeRef.current < 2000) return; // Throttle 2s
+    lastSentTimeRef.current = now;
+
+    try {
+      const recorded = await sendDeliveryLocation({
+        orderId: targetOrderId,
+        deliveryPartnerId: partner.id,
+        latitude: lat,
+        longitude: lng,
+        accuracy: acc
+      });
+
+      setCurrentCoords({ latitude: lat, longitude: lng, accuracy: acc });
+      setLastPingTime(new Date());
+      setPingSuccessCount(prev => prev + 1);
+      setGpsError(null);
+      return recorded;
+    } catch (err) {
+      console.warn('[DeliveryDashboard] Location ping failed:', err.message);
+      setGpsError(`Broadcast issue: ${err.message}`);
+    }
+  }, [partner?.id]);
 
   // 1. Fetch assigned orders from Neon
   const fetchOrders = useCallback(async (isSilent = false) => {
@@ -148,33 +178,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
     setIsGpsActive(false);
   }, []);
 
-  // 3. Send Location to backend
-  const transmitLocation = async (targetOrderId, lat, lng, acc = 5, force = false) => {
-    const now = Date.now();
-    if (!force && now - lastSentTimeRef.current < 2000) return; // Throttle 2s
-    lastSentTimeRef.current = now;
-
-    try {
-      const recorded = await sendDeliveryLocation({
-        orderId: targetOrderId,
-        deliveryPartnerId: partner.id,
-        latitude: lat,
-        longitude: lng,
-        accuracy: acc
-      });
-
-      setCurrentCoords({ latitude: lat, longitude: lng, accuracy: acc });
-      setLastPingTime(new Date());
-      setPingSuccessCount(prev => prev + 1);
-      setGpsError(null);
-      return recorded;
-    } catch (err) {
-      console.warn('[DeliveryDashboard] Location ping failed:', err.message);
-      setGpsError(`Broadcast issue: ${err.message}`);
-    }
-  };
-
-  // 4. Start GPS Broadcast (Simulation or Real Hardware Geolocation)
+  // 3. Start GPS Broadcast (Real Phone Hardware Satellite GNSS or Simulation)
   const startGpsBroadcast = useCallback((targetOrderId) => {
     stopGpsBroadcast();
     setIsGpsActive(true);
@@ -200,35 +204,39 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
       return;
     }
 
-    // Mode B: Real Browser Geolocation API
+    // Mode B: REAL PHONE HARDWARE SATELLITE GPS
     try {
-      // First immediate position
+      // 1. Immediate position fix
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude, accuracy } = pos.coords;
+          setCurrentCoords({ latitude, longitude, accuracy });
           transmitLocation(targetOrderId, latitude, longitude, accuracy, true);
         },
         (err) => {
           console.warn('Initial geolocation error:', err.message);
           if (err.code === 1) {
-            setGpsError('Location access blocked in browser. Switch to Campus Landmarks or Simulation mode.');
+            setGpsError('⚠️ Location permission denied! Please tap the lock icon in your browser URL bar and allow Location access.');
+          } else if (err.code === 2) {
+            setGpsError('⚠️ GPS position unavailable. Ensure device Location / GPS is turned ON in phone settings.');
+          } else if (err.code === 3) {
+            setGpsError('📡 Searching for satellite GPS lock... Step outside or near a window.');
           }
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
 
+      // 2. Continuous real-time phone tracking
       watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
           const { latitude, longitude, accuracy } = pos.coords;
+          setCurrentCoords({ latitude, longitude, accuracy });
           transmitLocation(targetOrderId, latitude, longitude, accuracy);
         },
         (err) => {
           console.warn('Geolocation watch error:', err.message);
           if (err.code === 1) {
-            setGpsError('Location permission denied. Use Landmark buttons or Simulation Mode.');
-          } else if (err.code === 3) {
-            // Keep watch active without disabling
-            console.warn('Waiting for satellite fix...');
+            setGpsError('⚠️ Location access blocked. Please enable Location in browser.');
           }
         },
         {
@@ -240,7 +248,40 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
     } catch (e) {
       setGpsError(`GPS unsupported: ${e.message}`);
     }
-  }, [simulationMode, simStepIndex, stopGpsBroadcast]);
+  }, [simulationMode, simStepIndex, stopGpsBroadcast, transmitLocation]);
+
+  // CONTINUOUS PHONE GPS WATCHER (Runs immediately on mount so courier's real position is visible on map)
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    // Acquire initial fix
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setCurrentCoords({ latitude, longitude, accuracy });
+      },
+      (err) => {
+        console.warn('Initial phone GPS check:', err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+
+    // Watch position continuously
+    generalWatcherRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setCurrentCoords({ latitude, longitude, accuracy });
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+
+    return () => {
+      if (generalWatcherRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(generalWatcherRef.current);
+      }
+    };
+  }, []);
 
   // Initial load and 5s polling for new assignments
   useEffect(() => {
@@ -257,9 +298,9 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
     };
   }, [fetchOrders, stopGpsBroadcast]);
 
-  // Auto-resume GPS if active order is OUT_FOR_DELIVERY on reload
+  // Auto-resume GPS if active order is in transit on reload
   useEffect(() => {
-    if (activeOrder && activeOrder.status === 'OUT_FOR_DELIVERY' && !isGpsActive) {
+    if (activeOrder && ['PICKED_UP', 'OUT_FOR_DELIVERY'].includes(activeOrder.status) && !isGpsActive) {
       startGpsBroadcast(activeOrder.id);
     }
   }, [activeOrder?.status, isGpsActive, startGpsBroadcast]);
@@ -276,24 +317,32 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
     transmitLocation(activeOrder.id, nextPt.lat, nextPt.lng, 4, true);
   };
 
-  // Manual Instant Ping Now
+  // Manual Instant Ping Now (Forces immediate broadcast of phone's GPS)
   const handleManualPingNow = () => {
     if (!activeOrder) return;
     if (currentCoords) {
       transmitLocation(activeOrder.id, currentCoords.latitude, currentCoords.longitude, currentCoords.accuracy || 4, true);
-    } else if (waypointsRef.current.length > 0) {
-      const pt = waypointsRef.current[simStepIndex % waypointsRef.current.length];
-      transmitLocation(activeOrder.id, pt.lat, pt.lng, 4, true);
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude, accuracy } = pos.coords;
+          setCurrentCoords({ latitude, longitude, accuracy });
+          transmitLocation(activeOrder.id, latitude, longitude, accuracy, true);
+        },
+        (err) => alert(`GPS Error: ${err.message}`),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
     }
   };
 
-  // 5. Action Handlers for Delivery Partner Workflow
+  // Workflow Handlers
   const handlePickUpOrder = async () => {
     if (!activeOrder || isUpdating) return;
     setIsUpdating(true);
 
     try {
       await updateDeliveryOrderStatus(activeOrder.id, 'PICKED_UP', partner.id);
+      startGpsBroadcast(activeOrder.id);
       await fetchOrders(true);
     } catch (err) {
       alert(`Error: ${err.message}`);
@@ -366,7 +415,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
               title="How to Get Perfect GPS"
             >
               <Smartphone size={13} className="text-blue-400" />
-              <span className="hidden sm:inline">GPS Accuracy Guide</span>
+              <span className="hidden sm:inline">GPS Guide</span>
             </button>
 
             <button
@@ -465,7 +514,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                 {isGpsActive ? (
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                    <span>Live GPS Active</span>
+                    <span>Live GPS Broadcasting</span>
                     <span className="text-[10px] text-emerald-400/80 font-mono">
                       (Pings: {pingSuccessCount})
                     </span>
@@ -473,7 +522,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                 ) : (
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold">
                     <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    <span>GPS Idle / Paused</span>
+                    <span>GPS Idle</span>
                   </div>
                 )}
               </div>
@@ -488,11 +537,14 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                   <span>1. Pickup From Kitchen</span>
                 </div>
                 <div className="text-sm font-extrabold text-white">
-                  {activeOrder.restaurantName || activeOrder.restaurant_name}
+                  {activeOrder.restaurantName || activeOrder.restaurant_name || 'Local Home Kitchen'}
                 </div>
                 <p className="text-xs text-slate-400">
-                  Central Dining Court, Ground Floor, Academic Block
+                  Beside Ayyappa PG Hostel, Neerukonda Village
                 </p>
+                <div className="text-[10px] text-[#FF8A65] font-mono">
+                  📍 16.457955, 80.494493 (Google Maps Verified)
+                </div>
               </div>
 
               {/* Student Drop */}
@@ -521,28 +573,18 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
               </div>
             </div>
 
-            {/* Order Items Summary */}
-            <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 relative z-10 space-y-2">
-              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Items to Deliver ({activeOrder.items?.length || 0})
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs">
-                {activeOrder.items?.map((item, i) => (
-                  <span key={i} className="px-2.5 py-1 rounded-lg bg-slate-700/80 text-white font-medium">
-                    {item.name || item.item_name} × {item.qty || item.quantity || 1}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* LIVE GPS BROADCAST TELEMETRY & CONTROLS */}
+            {/* LIVE GPS BROADCAST TELEMETRY & ENGINE TOGGLE */}
             <div className="p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 space-y-3 relative z-10">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <Compass size={16} className="text-[#FF5722]" />
-                  <span className="font-bold text-xs text-white">Tracking Engine:</span>
-                  <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-[#FF8A65] font-mono text-[11px] font-bold border border-slate-700">
-                    {simulationMode ? 'Campus Simulated GPS (SRM-AP)' : 'Real Device Geolocation API'}
+                  <Radio size={16} className={simulationMode ? 'text-indigo-400' : 'text-emerald-400 animate-pulse'} />
+                  <span className="font-bold text-xs text-white">Active Location Source:</span>
+                  <span className={`px-2.5 py-0.5 rounded-lg font-mono text-[11px] font-bold border ${
+                    simulationMode 
+                      ? 'bg-slate-900 text-indigo-300 border-indigo-500/40' 
+                      : 'bg-emerald-950 text-emerald-300 border-emerald-500/40'
+                  }`}>
+                    {simulationMode ? 'Campus Simulator Route 📍' : '📱 Real Phone Satellite GPS'}
                   </span>
                 </div>
 
@@ -554,13 +596,14 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                       setSimulationMode(next);
                       if (isGpsActive) startGpsBroadcast(activeOrder.id);
                     }}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-                      simulationMode 
-                        ? 'bg-[#FF5722]/20 border-[#FF5722] text-[#FF8A65]' 
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      !simulationMode 
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-500/20' 
                         : 'bg-slate-700 border-slate-600 text-slate-300 hover:text-white'
                     }`}
                   >
-                    {simulationMode ? 'Sim Mode Active 📍' : 'Use Real GPS 📡'}
+                    <Smartphone size={13} />
+                    <span>{simulationMode ? 'Switch to Phone GPS 📡' : 'Phone GPS Active ✅'}</span>
                   </button>
                 </div>
               </div>
@@ -569,11 +612,11 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-700/60 text-xs font-mono">
                 <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-800">
                   <span className="text-[10px] text-slate-400 block font-sans">Latitude</span>
-                  <span className="text-white font-bold">{currentCoords?.latitude?.toFixed(5) || '16.46380'}</span>
+                  <span className="text-white font-bold">{currentCoords?.latitude?.toFixed(5) || '16.45795'}</span>
                 </div>
                 <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-800">
                   <span className="text-[10px] text-slate-400 block font-sans">Longitude</span>
-                  <span className="text-white font-bold">{currentCoords?.longitude?.toFixed(5) || '80.50720'}</span>
+                  <span className="text-white font-bold">{currentCoords?.longitude?.toFixed(5) || '80.49449'}</span>
                 </div>
                 <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-800">
                   <span className="text-[10px] text-slate-400 block font-sans">GPS Accuracy</span>
@@ -582,14 +625,14 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                     currentCoords.accuracy <= 15 ? 'text-emerald-400' :
                     currentCoords.accuracy <= 50 ? 'text-amber-400' : 'text-rose-400'
                   }`}>
-                    {!currentCoords ? 'Ready' :
+                    {!currentCoords ? 'Locating...' :
                      currentCoords.accuracy <= 15 ? `±${Math.round(currentCoords.accuracy)}m (Satellite)` :
                      currentCoords.accuracy <= 50 ? `±${Math.round(currentCoords.accuracy)}m (Wi-Fi)` :
-                     `±${Math.round(currentCoords.accuracy)}m (PC/IP)`}
+                     `±${Math.round(currentCoords.accuracy)}m (IP/Approx)`}
                   </span>
                 </div>
                 <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block font-sans">Last Transmit</span>
+                  <span className="text-[10px] text-slate-400 block font-sans">Last Broadcast</span>
                   <span className="text-amber-300 font-bold">
                     {lastPingTime ? lastPingTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Ready'}
                   </span>
@@ -606,7 +649,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                       className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
                     >
                       <Pause size={13} />
-                      <span>Pause Broadcasting</span>
+                      <span>Pause Broadcast</span>
                     </button>
                   ) : (
                     <button
@@ -615,7 +658,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                       className="px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
                     >
                       <Play size={13} />
-                      <span>Resume Broadcasting</span>
+                      <span>Start Broadcast</span>
                     </button>
                   )}
 
@@ -623,10 +666,10 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                     type="button"
                     onClick={handleManualPingNow}
                     className="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
-                    title="Send an immediate coordinate ping to Neon"
+                    title="Send current phone coordinate ping to Neon"
                   >
                     <Send size={12} />
-                    <span>Ping Now</span>
+                    <span>Ping Phone GPS Now</span>
                   </button>
                 </div>
 
@@ -651,17 +694,17 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
               </div>
             )}
 
-            {/* INTERACTIVE CAMPUS MAP & PIN DRAGGING */}
+            {/* LIVE CAMPUS MAP & RESTAURANT PIN */}
             <div className="space-y-2 relative z-10">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Target size={14} className="text-[#FF5722]" />
                   <span className="text-xs font-black text-white uppercase tracking-wider font-['Outfit']">
-                    Live Campus Courier Map
+                    Live Campus Map (Restaurant to Student)
                   </span>
                 </div>
                 <span className="text-[11px] text-slate-400">
-                  Tap map or drag 🛵 to position pin
+                  Tap map or drag 🛵 to manually position
                 </span>
               </div>
 
@@ -671,8 +714,8 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                   longitude: CAMPUS_POINTS['default-kitchen'][1], 
                   accuracy: 4 
                 }}
-                restaurantId={activeOrder.restaurantId}
-                restaurantName={activeOrder.restaurantName || activeOrder.restaurant_name}
+                restaurantId={activeOrder.restaurantId || 'local-home-kitchen'}
+                restaurantName={activeOrder.restaurantName || activeOrder.restaurant_name || 'Local Home Kitchen'}
                 deliveryLocation={activeOrder.deliveryLocation}
                 partnerName={partner?.name}
                 status={activeOrder.status}
@@ -688,14 +731,14 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                   <MapPin size={13} className="text-[#FF5722]" />
-                  <span>1-Tap Landmark Teleport (100% Exact Coordinates)</span>
+                  <span>1-Tap Landmark Teleport (Exact Coordinates)</span>
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono">
-                  SRM-AP Campus
+                  Neerukonda & SRM-AP
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {CAMPUS_LANDMARKS.map((landmark) => (
                   <button
                     key={landmark.id}
@@ -728,7 +771,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                   className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:brightness-110 text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-blue-600/30 transition-all cursor-pointer border-none flex items-center justify-center gap-2"
                 >
                   {isUpdating ? <RefreshCw size={18} className="animate-spin" /> : <Package size={18} />}
-                  <span>PICK UP ORDER FROM KITCHEN</span>
+                  <span>PICK UP ORDER FROM LOCAL HOME KITCHEN</span>
                 </button>
               )}
 
@@ -739,7 +782,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                   className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF5722] to-[#FF7A50] hover:brightness-110 text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-[#FF5722]/30 transition-all cursor-pointer border-none flex items-center justify-center gap-2 animate-pulse"
                 >
                   {isUpdating ? <RefreshCw size={18} className="animate-spin" /> : <Truck size={18} />}
-                  <span>START DELIVERY (BROADCAST GPS)</span>
+                  <span>START DELIVERY (BROADCAST PHONE GPS)</span>
                 </button>
               )}
 
@@ -764,7 +807,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
             <div>
               <h2 className="text-xl font-bold text-white font-['Outfit']">No Active Deliveries</h2>
               <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                You are currently available. When a campus manager assigns a ready order to you, it will appear here automatically.
+                You are currently available. When a manager assigns a ready order to you, it will appear here automatically.
               </p>
             </div>
             <button
@@ -837,8 +880,8 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                   📍
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-base text-white font-['Outfit']">How to Get 100% Perfect GPS Location</h3>
-                  <p className="text-[11px] text-slate-400">Understanding hardware GPS vs Wi-Fi estimates</p>
+                  <h3 className="font-extrabold text-base text-white font-['Outfit']">How Phone GPS Tracking Works</h3>
+                  <p className="text-[11px] text-slate-400">Live satellite telemetry from delivery partner phone</p>
                 </div>
               </div>
               <button
@@ -850,60 +893,45 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
               </button>
             </div>
 
-            {/* 1. Hardware Difference */}
             <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
-              <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-                <AlertCircle size={14} />
-                <span>Why Laptops/PCs Give Inaccurate or Static Locations</span>
+              <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                <Smartphone size={14} />
+                <span>Phone GPS is Active by Default</span>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Laptops and desktop computers <strong>do not have satellite GPS hardware chips</strong>. Windows guesses your position based on nearby Wi-Fi network IDs (BSSID) or your internet provider's IP address. This can be off by 100 meters to several kilometers and never moves while you are at your desk.
+                When you open this Delivery Dashboard on your phone, the app directly accesses your phone's hardware satellite GPS receiver. As you drive or walk between <strong>Local Home Kitchen</strong> in Neerukonda and the <strong>Campus Hostels</strong>, your position updates automatically every 2 seconds.
               </p>
             </div>
 
-            {/* 2. Three Ways to Test with Pinpoint Accuracy */}
             <div className="space-y-3 text-xs">
               <div className="font-bold text-white uppercase tracking-wider text-[11px]">
-                3 Ways to Get Perfect Pinpoint Accuracy:
+                Troubleshooting Phone Tracking:
               </div>
 
-              {/* Method A: Mobile Phone */}
               <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-1.5">
-                <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-                  <span>📱 Method 1: Real Mobile Phone GPS (Satellite GNSS)</span>
+                <div className="font-bold text-amber-400 flex items-center gap-1.5">
+                  <span>1. Check Browser Location Permissions</span>
                 </div>
                 <p className="text-slate-300 leading-relaxed">
-                  Smartphones contain real satellite GPS chips with <strong>3–5 meter accuracy</strong>:
+                  Tap the <strong>🔒 lock or tune icon</strong> in your mobile browser address bar (next to <code className="text-slate-200">collagebites.vercel.app</code>) → Tap <strong>Permissions</strong> → Set <strong>Location</strong> to <strong>Allow</strong>.
                 </p>
-                <ol className="list-decimal list-inside text-slate-400 space-y-1 pl-1">
-                  <li>Deploy your app to Vercel/Render (HTTPS is required for mobile browsers).</li>
-                  <li>Open the URL on your Android or iPhone browser.</li>
-                  <li>Switch to the <strong>Delivery Dashboard</strong> and tap "Allow Location".</li>
-                  <li>As you walk or ride on campus, your live satellite coordinates broadcast every 2-3 seconds!</li>
-                </ol>
               </div>
 
-              {/* Method B: 1-Tap Landmarks & Map Drag */}
               <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-1.5">
                 <div className="font-bold text-blue-400 flex items-center gap-1.5">
-                  <span>🗺️ Method 2: Tap Map or Click Landmark Buttons (Instant Precision)</span>
+                  <span>2. Turn On Phone Location / GPS</span>
                 </div>
                 <p className="text-slate-300 leading-relaxed">
-                  Use the built-in campus tools in this dashboard:
+                  Pull down your phone's notification shade and ensure <strong>Location / GPS</strong> is turned ON with "High Accuracy" enabled.
                 </p>
-                <ul className="list-disc list-inside text-slate-400 space-y-1 pl-1">
-                  <li>Click any button in <strong>1-Tap Landmark Teleport</strong> (Central Dining, Ganga Hostel, Library, etc.) to immediately place the courier at that exact building.</li>
-                  <li>Click anywhere on the <strong>Live Campus Map</strong> or drag the 🛵 scooter pin to set custom coordinates with 100% precision.</li>
-                </ul>
               </div>
 
-              {/* Method C: Chrome Sensors */}
               <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-1.5">
-                <div className="font-bold text-purple-400 flex items-center gap-1.5">
-                  <span>💻 Method 3: Chrome DevTools Geolocation Simulator</span>
+                <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                  <span>3. Tap "Ping Phone GPS Now"</span>
                 </div>
                 <p className="text-slate-300 leading-relaxed">
-                  Press <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono text-[10px]">F12</kbd> &gt; Press <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono text-[10px]">Ctrl+Shift+P</kbd> &gt; Type <strong>Show Sensors</strong> &gt; Select "Custom Location" to feed exact coordinates right from your computer!
+                  Tap the <strong>"Ping Phone GPS Now"</strong> button on the dashboard to force an immediate satellite broadcast of your phone's coordinates to Neon.
                 </p>
               </div>
             </div>
@@ -914,7 +942,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                 onClick={() => setIsGpsModalOpen(false)}
                 className="px-5 py-2 rounded-xl bg-[#FF5722] hover:bg-[#FF7A50] text-white font-bold text-xs cursor-pointer border-none shadow-md shadow-[#FF5722]/30"
               >
-                Got It, Thanks!
+                Close Guide
               </button>
             </div>
           </div>

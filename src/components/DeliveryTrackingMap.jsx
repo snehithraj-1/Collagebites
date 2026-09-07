@@ -17,11 +17,12 @@ import {
   Maximize2
 } from 'lucide-react';
 
-// Real SRM-AP Campus Coordinates (Neerukonda, Amaravati: 16.4631° N, 80.5065° E)
+// Exact Verified Coordinates from Google Maps (https://maps.app.goo.gl/AFSw8xGrMji3TbDJ9)
+// Local Home Kitchen: Beside Ayyappa PG Hostel, Neerukonda Village (16.457955° N, 80.494493° E)
 const CAMPUS_LOCATIONS = {
-  'local-home-kitchen': [16.4638, 80.5072], // Central Dining Block
+  'local-home-kitchen': [16.457955, 80.494493], // Real Local Home Kitchen location
   'campus-delight-dhaba': [16.4645, 80.5080], // North Food Court
-  'default-kitchen': [16.4638, 80.5072],
+  'default-kitchen': [16.457955, 80.494493],
   'hostel-a': [16.4618, 80.5050], // Ganga Hostel Block
   'hostel-b': [16.4612, 80.5055], // Yamuna Hostel Block
   'hostel-c': [16.4608, 80.5060], // Krishna Hostel Block
@@ -82,7 +83,7 @@ function resolveKitchenCoords(restaurantId) {
 export default function DeliveryTrackingMap({
   partnerLocation, // { latitude/lat, longitude/lng, accuracy, timestamp }
   restaurantId,
-  restaurantName,
+  restaurantName = 'Local Home Kitchen',
   deliveryLocation,
   partnerName = 'Campus Courier',
   status = 'OUT_FOR_DELIVERY',
@@ -136,11 +137,11 @@ export default function DeliveryTrackingMap({
   // Extract coordinates cleanly
   const rawLat = partnerLocation?.latitude ?? partnerLocation?.lat;
   const rawLng = partnerLocation?.longitude ?? partnerLocation?.lng;
-  const rawAcc = partnerLocation?.accuracy ?? 8;
+  const rawAcc = partnerLocation?.accuracy ?? 6;
 
   const partnerLat = rawLat ? parseFloat(rawLat) : kitchenCoords[0];
   const partnerLng = rawLng ? parseFloat(rawLng) : kitchenCoords[1];
-  const accuracy = rawAcc ? Math.max(4, Math.min(parseFloat(rawAcc), 50)) : 8;
+  const accuracy = rawAcc ? Math.max(3, Math.min(parseFloat(rawAcc), 50)) : 6;
 
   // Real-time distance and ETA
   const distanceToDestMeters = calculateDistanceMeters(partnerLat, partnerLng, destCoords[0], destCoords[1]);
@@ -176,6 +177,18 @@ export default function DeliveryTrackingMap({
     } else if (googleMapRef.current) {
       googleMapRef.current.panTo({ lat: partnerLat, lng: partnerLng });
       googleMapRef.current.setZoom(17);
+    }
+  };
+
+  // Zoom to fit entire trip (Kitchen + Courier + Destination)
+  const handleFitTrip = () => {
+    if (leafletMapRef.current) {
+      const bounds = L.latLngBounds([
+        [partnerLat, partnerLng],
+        destCoords,
+        kitchenCoords
+      ]);
+      leafletMapRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
     }
   };
 
@@ -224,7 +237,7 @@ export default function DeliveryTrackingMap({
     if (!googleMapRef.current) {
       const gMap = new window.google.maps.Map(googleContainerRef.current, {
         center: { lat: partnerLat, lng: partnerLng },
-        zoom: 17,
+        zoom: 16,
         mapTypeId: 'roadmap',
         mapTypeControl: true,
         streetViewControl: false,
@@ -234,7 +247,7 @@ export default function DeliveryTrackingMap({
       googleKitchenMarkerRef.current = new window.google.maps.Marker({
         position: { lat: kitchenCoords[0], lng: kitchenCoords[1] },
         map: gMap,
-        title: restaurantName || 'Kitchen Pickup',
+        title: restaurantName || 'Local Home Kitchen',
         label: { text: '🍳', fontSize: '18px' }
       });
 
@@ -286,6 +299,12 @@ export default function DeliveryTrackingMap({
       if (googlePartnerMarkerRef.current) {
         googlePartnerMarkerRef.current.setPosition({ lat: partnerLat, lng: partnerLng });
       }
+      if (googleKitchenMarkerRef.current) {
+        googleKitchenMarkerRef.current.setPosition({ lat: kitchenCoords[0], lng: kitchenCoords[1] });
+      }
+      if (googleDestMarkerRef.current) {
+        googleDestMarkerRef.current.setPosition({ lat: destCoords[0], lng: destCoords[1] });
+      }
       if (googlePolylineRef.current) {
         googlePolylineRef.current.setPath([
           { lat: kitchenCoords[0], lng: kitchenCoords[1] },
@@ -322,7 +341,7 @@ export default function DeliveryTrackingMap({
     if (!leafletMapRef.current) {
       const map = L.map(leafletContainerRef.current, {
         center: [partnerLat, partnerLng],
-        zoom: 17,
+        zoom: 16,
         zoomControl: false,
         attributionControl: false
       });
@@ -355,10 +374,10 @@ export default function DeliveryTrackingMap({
             destCoords,
             kitchenCoords
           ]);
-          map.fitBounds(bounds, { padding: [45, 45], maxZoom: 17 });
+          map.fitBounds(bounds, { padding: [55, 55], maxZoom: 17 });
           hasFittedInitialLeafletRef.current = true;
         } catch (e) {}
-      }, 200);
+      }, 250);
 
       return () => {
         clearTimeout(t);
@@ -384,7 +403,7 @@ export default function DeliveryTrackingMap({
   }, [mapLayer, interactive, onLocationUpdate]);
 
   // -------------------------------------------------------------
-  // 4. LEAFLET MARKERS & ROUTE UPDATES (Smooth Glide)
+  // 4. LEAFLET MARKERS & ROUTE UPDATES (Smooth Glide & Prominent Badges)
   // -------------------------------------------------------------
   useEffect(() => {
     if (mapLayer === 'google-sdk') return;
@@ -395,31 +414,57 @@ export default function DeliveryTrackingMap({
     const destLatLng = destCoords;
     const kitchenLatLng = kitchenCoords;
 
-    // Kitchen Marker
+    const displayRestaurantName = restaurantName || 'Local Home Kitchen';
+    const displayDestName = deliveryLocation || 'Student Hostel';
+    const displayPartnerName = partnerName || 'Campus Courier';
+
+    // 1. Kitchen Marker with Permanent Name Badge
+    const kitchenIcon = L.divIcon({
+      className: 'custom-kitchen-marker',
+      html: `
+        <div style="display: flex; flex-direction: column; align-items: center; pointer-events: auto; transform: translate(-50%, -100%);">
+          <div style="background: #0F172A; color: white; padding: 5px 12px; border-radius: 14px; font-size: 11px; font-weight: 800; border: 2px solid #FF5722; box-shadow: 0 4px 16px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+            <span style="font-size: 15px;">🍳</span>
+            <span>${displayRestaurantName}</span>
+          </div>
+          <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #FF5722;"></div>
+        </div>
+      `,
+      iconSize: [0, 0],
+      iconAnchor: [0, 0]
+    });
+
     if (!kitchenMarkerRef.current) {
-      const kitchenIcon = L.divIcon({
-        className: 'custom-kitchen-marker',
-        html: `<div style="background: #0F172A; color: #FF5722; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">🍳</div>`,
-        iconSize: [34, 34],
-        iconAnchor: [17, 17]
-      });
       kitchenMarkerRef.current = L.marker(kitchenLatLng, { icon: kitchenIcon }).addTo(map);
-      kitchenMarkerRef.current.bindTooltip(restaurantName || 'Kitchen Pickup', { permanent: false, direction: 'top' });
+    } else {
+      kitchenMarkerRef.current.setIcon(kitchenIcon);
+      kitchenMarkerRef.current.setLatLng(kitchenLatLng);
     }
 
-    // Destination Marker
+    // 2. Destination Marker with Permanent Hostel Badge
+    const destIcon = L.divIcon({
+      className: 'custom-dest-marker',
+      html: `
+        <div style="display: flex; flex-direction: column; align-items: center; pointer-events: auto; transform: translate(-50%, -100%);">
+          <div style="background: #10B981; color: white; padding: 5px 12px; border-radius: 14px; font-size: 11px; font-weight: 800; border: 2px solid white; box-shadow: 0 4px 16px rgba(16,185,129,0.5); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+            <span style="font-size: 15px;">📍</span>
+            <span>${displayDestName}</span>
+          </div>
+          <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #10B981;"></div>
+        </div>
+      `,
+      iconSize: [0, 0],
+      iconAnchor: [0, 0]
+    });
+
     if (!destMarkerRef.current) {
-      const destIcon = L.divIcon({
-        className: 'custom-dest-marker',
-        html: `<div style="background: #10B981; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 2.5px solid white; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45);">📍</div>`,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18]
-      });
       destMarkerRef.current = L.marker(destLatLng, { icon: destIcon }).addTo(map);
-      destMarkerRef.current.bindTooltip(deliveryLocation || 'Student Hostel', { permanent: false, direction: 'top' });
+    } else {
+      destMarkerRef.current.setIcon(destIcon);
+      destMarkerRef.current.setLatLng(destLatLng);
     }
 
-    // Accuracy Circle
+    // 3. Accuracy Circle
     if (!accuracyCircleRef.current) {
       accuracyCircleRef.current = L.circle(partnerLatLng, {
         radius: accuracy,
@@ -434,17 +479,20 @@ export default function DeliveryTrackingMap({
       accuracyCircleRef.current.setRadius(accuracy);
     }
 
-    // Courier Marker (Draggable if interactive)
+    // 4. Courier Marker with Live Beacon & Label
     const partnerIcon = L.divIcon({
       className: 'custom-partner-marker',
       html: `
-        <div style="position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; cursor: ${interactive ? 'grab' : 'default'};">
-          <div style="position: absolute; width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 87, 34, 0.3); animation: pulse 1.5s infinite;"></div>
-          <div style="position: relative; background: #FF5722; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 19px; border: 2.5px solid white; box-shadow: 0 4px 16px rgba(255, 87, 34, 0.6);">🛵</div>
+        <div style="display: flex; flex-direction: column; align-items: center; pointer-events: auto; transform: translate(-50%, -100%); cursor: ${interactive ? 'grab' : 'default'};">
+          <div style="background: #FF5722; color: white; padding: 5px 12px; border-radius: 14px; font-size: 11px; font-weight: 800; border: 2.5px solid white; box-shadow: 0 4px 20px rgba(255,87,34,0.65); display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+            <span style="font-size: 16px;">🛵</span>
+            <span>${displayPartnerName}</span>
+          </div>
+          <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #FF5722;"></div>
         </div>
       `,
-      iconSize: [46, 46],
-      iconAnchor: [23, 23]
+      iconSize: [0, 0],
+      iconAnchor: [0, 0]
     });
 
     if (!partnerMarkerRef.current) {
@@ -471,7 +519,7 @@ export default function DeliveryTrackingMap({
       partnerMarkerRef.current.setLatLng(partnerLatLng);
     }
 
-    // Polyline Route
+    // 5. Polyline Route
     const routePoints = [kitchenLatLng, partnerLatLng, destLatLng];
     if (!routeLineRef.current) {
       routeLineRef.current = L.polyline(routePoints, {
@@ -484,15 +532,15 @@ export default function DeliveryTrackingMap({
       routeLineRef.current.setLatLngs(routePoints);
     }
 
-    // Initial fit
+    // Initial fit once
     if (!hasFittedInitialLeafletRef.current) {
       try {
         const bounds = L.latLngBounds([partnerLatLng, destLatLng, kitchenLatLng]);
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 17 });
+        map.fitBounds(bounds, { padding: [55, 55], maxZoom: 17 });
         hasFittedInitialLeafletRef.current = true;
       } catch (e) {}
     }
-  }, [mapLayer, partnerLat, partnerLng, accuracy, destCoords, kitchenCoords, restaurantName, deliveryLocation, interactive, onLocationUpdate]);
+  }, [mapLayer, partnerLat, partnerLng, accuracy, destCoords, kitchenCoords, restaurantName, deliveryLocation, partnerName, interactive, onLocationUpdate]);
 
   return (
     <div className="relative w-full rounded-3xl overflow-hidden border border-[#E2D9D0] shadow-card bg-slate-900 select-none">
@@ -555,6 +603,16 @@ export default function DeliveryTrackingMap({
             </button>
           </div>
 
+          {/* Fit Entire Trip Button */}
+          <button
+            type="button"
+            onClick={handleFitTrip}
+            className="w-8 h-8 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 flex items-center justify-center cursor-pointer shadow-lg"
+            title="View Full Trip (Restaurant to Hostel)"
+          >
+            <Maximize2 size={14} />
+          </button>
+
           {/* Re-center Button */}
           <button
             type="button"
@@ -606,14 +664,14 @@ export default function DeliveryTrackingMap({
       {mapLayer === 'google-sdk' && googleApiKey && isGoogleJsLoaded && !googleJsError ? (
         <div 
           ref={googleContainerRef} 
-          className="w-full h-72 sm:h-96 z-0 bg-[#0F172A]"
-          style={{ minHeight: '280px' }}
+          className="w-full h-80 sm:h-96 z-0 bg-[#0F172A]"
+          style={{ minHeight: '320px' }}
         />
       ) : (
         <div 
           ref={leafletContainerRef} 
-          className="w-full h-72 sm:h-96 z-0 bg-[#0F172A]"
-          style={{ minHeight: '280px' }}
+          className="w-full h-80 sm:h-96 z-0 bg-[#0F172A]"
+          style={{ minHeight: '320px' }}
         />
       )}
 
@@ -622,7 +680,7 @@ export default function DeliveryTrackingMap({
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#FF5722]" />
-            <span className="font-bold text-[#0F172A]">{partnerName}</span>
+            <span className="font-bold text-[#0F172A]">{restaurantName || 'Local Home Kitchen'}</span>
           </div>
           <span className="text-slate-300 hidden sm:inline">•</span>
           <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold font-mono">
@@ -636,7 +694,7 @@ export default function DeliveryTrackingMap({
 
         <div className="flex items-center gap-2 text-[11px]">
           <span className="text-slate-400">Hostel Drop:</span>
-          <strong className="text-[#0F172A]">{deliveryLocation || 'Campus Hostel'}</strong>
+          <strong className="text-[#0F172A]">{deliveryLocation || 'Student Hostel'}</strong>
         </div>
       </div>
 
@@ -659,7 +717,7 @@ export default function DeliveryTrackingMap({
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Google Roadmap & Google Satellite tiles are already streaming smoothly with zero API key required. If you have a paid Google Cloud Key for official JS SDK overlays, enter it below.
+              Google Roadmap & Google Satellite tiles are streaming directly from Google servers. If you have a paid Google Cloud Key for official JS SDK overlays, enter it below.
             </p>
 
             <form onSubmit={handleSaveApiKey} className="space-y-3">

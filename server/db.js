@@ -1029,14 +1029,14 @@ export async function getLatestDeliveryLocationFromDb(orderId) {
   `;
 
   if (rows.length === 0) {
-    // Return default campus kitchen origin coordinates (SRM-AP Central Dining) if partner hasn't pinged yet
+    // Return default origin coordinates (Local Home Kitchen, Neerukonda) if partner hasn't pinged yet
     return {
       active: true,
       status: order.status,
       location: {
-        latitude: 16.4638,
-        longitude: 80.5072,
-        accuracy: 8,
+        latitude: 16.457955,
+        longitude: 80.494493,
+        accuracy: 6,
         timestamp: new Date().toISOString()
       },
       partner: order.deliveryPartner
