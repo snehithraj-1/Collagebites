@@ -31,11 +31,12 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
     restaurantStatuses,
     toggleRestaurantStatus,
     orders,
+    advanceOrderStatus,
     cancelOrderByAdmin,
     deleteOrderByAdmin,
+    refreshCloudData,
     logout,
-    isNeonConnected,
-    syncWithNeon
+    isNeonConnected
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,14 +47,15 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
   // Modal state for viewing order details
   const [viewingOrder, setViewingOrder] = useState(null);
 
-  // Metrics Calculation
+  // Metrics Calculation (Phase 5 Lifecycle)
   const totalOrdersCount = orders.length;
-  const confirmedOrdersCount = orders.filter((o) => o.status === 'CONFIRMED').length;
-  const cancelledOrdersCount = orders.filter((o) => o.status === 'CANCELLED').length;
-  const pendingOrdersCount = orders.filter((o) => o.status === 'PENDING').length;
+  const pendingOrdersCount = orders.filter((o) => o.status === 'PENDING_CONFIRMATION').length;
+  const activeOrdersCount = orders.filter((o) => ['CONFIRMED', 'PREPARING', 'READY', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(o.status)).length;
+  const deliveredOrdersCount = orders.filter((o) => o.status === 'DELIVERED').length;
+  const cancelledOrdersCount = orders.filter((o) => ['CANCELLED', 'EXPIRED'].includes(o.status)).length;
   const totalRevenue = orders
-    .filter((o) => o.status === 'CONFIRMED')
-    .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    .filter((o) => !['CANCELLED', 'EXPIRED', 'PENDING_CONFIRMATION'].includes(o.status))
+    .reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0), 0);
 
   // Filtered Orders
   const filteredOrders = useMemo(() => {
@@ -66,7 +68,7 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
         (order.studentName && order.studentName.toLowerCase().includes(query)) ||
         (order.studentId && order.studentId.toLowerCase().includes(query)) ||
         (order.restaurantName && order.restaurantName.toLowerCase().includes(query)) ||
-        (order.items && order.items.some((i) => i.name.toLowerCase().includes(query)));
+        (order.items && order.items.some((i) => (i.name || i.item_name || '').toLowerCase().includes(query)));
 
       return matchStatus && matchSearch;
     });
@@ -335,18 +337,18 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
               </div>
 
               {/* Status Filter Buttons */}
-              <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-800 border border-slate-700">
-                {['ALL', 'CONFIRMED', 'CANCELLED', 'PENDING'].map((status) => (
+              <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-slate-800 border border-slate-700">
+                {['ALL', 'PENDING_CONFIRMATION', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'EXPIRED'].map((status) => (
                   <button
                     key={status}
                     onClick={() => setSelectedStatusFilter(status)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
                       selectedStatusFilter === status
                         ? 'bg-blue-600 text-white shadow-sm'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    {status}
+                    {status.replace('_', ' ')}
                   </button>
                 ))}
               </div>
@@ -380,9 +382,9 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
                   </tr>
                 ) : (
                   filteredOrders.map((order) => {
-                    const totalQty = order.items?.reduce((sum, item) => sum + item.qty, 0) || 1;
+                    const totalQty = order.items?.reduce((sum, item) => sum + (item.qty || item.quantity || 1), 0) || 1;
                     const itemsSummary = order.items
-                      ?.map((item) => `${item.name} (${item.qty})`)
+                      ?.map((item) => `${item.name} (${item.qty || item.quantity || 1})`)
                       .join(', ') || 'Item';
 
                     return (
@@ -396,7 +398,7 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
                         {/* Student Details */}
                         <td className="py-3.5 px-4">
                           <div className="font-bold text-white whitespace-nowrap">{order.studentName}</div>
-                          <div className="text-[11px] text-slate-400">{order.studentId} • {order.studentPhone}</div>
+                          <div className="text-[11px] text-slate-400">{order.studentId || 'ID N/A'} • {order.studentPhone}</div>
                         </td>
 
                         {/* Restaurant */}
@@ -426,44 +428,102 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
                           {order.orderTimeFormatted || (order.createdAt ? new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent')}
                         </td>
 
-                        {/* Order Status */}
+                        {/* Order Status (Phase 5 Badges) */}
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          {order.status === 'CONFIRMED' ? (
-                            <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-black uppercase tracking-wider">
+                          {order.status === 'PENDING_CONFIRMATION' ? (
+                            <span className="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] font-black uppercase tracking-wider">
+                              PENDING (30s)
+                            </span>
+                          ) : order.status === 'CONFIRMED' ? (
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] font-black uppercase tracking-wider">
                               CONFIRMED
                             </span>
-                          ) : order.status === 'CANCELLED' ? (
-                            <span className="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40 text-[11px] font-black uppercase tracking-wider" title={order.cancelledReason}>
-                              CANCELLED
+                          ) : order.status === 'PREPARING' ? (
+                            <span className="px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/40 text-[10px] font-black uppercase tracking-wider">
+                              PREPARING 🍳
+                            </span>
+                          ) : order.status === 'READY' ? (
+                            <span className="px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 text-[10px] font-black uppercase tracking-wider">
+                              READY 📦
+                            </span>
+                          ) : order.status === 'PICKED_UP' ? (
+                            <span className="px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/40 text-[10px] font-black uppercase tracking-wider">
+                              PICKED UP 🛵
+                            </span>
+                          ) : order.status === 'OUT_FOR_DELIVERY' ? (
+                            <span className="px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 text-[10px] font-black uppercase tracking-wider">
+                              ON THE WAY 🚚
+                            </span>
+                          ) : order.status === 'DELIVERED' ? (
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 text-[10px] font-black uppercase tracking-wider">
+                              DELIVERED ✅
+                            </span>
+                          ) : order.status === 'EXPIRED' ? (
+                            <span className="px-2.5 py-1 rounded-full bg-slate-700/60 text-slate-400 border border-slate-600 text-[10px] font-black uppercase tracking-wider" title={order.cancelledReason}>
+                              EXPIRED ⌛
                             </span>
                           ) : (
-                            <span className="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[11px] font-black uppercase tracking-wider">
-                              PENDING
+                            <span className="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40 text-[10px] font-black uppercase tracking-wider" title={order.cancelledReason}>
+                              CANCELLED ❌
                             </span>
                           )}
                         </td>
 
-                        {/* Actions: [Cancel Order], [Delete Order] */}
+                        {/* Actions: [Advance Status], [Cancel Order], [Delete Order] */}
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-2">
-                            {order.status !== 'CANCELLED' && (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Stage Stepper Buttons */}
+                            {order.status === 'CONFIRMED' && (
+                              <button
+                                onClick={() => advanceOrderStatus(order.id, 'PREPARING')}
+                                className="px-2 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 text-[11px] font-bold transition-colors cursor-pointer"
+                              >
+                                <span>🍳 Cook</span>
+                              </button>
+                            )}
+                            {order.status === 'PREPARING' && (
+                              <button
+                                onClick={() => advanceOrderStatus(order.id, 'READY')}
+                                className="px-2 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-[11px] font-bold transition-colors cursor-pointer"
+                              >
+                                <span>📦 Ready</span>
+                              </button>
+                            )}
+                            {order.status === 'READY' && (
+                              <button
+                                onClick={() => advanceOrderStatus(order.id, 'OUT_FOR_DELIVERY')}
+                                className="px-2 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-[11px] font-bold transition-colors cursor-pointer"
+                              >
+                                <span>🚚 Deliver</span>
+                              </button>
+                            )}
+                            {order.status === 'OUT_FOR_DELIVERY' && (
+                              <button
+                                onClick={() => advanceOrderStatus(order.id, 'DELIVERED')}
+                                className="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition-colors cursor-pointer"
+                              >
+                                <span>✅ Done</span>
+                              </button>
+                            )}
+
+                            {!['DELIVERED', 'CANCELLED', 'EXPIRED'].includes(order.status) && (
                               <button
                                 onClick={() => cancelOrderByAdmin(order.id)}
                                 title="Cancel Order"
-                                className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                                className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
                               >
-                                <Ban size={12} />
-                                <span>Cancel Order</span>
+                                <Ban size={11} />
+                                <span>Cancel</span>
                               </button>
                             )}
 
                             <button
                               onClick={() => setOrderToDelete(order)}
                               title="Delete Order"
-                              className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                              className="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
                             >
-                              <Trash2 size={12} />
-                              <span>Delete Order</span>
+                              <Trash2 size={11} />
+                              <span>Delete</span>
                             </button>
                           </div>
                         </td>

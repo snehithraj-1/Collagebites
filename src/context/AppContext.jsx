@@ -1,18 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { RESTAURANTS, INITIAL_ORDERS, CAMPUS_LOCATIONS } from '../data/campusData';
-import { 
-  isNeonConfigured, 
-  initNeonDb, 
-  fetchNeonOrders, 
-  insertNeonOrder, 
-  updateNeonOrderStatus, 
-  deleteNeonOrder,
-  fetchNeonRestaurantStatuses,
-  upsertNeonRestaurantStatus,
-  fetchNeonOverallOrdering,
-  upsertNeonOverallOrdering 
-} from '../lib/neon';
+import { RESTAURANTS, INITIAL_ORDERS } from '../data/campusData';
+import {
+  createOrder as apiCreateOrder,
+  getOrder as apiGetOrder,
+  confirmOrder as apiConfirmOrder,
+  cancelOrder as apiCancelOrder,
+  updateOrderStatus as apiUpdateOrderStatus,
+  deleteOrder as apiDeleteOrder,
+  getAllOrders as apiGetAllOrders,
+  getSystemStatus as apiGetSystemStatus,
+  updateSystemSettings as apiUpdateSystemSettings,
+  updateRestaurantStatus as apiUpdateRestaurantStatus
+} from '../lib/api';
 
 const AppContext = createContext();
 
@@ -44,28 +44,10 @@ export function AppProvider({ children }) {
   });
 
   // 2. System Settings (Admin Controlled)
-  const [overallOrderingEnabled, setOverallOrderingEnabled] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cb_overall_ordering');
-      return saved !== null ? saved === 'true' : true;
-    } catch {
-      return true;
-    }
-  });
-
-  const [restaurantStatuses, setRestaurantStatuses] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cb_restaurant_statuses');
-      return saved ? JSON.parse(saved) : {
-        'local-home-kitchen': 'OPEN',
-        'campus-delight-dhaba': 'OPEN'
-      };
-    } catch {
-      return {
-        'local-home-kitchen': 'OPEN',
-        'campus-delight-dhaba': 'OPEN'
-      };
-    }
+  const [overallOrderingEnabled, setOverallOrderingEnabled] = useState(true);
+  const [restaurantStatuses, setRestaurantStatuses] = useState({
+    'local-home-kitchen': 'OPEN',
+    'campus-delight-dhaba': 'OPEN'
   });
 
   // 3. Cart State
@@ -81,14 +63,7 @@ export function AppProvider({ children }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   // 4. Orders State
-  const [orders, setOrders] = useState(() => {
-    try {
-      const saved = localStorage.getItem('cb_all_orders');
-      return saved ? JSON.parse(saved) : INITIAL_ORDERS;
-    } catch {
-      return INITIAL_ORDERS;
-    }
-  });
+  const [orders, setOrders] = useState(INITIAL_ORDERS);
 
   // 5. 30-Second Confirmation Flow State
   const [pendingOrder, setPendingOrder] = useState(null);
@@ -98,42 +73,13 @@ export function AppProvider({ children }) {
   // 6. Toast Notification
   const [toast, setToast] = useState(null);
 
-  // 7. Neon Database State
-  const [isNeonConnected, setIsNeonConnected] = useState(isNeonConfigured());
+  // 7. Neon Cloud Status State
+  const [isNeonConnected, setIsNeonConnected] = useState(true);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   }, []);
-
-  // Neon Cloud Synchronization
-  const syncWithNeon = useCallback(async () => {
-    if (!isNeonConfigured()) return;
-    try {
-      const initialized = await initNeonDb();
-      if (initialized) {
-        setIsNeonConnected(true);
-        const cloudOrders = await fetchNeonOrders();
-        if (cloudOrders && cloudOrders.length > 0) {
-          setOrders(cloudOrders);
-        }
-        const cloudStatuses = await fetchNeonRestaurantStatuses();
-        if (cloudStatuses && Object.keys(cloudStatuses).length > 0) {
-          setRestaurantStatuses(cloudStatuses);
-        }
-        const cloudOverall = await fetchNeonOverallOrdering();
-        if (cloudOverall !== null) {
-          setOverallOrderingEnabled(cloudOverall);
-        }
-      }
-    } catch (err) {
-      console.warn('[Neon Sync] Fallback to local storage:', err);
-    }
-  }, []);
-
-  useEffect(() => {
-    syncWithNeon();
-  }, [syncWithNeon]);
 
   // Sync state to LocalStorage
   useEffect(() => {
@@ -158,54 +104,68 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem('cb_overall_ordering', overallOrderingEnabled ? 'true' : 'false');
-    } catch (e) { console.error(e); }
-  }, [overallOrderingEnabled]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('cb_restaurant_statuses', JSON.stringify(restaurantStatuses));
-    } catch (e) { console.error(e); }
-  }, [restaurantStatuses]);
-
-  useEffect(() => {
-    try {
       localStorage.setItem('cb_campus_cart', JSON.stringify(cart));
     } catch (e) { console.error(e); }
   }, [cart]);
 
-  useEffect(() => {
+  // Load latest cloud data from backend API
+  const refreshCloudData = useCallback(async () => {
     try {
-      localStorage.setItem('cb_all_orders', JSON.stringify(orders));
-    } catch (e) { console.error(e); }
-  }, [orders]);
+      // 1. Fetch system status
+      const statusData = await apiGetSystemStatus();
+      if (statusData && statusData.success) {
+        setOverallOrderingEnabled(statusData.overallOrdering !== false);
+        if (statusData.restaurantStatuses) {
+          setRestaurantStatuses(statusData.restaurantStatuses);
+        }
+        setIsNeonConnected(true);
+      }
 
-  // Synchronize across open browser tabs
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'cb_overall_ordering') {
-        setOverallOrderingEnabled(e.newValue === 'true');
+      // 2. Fetch all orders
+      const ordersData = await apiGetAllOrders();
+      if (ordersData && Array.isArray(ordersData)) {
+        setOrders(ordersData);
       }
-      if (e.key === 'cb_restaurant_statuses' && e.newValue) {
-        setRestaurantStatuses(JSON.parse(e.newValue));
-      }
-      if (e.key === 'cb_all_orders' && e.newValue) {
-        setOrders(JSON.parse(e.newValue));
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    } catch (err) {
+      console.warn('[API Data Sync] Error loading backend data:', err.message);
+    }
   }, []);
+
+  // On initial mount: sync data and check for active pending confirmation
+  useEffect(() => {
+    refreshCloudData();
+
+    // Check if there is an active pending order in local storage (Page refresh recovery)
+    const savedPendingOrderId = localStorage.getItem('cb_pending_order_id');
+    if (savedPendingOrderId) {
+      apiGetOrder(savedPendingOrderId)
+        .then((order) => {
+          if (order && order.status === 'PENDING_CONFIRMATION' && order.confirmationExpiresAt) {
+            const expiryTime = new Date(order.confirmationExpiresAt).getTime();
+            if (Date.now() < expiryTime) {
+              setPendingOrder(order);
+              setIsConfirmationModalOpen(true);
+            } else {
+              localStorage.removeItem('cb_pending_order_id');
+            }
+          } else {
+            localStorage.removeItem('cb_pending_order_id');
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('cb_pending_order_id');
+        });
+    }
+  }, [refreshCloudData]);
 
   // Auth Functions
   const loginStudent = (profileData) => {
     setStudentProfile(profileData);
     setUserRole('student');
-    showToast(`Welcome back, ${profileData.name}! 👋`, 'success');
+    showToast(`Welcome, ${profileData.name}! 👋`, 'success');
   };
 
   const loginAdmin = (password) => {
-    // Standard secure demo admin password check
     if (password === 'admin123' || password === 'clgbites@admin2024' || password === 'admin') {
       setIsAdminAuthenticated(true);
       setUserRole('admin');
@@ -236,43 +196,47 @@ export function AppProvider({ children }) {
   };
 
   // Admin Controls
-  const toggleOverallOrdering = (enabled) => {
+  const toggleOverallOrdering = async (enabled) => {
     setOverallOrderingEnabled(enabled);
-    upsertNeonOverallOrdering(enabled);
-    showToast(
-      enabled ? 'Master Ordering is now ACTIVE' : 'Master Ordering has been PAUSED',
-      enabled ? 'success' : 'info'
-    );
+    try {
+      await apiUpdateSystemSettings({ overallOrdering: enabled });
+      showToast(
+        enabled ? 'Master Ordering is now ACTIVE' : 'Master Ordering has been PAUSED',
+        enabled ? 'success' : 'info'
+      );
+    } catch (err) {
+      showToast('Failed to update master setting on server', 'error');
+    }
   };
 
-  const toggleRestaurantStatus = (restaurantId) => {
-    setRestaurantStatuses((prev) => {
-      const current = prev[restaurantId] || 'OPEN';
-      const next = current === 'OPEN' ? 'CLOSED' : 'OPEN';
+  const toggleRestaurantStatus = async (restaurantId) => {
+    const current = restaurantStatuses[restaurantId] || 'OPEN';
+    const next = current === 'OPEN' ? 'CLOSED' : 'OPEN';
+    setRestaurantStatuses((prev) => ({ ...prev, [restaurantId]: next }));
+
+    try {
+      await apiUpdateRestaurantStatus(restaurantId, next);
       const restObj = RESTAURANTS.find((r) => r.id === restaurantId);
       const restName = restObj ? restObj.name : restaurantId;
-      upsertNeonRestaurantStatus(restaurantId, next);
       showToast(`${restName} is now ${next}`, next === 'OPEN' ? 'success' : 'info');
-      return { ...prev, [restaurantId]: next };
-    });
+    } catch (err) {
+      showToast('Failed to update restaurant status on server', 'error');
+    }
   };
 
   // Cart Functions
   const addToCart = (item, quantity = 1) => {
-    // Check if overall ordering is active
     if (!overallOrderingEnabled) {
       showToast('Ordering is currently unavailable campus-wide.', 'error');
       return false;
     }
 
-    // Check if restaurant is open
     const status = restaurantStatuses[item.restaurantId] || 'OPEN';
     if (status === 'CLOSED') {
       showToast('This restaurant is currently CLOSED for ordering.', 'error');
       return false;
     }
 
-    // Check if cart has items from another restaurant
     if (cart.length > 0 && cart[0].restaurantId !== item.restaurantId) {
       const existingRestName = cart[0].restaurantName || 'another restaurant';
       const confirmReset = window.confirm(
@@ -325,8 +289,9 @@ export function AppProvider({ children }) {
   const deliveryFee = 0; // Free campus delivery
   const cartTotal = cartSubtotal + platformFee + deliveryFee;
 
-  // 30-Second Order Confirmation Flow
-  const startOrderConfirmation = (deliveryDetails) => {
+  // Phase 3: Start Order Confirmation Flow
+  // Creates order on backend with PENDING_CONFIRMATION and confirmation_expires_at = NOW() + 30s
+  const startOrderConfirmation = async (deliveryDetails) => {
     if (cart.length === 0) {
       showToast('Your cart is empty', 'error');
       return;
@@ -344,107 +309,119 @@ export function AppProvider({ children }) {
       return;
     }
 
-    const orderPrep = {
-      tempId: `TMP-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      studentName: studentProfile?.name || deliveryDetails.name || 'Campus Student',
-      studentId: studentProfile?.studentId || deliveryDetails.studentId || 'AP22110010482',
-      studentPhone: studentProfile?.phone || deliveryDetails.phone || '9989955833',
-      restaurantId: firstItem.restaurantId,
-      restaurantName: firstItem.restaurantName,
-      items: [...cart],
-      totalAmount: cartTotal,
-      deliveryLocation: `${deliveryDetails.hostel || 'Hostel Block B'}, ${deliveryDetails.roomNumber || 'Room 412'}`,
-      instructions: deliveryDetails.instructions || '',
-      status: 'PENDING'
-    };
+    try {
+      const createdOrder = await apiCreateOrder({
+        studentName: studentProfile?.name || deliveryDetails.name || 'Campus Student',
+        studentPhone: studentProfile?.phone || deliveryDetails.phone || '9989955833',
+        studentId: studentProfile?.studentId || deliveryDetails.studentId || null,
+        restaurantId: firstItem.restaurantId,
+        restaurantName: firstItem.restaurantName,
+        deliveryLocation: `${deliveryDetails.hostel || 'Hostel Block B'}, ${deliveryDetails.roomNumber || 'Room 412'}`,
+        instructions: deliveryDetails.instructions || '',
+        items: cart.map(i => ({
+          id: i.id,
+          name: i.name,
+          qty: i.qty,
+          price: i.price
+        }))
+      });
 
-    setPendingOrder(orderPrep);
-    setIsConfirmationModalOpen(true);
-    setIsCartOpen(false);
+      // Save pending order ID in localStorage for page refresh recovery
+      localStorage.setItem('cb_pending_order_id', createdOrder.id);
+      setPendingOrder(createdOrder);
+      setIsConfirmationModalOpen(true);
+      setIsCartOpen(false);
+    } catch (err) {
+      showToast(`Error creating order: ${err.message}`, 'error');
+    }
   };
 
-  // Confirm Order within 30 seconds
-  const confirmOrder = () => {
+  // Phase 4: Confirm Order within 30 seconds
+  const confirmOrder = async () => {
     if (!pendingOrder) return null;
 
-    // Prevent duplicate orders
-    const prefix = pendingOrder.restaurantId === 'local-home-kitchen' ? 'LHK' : 'ORD';
-    const finalOrderId = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+    try {
+      const confirmed = await apiConfirmOrder(pendingOrder.id);
+      localStorage.removeItem('cb_pending_order_id');
+      setConfirmedOrderResult(confirmed);
+      setOrders((prev) => [confirmed, ...prev.filter(o => o.id !== confirmed.id)]);
+      setPendingOrder(null);
+      clearCart();
 
-    const finalizedOrder = {
-      ...pendingOrder,
-      id: finalOrderId,
-      status: 'CONFIRMED',
-      confirmedAt: new Date().toISOString(),
-      orderTimeFormatted: 'Just now'
-    };
+      // Confetti celebration
+      confetti({
+        particleCount: 140,
+        spread: 80,
+        origin: { y: 0.6 }
+      });
 
-    setOrders((prev) => [finalizedOrder, ...prev]);
-    setConfirmedOrderResult(finalizedOrder);
-    setPendingOrder(null);
-    clearCart();
-
-    // Persist to Neon PostgreSQL
-    insertNeonOrder(finalizedOrder);
-
-    // Confetti celebration
-    confetti({
-      particleCount: 140,
-      spread: 80,
-      origin: { y: 0.6 }
-    });
-
-    showToast(`Order #${finalOrderId} Confirmed! 🎉`, 'success');
-    return finalizedOrder;
+      showToast(`Order #${confirmed.id} Confirmed! 🎉`, 'success');
+      return confirmed;
+    } catch (err) {
+      showToast(err.message || 'Confirmation failed or expired', 'error');
+      if (err.order) {
+        setPendingOrder(err.order);
+      }
+      return null;
+    }
   };
 
-  // Cancel Order (User clicked cancel or 30s timed out)
-  const cancelPendingOrder = (isTimeout = false) => {
+  // Phase 4: Cancel Order (User clicked cancel or 30s timed out)
+  const cancelPendingOrder = async (isTimeout = false) => {
     if (!pendingOrder) return;
 
-    const prefix = pendingOrder.restaurantId === 'local-home-kitchen' ? 'LHK' : 'ORD';
-    const cancelledOrderId = `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
+    try {
+      const reason = isTimeout ? '30-Second Timeout Expired' : 'Cancelled by Student';
+      const cancelled = await apiCancelOrder(pendingOrder.id, reason);
+      localStorage.removeItem('cb_pending_order_id');
+      setOrders((prev) => [cancelled, ...prev.filter(o => o.id !== cancelled.id)]);
+      setPendingOrder(null);
+      setIsConfirmationModalOpen(false);
 
-    const cancelledOrder = {
-      ...pendingOrder,
-      id: cancelledOrderId,
-      status: 'CANCELLED',
-      cancelledAt: new Date().toISOString(),
-      cancelledReason: isTimeout ? '30-Second Timeout Expired' : 'Cancelled by Student',
-      orderTimeFormatted: 'Just now'
-    };
-
-    setOrders((prev) => [cancelledOrder, ...prev]);
-    setPendingOrder(null);
-    setIsConfirmationModalOpen(false);
-
-    // Persist to Neon PostgreSQL
-    insertNeonOrder(cancelledOrder);
-
-    showToast(
-      isTimeout
-        ? '30-second window expired. Order was automatically cancelled.'
-        : 'Order was cancelled.',
-      'info'
-    );
+      showToast(
+        isTimeout
+          ? '30-second window expired. Order was automatically cancelled.'
+          : 'Order was cancelled.',
+        'info'
+      );
+    } catch (err) {
+      localStorage.removeItem('cb_pending_order_id');
+      setPendingOrder(null);
+      setIsConfirmationModalOpen(false);
+    }
   };
 
-  // Admin Order Actions
-  const cancelOrderByAdmin = (orderId) => {
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId ? { ...o, status: 'CANCELLED', cancelledReason: 'Cancelled by Administrator' } : o
-      )
-    );
-    updateNeonOrderStatus(orderId, 'CANCELLED', 'Cancelled by Administrator');
-    showToast(`Order #${orderId} marked as Cancelled`, 'info');
+  // Phase 5: Admin Order Actions
+  const advanceOrderStatus = async (orderId, nextStatus) => {
+    try {
+      const updated = await apiUpdateOrderStatus(orderId, nextStatus);
+      setOrders((prev) => prev.map(o => o.id === orderId ? updated : o));
+      showToast(`Order #${orderId} moved to ${nextStatus}`, 'success');
+      return updated;
+    } catch (err) {
+      showToast(err.message || 'Status transition error', 'error');
+      return null;
+    }
   };
 
-  const deleteOrderByAdmin = (orderId) => {
-    setOrders((prev) => prev.filter((o) => o.id !== orderId));
-    deleteNeonOrder(orderId);
-    showToast(`Order #${orderId} deleted permanently`, 'info');
+  const cancelOrderByAdmin = async (orderId) => {
+    try {
+      const cancelled = await apiCancelOrder(orderId, 'Cancelled by Administrator');
+      setOrders((prev) => prev.map(o => o.id === orderId ? cancelled : o));
+      showToast(`Order #${orderId} marked as Cancelled`, 'info');
+    } catch (err) {
+      showToast(err.message || 'Failed to cancel order', 'error');
+    }
+  };
+
+  const deleteOrderByAdmin = async (orderId) => {
+    try {
+      await apiDeleteOrder(orderId);
+      setOrders((prev) => prev.filter(o => o.id !== orderId));
+      showToast(`Order #${orderId} deleted permanently`, 'info');
+    } catch (err) {
+      showToast(err.message || 'Failed to delete order', 'error');
+    }
   };
 
   return (
@@ -480,7 +457,7 @@ export function AppProvider({ children }) {
         deliveryFee,
         cartTotal,
 
-        // Orders
+        // Orders & Real 30s Confirmation Flow
         orders,
         pendingOrder,
         isConfirmationModalOpen,
@@ -490,16 +467,17 @@ export function AppProvider({ children }) {
         startOrderConfirmation,
         confirmOrder,
         cancelPendingOrder,
+        advanceOrderStatus,
         cancelOrderByAdmin,
         deleteOrderByAdmin,
+        refreshCloudData,
 
         // Notifications
         toast,
         showToast,
 
-        // Neon Database Status & Actions
-        isNeonConnected,
-        syncWithNeon
+        // Neon Status
+        isNeonConnected
       }}
     >
       {children}

@@ -19,53 +19,66 @@ export default function OrderConfirmationModal() {
   const [cancelledByStudent, setCancelledByStudent] = useState(false);
   const timerRef = useRef(null);
 
-  // Reset timer whenever modal opens with a pending order
+  // Helper to compute remaining seconds directly from the database confirmation_expires_at timestamp
+  const computeRemainingSeconds = () => {
+    if (!pendingOrder?.confirmationExpiresAt) return 0;
+    const expiryTime = new Date(pendingOrder.confirmationExpiresAt).getTime();
+    const diffSeconds = Math.round((expiryTime - Date.now()) / 1000);
+    return Math.max(0, diffSeconds);
+  };
+
+  // Synchronize countdown with database confirmation_expires_at
   useEffect(() => {
     if (isConfirmationModalOpen && pendingOrder) {
-      setTimeLeft(30);
+      if (pendingOrder.status === 'EXPIRED') {
+        setTimeoutTriggered(true);
+        setTimeLeft(0);
+        return;
+      }
+
       setIsProcessing(false);
       setTimeoutTriggered(false);
       setCancelledByStudent(false);
 
-      if (timerRef.current) clearInterval(timerRef.current);
+      const syncTimer = () => {
+        const remaining = computeRemainingSeconds();
+        setTimeLeft(remaining);
 
-      timerRef.current = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(timerRef.current);
-            handleTimeout();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+        if (remaining <= 0) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          handleTimeout();
+        }
+      };
+
+      syncTimer();
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(syncTimer, 1000);
     }
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isConfirmationModalOpen, pendingOrder]);
+  }, [isConfirmationModalOpen, pendingOrder?.id, pendingOrder?.confirmationExpiresAt, pendingOrder?.status]);
 
   const handleTimeout = () => {
     setTimeoutTriggered(true);
-    cancelPendingOrder(true); // cancel with isTimeout = true
+    cancelPendingOrder(true); // Auto-transitions to EXPIRED on server
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (isProcessing || timeLeft <= 0) return;
     setIsProcessing(true);
     if (timerRef.current) clearInterval(timerRef.current);
 
-    // Call confirmOrder from AppContext
-    confirmOrder();
+    await confirmOrder();
     setIsProcessing(false);
   };
 
-  const handleStudentCancel = () => {
+  const handleStudentCancel = async () => {
     if (isProcessing) return;
     if (timerRef.current) clearInterval(timerRef.current);
     setCancelledByStudent(true);
-    cancelPendingOrder(false); // cancel with isTimeout = false
+    await cancelPendingOrder(false);
   };
 
   const handleClose = () => {
@@ -81,6 +94,7 @@ export default function OrderConfirmationModal() {
   // Percentage for progress ring / bar
   const progressPercent = (timeLeft / 30) * 100;
   const isUrgent = timeLeft <= 10;
+  const formattedTime = `00:${String(timeLeft).padStart(2, '0')}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in overflow-y-auto">
@@ -101,10 +115,10 @@ export default function OrderConfirmationModal() {
                 Order Status: CONFIRMED ✅
               </span>
               <h2 className="text-2xl sm:text-3xl font-black text-[#0F172A] font-['Outfit'] mt-3">
-                Order Placed Successfully!
+                Order Confirmed in Database!
               </h2>
               <p className="text-xs sm:text-sm text-[#64748B] mt-1">
-                The kitchen has received your order and started preparation.
+                Your order is saved in Neon PostgreSQL and sent to the kitchen.
               </p>
             </div>
 
@@ -146,8 +160,8 @@ export default function OrderConfirmationModal() {
                 <ul className="mt-1 space-y-1 text-slate-700 font-medium max-h-28 overflow-y-auto pr-1">
                   {confirmedOrderResult.items?.map((item, idx) => (
                     <li key={idx} className="flex justify-between">
-                      <span>• {item.name} × {item.qty}</span>
-                      <span className="font-bold">₹{item.price * item.qty}</span>
+                      <span>• {item.name} × {item.qty || item.quantity}</span>
+                      <span className="font-bold">₹{(item.price || item.unitPrice || 0) * (item.qty || item.quantity || 1)}</span>
                     </li>
                   ))}
                 </ul>
@@ -162,8 +176,8 @@ export default function OrderConfirmationModal() {
               <ArrowRight size={16} />
             </button>
           </div>
-        ) : timeoutTriggered ? (
-          /* TIMEOUT CANCELLED STATE */
+        ) : (timeoutTriggered || pendingOrder?.status === 'EXPIRED') ? (
+          /* TIMEOUT EXPIRED STATE (Phase 4) */
           <div className="p-6 sm:p-8 text-center space-y-5">
             <div className="w-18 h-18 rounded-3xl bg-amber-100 border-2 border-amber-300 mx-auto flex items-center justify-center text-amber-600 shadow-lg shadow-amber-500/10">
               <Clock size={40} />
@@ -171,13 +185,13 @@ export default function OrderConfirmationModal() {
 
             <div>
               <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-800 font-extrabold text-xs tracking-wider uppercase border border-amber-200">
-                Order Status: CANCELLED (TIMEOUT)
+                Order Status: EXPIRED
               </span>
               <h2 className="text-2xl font-black text-[#0F172A] font-['Outfit'] mt-3">
                 30-Second Window Expired
               </h2>
               <p className="text-xs sm:text-sm text-[#64748B] mt-2 max-w-sm mx-auto">
-                Your order was automatically cancelled because it wasn't confirmed within the mandatory 30-second window. No charge has been applied.
+                Your order was automatically cancelled because it was not confirmed within the required 30-second window. No charges were made.
               </p>
             </div>
 
@@ -185,11 +199,11 @@ export default function OrderConfirmationModal() {
               onClick={handleClose}
               className="w-full py-3 px-6 rounded-2xl bg-[#0F172A] text-white font-bold text-sm hover:bg-[#1E293B] transition-colors cursor-pointer"
             >
-              Close & Review Cart
+              Close & Review Menu
             </button>
           </div>
         ) : cancelledByStudent ? (
-          /* STUDENT CANCELLED STATE */
+          /* CANCELLED STATE */
           <div className="p-6 sm:p-8 text-center space-y-5">
             <div className="w-18 h-18 rounded-3xl bg-rose-100 border-2 border-rose-300 mx-auto flex items-center justify-center text-rose-600 shadow-lg shadow-rose-500/10">
               <XCircle size={40} />
@@ -203,7 +217,7 @@ export default function OrderConfirmationModal() {
                 Order Cancelled
               </h2>
               <p className="text-xs sm:text-sm text-[#64748B] mt-2 max-w-sm mx-auto">
-                You cancelled this order. The kitchen has not been notified and your cart remains safe.
+                You cancelled this order. The kitchen will not prepare this order.
               </p>
             </div>
 
@@ -215,43 +229,41 @@ export default function OrderConfirmationModal() {
             </button>
           </div>
         ) : pendingOrder ? (
-          /* ACTIVE 30-SECOND CONFIRMATION STATE */
+          /* ACTIVE 30-SECOND CONFIRMATION STATE (Phase 4) */
           <div>
             {/* Header Banner */}
             <div className="bg-gradient-to-br from-[#0F172A] to-[#1E293B] text-white p-6 relative overflow-hidden">
               <div className="absolute -right-8 -bottom-8 w-32 h-32 rounded-full bg-[#FF5722]/20 blur-2xl" />
               
-              <div className="flex items-center justify-between relative z-10 mb-4">
+              <div className="flex items-center justify-between relative z-10 mb-3">
                 <span className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-[#FF8A65] font-black text-xs uppercase tracking-wider border border-white/10">
-                  Step: Final Verification
+                  Status: PENDING_CONFIRMATION
                 </span>
-                <span className="text-xs font-semibold text-slate-300">
-                  {pendingOrder.restaurantName}
+                <span className="text-xs font-semibold text-slate-300 font-mono">
+                  #{pendingOrder.id}
                 </span>
               </div>
 
-              {/* Requirement Text */}
-              <div className="text-center relative z-10 space-y-2">
-                <p className="text-xs font-extrabold uppercase tracking-widest text-[#FF7A50]">
-                  Required Confirmation
-                </p>
-                <h2 className="text-xl sm:text-2xl font-black font-['Outfit'] tracking-tight">
-                  You have 30 seconds to confirm your order.
+              {/* Requirement Text Display */}
+              <div className="text-center relative z-10 space-y-1">
+                <h2 className="text-2xl sm:text-3xl font-black font-['Outfit'] tracking-tight text-white">
+                  Confirm Your Order
                 </h2>
+                <p className="text-xs font-semibold uppercase tracking-widest text-[#FF7A50]">
+                  Time Remaining:
+                </p>
               </div>
 
-              {/* Circular / Big Timer Display */}
-              <div className="mt-5 flex flex-col items-center justify-center relative z-10">
-                <div className={`w-24 h-24 rounded-full flex flex-col items-center justify-center border-4 shadow-xl transition-all duration-500 ${
+              {/* Clock Countdown: 00:30 */}
+              <div className="mt-4 flex flex-col items-center justify-center relative z-10">
+                <div className={`px-6 py-3 rounded-2xl flex items-center gap-2.5 border-2 shadow-xl transition-all duration-300 ${
                   isUrgent 
                     ? 'border-rose-500 bg-rose-500/20 text-rose-300 animate-pulse scale-105' 
                     : 'border-[#FF5722] bg-[#FF5722]/20 text-white'
                 }`}>
-                  <span className="text-3xl font-black font-mono leading-none">
-                    {timeLeft}
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider mt-1 text-slate-300">
-                    seconds
+                  <Clock size={22} className={isUrgent ? 'text-rose-400' : 'text-[#FF5722]'} />
+                  <span className="text-3xl font-black font-mono tracking-widest leading-none">
+                    {formattedTime}
                   </span>
                 </div>
 
@@ -281,47 +293,60 @@ export default function OrderConfirmationModal() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-[#475569]">
-                  <span><strong>Delivery:</strong> {pendingOrder.deliveryLocation}</span>
-                  <span><strong>Items:</strong> {pendingOrder.items?.reduce((a, b) => a + b.qty, 0)}</span>
+                <div className="text-xs text-[#475569] space-y-1">
+                  <div><strong>Restaurant:</strong> {pendingOrder.restaurantName}</div>
+                  <div><strong>Delivery Spot:</strong> {pendingOrder.deliveryLocation}</div>
+                </div>
+
+                {/* Items preview */}
+                <div className="pt-2 border-t border-[#F1EAE4] text-xs">
+                  <span className="font-bold text-[#64748B]">Items to confirm:</span>
+                  <ul className="mt-1 space-y-0.5 text-slate-700 font-medium">
+                    {pendingOrder.items?.map((item, idx) => (
+                      <li key={idx} className="flex justify-between">
+                        <span>• {item.name} × {item.qty || item.quantity}</span>
+                        <span className="font-bold">₹{(item.price || item.unit_price || item.unitPrice || 0) * (item.qty || item.quantity || 1)}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
 
-              {/* Action Buttons: [Confirm Order] and [Cancel Order] */}
+              {/* Action Buttons: [ CONFIRM ORDER ] and [ CANCEL ORDER ] */}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button
                   type="button"
                   onClick={handleStudentCancel}
                   disabled={isProcessing}
-                  className="py-3 px-4 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-extrabold text-xs sm:text-sm hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  className="py-3 px-4 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-black text-xs sm:text-sm hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors cursor-pointer flex items-center justify-center gap-1.5 uppercase tracking-wider"
                 >
                   <XCircle size={16} />
-                  <span>Cancel Order</span>
+                  <span>CANCEL ORDER</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleConfirm}
                   disabled={isProcessing || timeLeft <= 0}
-                  className={`py-3 px-4 rounded-2xl text-white font-extrabold text-xs sm:text-sm shadow-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`py-3 px-4 rounded-2xl text-white font-black text-xs sm:text-sm shadow-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 uppercase tracking-wider ${
                     isUrgent
                       ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/30'
                       : 'bg-gradient-to-r from-[#FF5722] to-[#FF7A50] hover:brightness-105 shadow-[#FF5722]/30'
                   }`}
                 >
                   {isProcessing ? (
-                    <span className="animate-pulse">Confirming...</span>
+                    <span className="animate-pulse">CONFIRMING...</span>
                   ) : (
                     <>
                       <CheckCircle2 size={16} />
-                      <span>Confirm Order ({timeLeft}s)</span>
+                      <span>CONFIRM ORDER</span>
                     </>
                   )}
                 </button>
               </div>
 
               <p className="text-center text-[11px] text-[#94A3B8] font-medium">
-                Once confirmed, the order is registered and sent directly to {pendingOrder.restaurantName}.
+                Server-timed countdown. If you refresh, remaining time continues accurately.
               </p>
             </div>
           </div>
