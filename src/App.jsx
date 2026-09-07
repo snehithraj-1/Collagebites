@@ -9,7 +9,24 @@ import AdminLoginPage from './pages/AdminLoginPage';
 import TwoRestaurantsPage from './pages/TwoRestaurantsPage';
 import RestaurantMenuPage from './pages/RestaurantMenuPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import OrderTrackingPage from './pages/OrderTrackingPage';
 import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
+
+// Helper to parse order ID from URL pathname or hash
+// Supports: /orders/:orderId, #/orders/:orderId, #tracking/:orderId
+function parseTrackingOrderIdFromUrl() {
+  if (typeof window === 'undefined') return null;
+  const path = window.location.pathname;
+  const hash = window.location.hash;
+
+  const pathMatch = path.match(/\/orders\/([^/?#]+)/i);
+  if (pathMatch) return decodeURIComponent(pathMatch[1]);
+
+  const hashMatch = hash.match(/#(?:(?:\/)?orders\/|tracking\/)([^/?#]+)/i);
+  if (hashMatch) return decodeURIComponent(hashMatch[1]);
+
+  return null;
+}
 
 export default function App() {
   const {
@@ -21,10 +38,13 @@ export default function App() {
     toast
   } = useApp();
 
-  // Internal page navigation for student: 'restaurants' | 'menu'
-  const [currentView, setCurrentView] = useState('restaurants');
+  const initialOrderId = parseTrackingOrderIdFromUrl();
+
+  // Internal page navigation for student: 'restaurants' | 'menu' | 'tracking'
+  const [currentView, setCurrentView] = useState(() => (initialOrderId ? 'tracking' : 'restaurants'));
   const [selectedRestaurantId, setSelectedRestaurantId] = useState('local-home-kitchen');
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
+  const [trackingOrderId, setTrackingOrderId] = useState(() => initialOrderId);
 
   // Sync URL hash or path with admin route
   const [isAdminRoute, setIsAdminRoute] = useState(() => {
@@ -37,6 +57,15 @@ export default function App() {
       const isPathAdmin = window.location.pathname.toLowerCase().includes('/admin');
       const isHashAdmin = window.location.hash.toLowerCase().includes('admin');
       setIsAdminRoute(isPathAdmin || isHashAdmin);
+
+      const parsedOrderId = parseTrackingOrderIdFromUrl();
+      if (parsedOrderId) {
+        setTrackingOrderId(parsedOrderId);
+        setCurrentView('tracking');
+      } else if (currentView === 'tracking' && !window.location.pathname.includes('/orders/')) {
+        setTrackingOrderId(null);
+        setCurrentView('restaurants');
+      }
     };
 
     window.addEventListener('hashchange', handleUrlChange);
@@ -46,12 +75,12 @@ export default function App() {
       window.removeEventListener('hashchange', handleUrlChange);
       window.removeEventListener('popstate', handleUrlChange);
     };
-  }, []);
+  }, [currentView]);
 
   // Scroll to top on view changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentView, selectedRestaurantId]);
+  }, [currentView, selectedRestaurantId, trackingOrderId]);
 
   const handleSelectRestaurant = (restaurantId) => {
     setSelectedRestaurantId(restaurantId);
@@ -62,11 +91,28 @@ export default function App() {
     setCurrentView('restaurants');
   };
 
+  const handleNavigateToTracking = (orderId) => {
+    setTrackingOrderId(orderId);
+    setCurrentView('tracking');
+    setIsOrdersModalOpen(false);
+    if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+      window.history.pushState(null, '', `/orders/${orderId}`);
+    }
+  };
+
+  const handleBackToHome = () => {
+    setTrackingOrderId(null);
+    setCurrentView('restaurants');
+    if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+      window.history.pushState(null, '', '/');
+    }
+  };
+
   const handleNavigate = (page) => {
     if (page === 'orders') {
       setIsOrdersModalOpen(true);
     } else if (page === 'restaurants') {
-      setCurrentView('restaurants');
+      handleBackToHome();
     }
   };
 
@@ -137,7 +183,12 @@ export default function App() {
 
       {/* Main Student Experience */}
       <main className="flex-1 pb-16">
-        {currentView === 'restaurants' ? (
+        {currentView === 'tracking' && trackingOrderId ? (
+          <OrderTrackingPage 
+            orderId={trackingOrderId}
+            onNavigateHome={handleBackToHome}
+          />
+        ) : currentView === 'restaurants' ? (
           <TwoRestaurantsPage 
             onSelectRestaurant={handleSelectRestaurant} 
           />
@@ -153,12 +204,15 @@ export default function App() {
       <CartDrawer />
 
       {/* 30-Second Confirmation Modal */}
-      <OrderConfirmationModal />
+      <OrderConfirmationModal 
+        onTrackOrder={handleNavigateToTracking}
+      />
 
       {/* Student Past Orders Modal */}
       <StudentOrdersModal 
         isOpen={isOrdersModalOpen}
         onClose={() => setIsOrdersModalOpen(false)}
+        onTrackOrder={handleNavigateToTracking}
       />
 
       {/* Toast Notification Container */}

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Clock, CheckCircle2, XCircle, ShoppingBag, MapPin, RefreshCw, ChefHat, Package, Bike, Truck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-export default function StudentOrdersModal({ isOpen, onClose }) {
+export default function StudentOrdersModal({ isOpen, onClose, onTrackOrder }) {
   const { orders, studentProfile, refreshCloudData } = useApp();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -144,6 +144,24 @@ export default function StudentOrdersModal({ isOpen, onClose }) {
                     {order.cancelledReason && (
                       <p className="text-rose-600 text-[11px] font-semibold">Reason: {order.cancelledReason}</p>
                     )}
+                  </div>
+
+                  {/* Track Order Live Button */}
+                  <div className="pt-2 border-t border-[#F1EAE4] flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {order.createdAt ? new Date(order.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onTrackOrder) onTrackOrder(order.id || order.tempId);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-[#FFF0EB] hover:bg-[#FFE0D5] text-[#FF5722] text-xs font-bold transition-colors cursor-pointer border border-[#FFD3C4] flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Bike size={13} />
+                      <span>Track Order Live</span>
+                    </button>
                   </div>
                 </div>
               );

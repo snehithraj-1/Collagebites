@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Clock, CheckCircle2, XCircle, AlertCircle, Sparkles, ArrowRight, ShieldCheck, MapPin, Phone, Receipt } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-export default function OrderConfirmationModal() {
+export default function OrderConfirmationModal({ onTrackOrder }) {
   const {
     isConfirmationModalOpen,
     setIsConfirmationModalOpen,
@@ -168,13 +168,28 @@ export default function OrderConfirmationModal() {
               </div>
             </div>
 
-            <button
-              onClick={handleClose}
-              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#FF5722] to-[#FF7A50] text-white font-extrabold text-sm shadow-xl shadow-[#FF5722]/30 hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
-            >
-              <span>Back to Campus Kitchens</span>
-              <ArrowRight size={16} />
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full py-3.5 px-4 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 font-extrabold text-xs sm:text-sm hover:bg-slate-50 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>Back to Kitchens</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const targetId = confirmedOrderResult.id;
+                  handleClose();
+                  if (onTrackOrder) onTrackOrder(targetId);
+                }}
+                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#FF5722] to-[#FF7A50] text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-[#FF5722]/30 hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2 border-none"
+              >
+                <span>Track Order Live 🛵</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
           </div>
         ) : (timeoutTriggered || pendingOrder?.status === 'EXPIRED') ? (
           /* TIMEOUT EXPIRED STATE (Phase 4) */

@@ -18,6 +18,7 @@ export async function getOrder(orderId) {
   if (!res.ok) throw new Error(data.error || 'Failed to fetch order');
   return data.order;
 }
+export const getOrderById = getOrder;
 
 export async function confirmOrder(orderId) {
   const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(orderId)}/confirm`, {

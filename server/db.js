@@ -45,6 +45,40 @@ export const ALLOWED_TRANSITIONS = {
   'EXPIRED': []
 };
 
+// Phase 8: Ensure order_status_history table exists in Neon
+let isHistoryTableReady = false;
+export async function ensureStatusHistoryTable() {
+  if (isHistoryTableReady) return;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS order_status_history (
+        id SERIAL PRIMARY KEY,
+        order_id VARCHAR(50) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        status VARCHAR(50) NOT NULL,
+        changed_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_order_status_history_order_id ON order_status_history(order_id);
+    `;
+    isHistoryTableReady = true;
+  } catch (err) {
+    console.warn('[Server DB] Note on ensureStatusHistoryTable:', err.message);
+  }
+}
+
+export async function recordStatusHistoryInDb(orderId, status, timestamp = new Date().toISOString()) {
+  try {
+    await ensureStatusHistoryTable();
+    await sql`
+      INSERT INTO order_status_history (order_id, status, changed_at)
+      VALUES (${orderId}, ${status}, ${timestamp});
+    `;
+  } catch (err) {
+    console.error(`[Server DB] Failed to record status history for ${orderId} (${status}):`, err);
+  }
+}
+
 /**
  * Phase 3: Create Order in Neon Database
  * Atomic transaction inserting into orders and order_items
@@ -161,7 +195,20 @@ export async function createOrderInDb({
   });
 
   // Execute atomically
-  await sql.transaction([insertOrderQuery, ...insertItemQueries]);
+  await ensureStatusHistoryTable();
+  const insertHistoryQuery = sql`
+    INSERT INTO order_status_history (
+      order_id,
+      status,
+      changed_at
+    ) VALUES (
+      ${orderId},
+      'PENDING_CONFIRMATION',
+      ${now.toISOString()}
+    );
+  `;
+
+  await sql.transaction([insertOrderQuery, ...insertItemQueries, insertHistoryQuery]);
 
   return {
     id: orderId,
@@ -177,7 +224,10 @@ export async function createOrderInDb({
     items: verifiedItems,
     confirmationExpiresAt: confirmationExpiresAt.toISOString(),
     createdAt: now.toISOString(),
-    updatedAt: now.toISOString()
+    updatedAt: now.toISOString(),
+    statusHistory: [
+      { id: 1, orderId, status: 'PENDING_CONFIRMATION', changedAt: now.toISOString() }
+    ]
   };
 }
 
@@ -226,6 +276,7 @@ export async function getOrderByIdFromDb(orderId) {
       `;
       order.status = 'EXPIRED';
       order.cancelledReason = 'Confirmation time expired (30 seconds)';
+      await recordStatusHistoryInDb(orderId, 'EXPIRED');
     }
   }
 
@@ -254,6 +305,41 @@ export async function getOrderByIdFromDb(orderId) {
       total: i.totalPrice
     }));
   }
+
+  // Fetch status history
+  await ensureStatusHistoryTable();
+  const historyRows = await sql`
+    SELECT 
+      id,
+      order_id AS "orderId",
+      status,
+      changed_at AS "changedAt"
+    FROM order_status_history
+    WHERE order_id = ${orderId}
+    ORDER BY changed_at ASC, id ASC;
+  `;
+
+  let statusHistory = historyRows.map(h => ({
+    id: h.id,
+    orderId: h.orderId,
+    status: h.status,
+    changedAt: h.changedAt
+  }));
+
+  // Resilient fallback for orders created prior to order_status_history table
+  if (statusHistory.length === 0) {
+    statusHistory = [
+      { id: 1, orderId, status: 'PENDING_CONFIRMATION', changedAt: order.createdAt }
+    ];
+    if (order.confirmedAt) {
+      statusHistory.push({ id: 2, orderId, status: 'CONFIRMED', changedAt: order.confirmedAt });
+    }
+    if (order.status !== 'PENDING_CONFIRMATION' && order.status !== 'CONFIRMED') {
+      statusHistory.push({ id: 3, orderId, status: order.status, changedAt: order.updatedAt || order.cancelledAt || order.createdAt });
+    }
+  }
+
+  order.statusHistory = statusHistory;
 
   return order;
 }
@@ -312,6 +398,8 @@ export async function confirmOrderInDb(orderId) {
   order.confirmedAt = now.toISOString();
   order.updatedAt = now.toISOString();
 
+  await recordStatusHistoryInDb(orderId, 'CONFIRMED', now.toISOString());
+
   return { success: true, order };
 }
 
@@ -348,6 +436,8 @@ export async function cancelOrderInDb(orderId, reason = 'Cancelled by Student') 
   order.cancelledAt = now.toISOString();
   order.updatedAt = now.toISOString();
 
+  await recordStatusHistoryInDb(orderId, 'CANCELLED', now.toISOString());
+
   return { success: true, order };
 }
 
@@ -383,6 +473,9 @@ export async function updateOrderStatusInDb(orderId, nextStatus, reason = null) 
 
   order.status = nextStatus;
   order.updatedAt = now.toISOString();
+
+  await recordStatusHistoryInDb(orderId, nextStatus, now.toISOString());
+
   return { success: true, order };
 }
 
@@ -512,9 +605,11 @@ export async function getAllOrdersFromDb() {
  * Delete order from Neon with cascading deletion of order_items
  */
 export async function deleteOrderFromDb(orderId) {
+  await ensureStatusHistoryTable();
+  const deleteHistory = sql`DELETE FROM order_status_history WHERE order_id = ${orderId};`;
   const deleteItems = sql`DELETE FROM order_items WHERE order_id = ${orderId};`;
   const deleteOrder = sql`DELETE FROM orders WHERE id = ${orderId};`;
-  await sql.transaction([deleteItems, deleteOrder]);
+  await sql.transaction([deleteHistory, deleteItems, deleteOrder]);
   return { success: true, id: orderId };
 }
 
