@@ -18,13 +18,19 @@ import {
   Play,
   Pause,
   FastForward,
-  Send
+  Send,
+  Info,
+  Smartphone,
+  HelpCircle,
+  X,
+  Target
 } from 'lucide-react';
 import { 
   getDeliveryOrders, 
   updateDeliveryOrderStatus, 
   sendDeliveryLocation 
 } from '../lib/api';
+import DeliveryTrackingMap from '../components/DeliveryTrackingMap';
 
 // Real SRM-AP Campus Coordinates (Neerukonda, Amaravati, AP: 16.4631° N, 80.5065° E)
 const CAMPUS_POINTS = {
@@ -36,6 +42,18 @@ const CAMPUS_POINTS = {
   'hostel-c': [16.4608, 80.5060], // Krishna Hostel Block
   'default-destination': [16.4612, 80.5055]
 };
+
+// Real SRM-AP Campus Landmarks for 1-Tap Pinpoint Positioning
+const CAMPUS_LANDMARKS = [
+  { id: 'kitchen', name: 'Central Dining', icon: '🍳', subtitle: 'Kitchen Pickup', coords: [16.4638, 80.5072] },
+  { id: 'academic', name: 'Academic Block 1', icon: '🏫', subtitle: 'Lecture Complex', coords: [16.4635, 80.5065] },
+  { id: 'library', name: 'Central Library', icon: '📚', subtitle: 'Study Commons', coords: [16.4640, 80.5058] },
+  { id: 'admin', name: 'Admin Block', icon: '🏢', subtitle: 'University Center', coords: [16.4648, 80.5062] },
+  { id: 'hostel-a', name: 'Ganga Hostel (A)', icon: '🛌', subtitle: 'Student Block', coords: [16.4618, 80.5050] },
+  { id: 'hostel-b', name: 'Yamuna Hostel (B)', icon: '🛌', subtitle: 'Student Block', coords: [16.4612, 80.5055] },
+  { id: 'hostel-c', name: 'Krishna Hostel (C)', icon: '🛌', subtitle: 'Student Block', coords: [16.4608, 80.5060] },
+  { id: 'gate', name: 'Main Campus Gate', icon: '🚪', subtitle: 'Security Entrance', coords: [16.4655, 80.5040] },
+];
 
 // Generate 10 smooth waypoints between start and end
 function generateRouteWaypoints(startCoord, endCoord, count = 10) {
@@ -69,8 +87,9 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
   const [currentCoords, setCurrentCoords] = useState(null);
   const [lastPingTime, setLastPingTime] = useState(null);
   const [pingSuccessCount, setPingSuccessCount] = useState(0);
-  const [simulationMode, setSimulationMode] = useState(true); // Default ON for seamless testing
+  const [simulationMode, setSimulationMode] = useState(true); // Default ON for reliable campus testing
   const [simStepIndex, setSimStepIndex] = useState(0);
+  const [isGpsModalOpen, setIsGpsModalOpen] = useState(false);
 
   const watchIdRef = useRef(null);
   const simTimerRef = useRef(null);
@@ -130,9 +149,9 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
   }, []);
 
   // 3. Send Location to backend
-  const transmitLocation = async (targetOrderId, lat, lng, acc = 8, force = false) => {
+  const transmitLocation = async (targetOrderId, lat, lng, acc = 5, force = false) => {
     const now = Date.now();
-    if (!force && now - lastSentTimeRef.current < 2500) return; // Throttle 2.5s
+    if (!force && now - lastSentTimeRef.current < 2000) return; // Throttle 2s
     lastSentTimeRef.current = now;
 
     try {
@@ -155,7 +174,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
     }
   };
 
-  // 4. Start GPS Broadcast (Simulation or Real)
+  // 4. Start GPS Broadcast (Simulation or Real Hardware Geolocation)
   const startGpsBroadcast = useCallback((targetOrderId) => {
     stopGpsBroadcast();
     setIsGpsActive(true);
@@ -169,14 +188,14 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
     if (simulationMode || !navigator.geolocation) {
       let currentIdx = simStepIndex % waypoints.length;
       const initial = waypoints[currentIdx];
-      transmitLocation(targetOrderId, initial.lat, initial.lng, 6, true);
+      transmitLocation(targetOrderId, initial.lat, initial.lng, 4, true);
 
       simTimerRef.current = setInterval(() => {
         currentIdx = (currentIdx + 1) % waypoints.length;
         setSimStepIndex(currentIdx);
         const pt = waypoints[currentIdx];
-        transmitLocation(targetOrderId, pt.lat, pt.lng, 6);
-      }, 4000);
+        transmitLocation(targetOrderId, pt.lat, pt.lng, 4);
+      }, 3500);
 
       return;
     }
@@ -191,8 +210,11 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
         },
         (err) => {
           console.warn('Initial geolocation error:', err.message);
+          if (err.code === 1) {
+            setGpsError('Location access blocked in browser. Switch to Campus Landmarks or Simulation mode.');
+          }
         },
-        { enableHighAccuracy: true, timeout: 5000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
 
       watchIdRef.current = navigator.geolocation.watchPosition(
@@ -202,25 +224,21 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
         },
         (err) => {
           console.warn('Geolocation watch error:', err.message);
-          setGpsError('Real GPS permission denied or timed out. Switched to Campus Simulation Mode.');
-          setSimulationMode(true);
-          // Auto-fallback to simulation
-          let currentIdx = 0;
-          simTimerRef.current = setInterval(() => {
-            currentIdx = (currentIdx + 1) % waypoints.length;
-            setSimStepIndex(currentIdx);
-            const pt = waypoints[currentIdx];
-            transmitLocation(targetOrderId, pt.lat, pt.lng, 6);
-          }, 4000);
+          if (err.code === 1) {
+            setGpsError('Location permission denied. Use Landmark buttons or Simulation Mode.');
+          } else if (err.code === 3) {
+            // Keep watch active without disabling
+            console.warn('Waiting for satellite fix...');
+          }
         },
         {
           enableHighAccuracy: true,
-          maximumAge: 3000,
-          timeout: 10000
+          maximumAge: 0,
+          timeout: 15000
         }
       );
     } catch (e) {
-      setSimulationMode(true);
+      setGpsError(`GPS unsupported: ${e.message}`);
     }
   }, [simulationMode, simStepIndex, stopGpsBroadcast]);
 
@@ -255,17 +273,17 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
     const nextIdx = (simStepIndex + 1) % waypoints.length;
     setSimStepIndex(nextIdx);
     const nextPt = waypoints[nextIdx];
-    transmitLocation(activeOrder.id, nextPt.lat, nextPt.lng, 5, true);
+    transmitLocation(activeOrder.id, nextPt.lat, nextPt.lng, 4, true);
   };
 
   // Manual Instant Ping Now
   const handleManualPingNow = () => {
     if (!activeOrder) return;
     if (currentCoords) {
-      transmitLocation(activeOrder.id, currentCoords.latitude, currentCoords.longitude, currentCoords.accuracy || 5, true);
+      transmitLocation(activeOrder.id, currentCoords.latitude, currentCoords.longitude, currentCoords.accuracy || 4, true);
     } else if (waypointsRef.current.length > 0) {
       const pt = waypointsRef.current[simStepIndex % waypointsRef.current.length];
-      transmitLocation(activeOrder.id, pt.lat, pt.lng, 5, true);
+      transmitLocation(activeOrder.id, pt.lat, pt.lng, 4, true);
     }
   };
 
@@ -342,6 +360,15 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsGpsModalOpen(true)}
+              className="px-2.5 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+              title="How to Get Perfect GPS"
+            >
+              <Smartphone size={13} className="text-blue-400" />
+              <span className="hidden sm:inline">GPS Accuracy Guide</span>
+            </button>
+
             <button
               onClick={() => fetchOrders(false)}
               disabled={isRefreshing}
@@ -508,8 +535,8 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
               </div>
             </div>
 
-            {/* LIVE GPS BROADCAST TELEMETRY & CONTROLS BAR */}
-            <div className="p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 space-y-3">
+            {/* LIVE GPS BROADCAST TELEMETRY & CONTROLS */}
+            <div className="p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 space-y-3 relative z-10">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Compass size={16} className="text-[#FF5722]" />
@@ -542,15 +569,24 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-700/60 text-xs font-mono">
                 <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-800">
                   <span className="text-[10px] text-slate-400 block font-sans">Latitude</span>
-                  <span className="text-white font-bold">{currentCoords?.latitude?.toFixed(5) || '16.51720'}</span>
+                  <span className="text-white font-bold">{currentCoords?.latitude?.toFixed(5) || '16.46380'}</span>
                 </div>
                 <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-800">
                   <span className="text-[10px] text-slate-400 block font-sans">Longitude</span>
-                  <span className="text-white font-bold">{currentCoords?.longitude?.toFixed(5) || '80.52100'}</span>
+                  <span className="text-white font-bold">{currentCoords?.longitude?.toFixed(5) || '80.50720'}</span>
                 </div>
                 <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-800">
-                  <span className="text-[10px] text-slate-400 block font-sans">Accuracy</span>
-                  <span className="text-emerald-400 font-bold">~{currentCoords?.accuracy || 6}m</span>
+                  <span className="text-[10px] text-slate-400 block font-sans">GPS Accuracy</span>
+                  <span className={`font-bold ${
+                    !currentCoords ? 'text-slate-400' :
+                    currentCoords.accuracy <= 15 ? 'text-emerald-400' :
+                    currentCoords.accuracy <= 50 ? 'text-amber-400' : 'text-rose-400'
+                  }`}>
+                    {!currentCoords ? 'Ready' :
+                     currentCoords.accuracy <= 15 ? `±${Math.round(currentCoords.accuracy)}m (Satellite)` :
+                     currentCoords.accuracy <= 50 ? `±${Math.round(currentCoords.accuracy)}m (Wi-Fi)` :
+                     `±${Math.round(currentCoords.accuracy)}m (PC/IP)`}
+                  </span>
                 </div>
                 <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-800">
                   <span className="text-[10px] text-slate-400 block font-sans">Last Transmit</span>
@@ -615,7 +651,75 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
               </div>
             )}
 
-            {/* WORKFLOW ACTION BUTTONS (Part 4) */}
+            {/* INTERACTIVE CAMPUS MAP & PIN DRAGGING */}
+            <div className="space-y-2 relative z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Target size={14} className="text-[#FF5722]" />
+                  <span className="text-xs font-black text-white uppercase tracking-wider font-['Outfit']">
+                    Live Campus Courier Map
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  Tap map or drag 🛵 to position pin
+                </span>
+              </div>
+
+              <DeliveryTrackingMap
+                partnerLocation={currentCoords || { 
+                  latitude: CAMPUS_POINTS['default-kitchen'][0], 
+                  longitude: CAMPUS_POINTS['default-kitchen'][1], 
+                  accuracy: 4 
+                }}
+                restaurantId={activeOrder.restaurantId}
+                restaurantName={activeOrder.restaurantName || activeOrder.restaurant_name}
+                deliveryLocation={activeOrder.deliveryLocation}
+                partnerName={partner?.name}
+                status={activeOrder.status}
+                interactive={true}
+                onLocationUpdate={(coords) => {
+                  transmitLocation(activeOrder.id, coords.latitude, coords.longitude, coords.accuracy || 4, true);
+                }}
+              />
+            </div>
+
+            {/* 1-TAP CAMPUS LANDMARK TELEPORT BAR */}
+            <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-2.5 relative z-10">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <MapPin size={13} className="text-[#FF5722]" />
+                  <span>1-Tap Landmark Teleport (100% Exact Coordinates)</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  SRM-AP Campus
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {CAMPUS_LANDMARKS.map((landmark) => (
+                  <button
+                    key={landmark.id}
+                    type="button"
+                    onClick={() => {
+                      transmitLocation(activeOrder.id, landmark.coords[0], landmark.coords[1], 3, true);
+                    }}
+                    className="p-2.5 rounded-xl bg-slate-900/80 hover:bg-[#FF5722]/20 border border-slate-700/80 hover:border-[#FF5722]/60 text-left transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">{landmark.icon}</span>
+                      <span className="text-xs font-bold text-slate-200 group-hover:text-white truncate">
+                        {landmark.name}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 group-hover:text-slate-300 mt-0.5 truncate">
+                      {landmark.subtitle}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* WORKFLOW ACTION BUTTONS */}
             <div className="pt-2 relative z-10 space-y-2">
               {activeOrder.status === 'READY' && (
                 <button
@@ -722,6 +826,100 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
           )}
         </div>
       </main>
+
+      {/* GPS ACCURACY GUIDE MODAL */}
+      {isGpsModalOpen && (
+        <div className="fixed inset-0 z-[1000] bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="max-w-xl w-full bg-[#1E293B] rounded-3xl border border-slate-700 shadow-2xl p-6 text-white space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold">
+                  📍
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-white font-['Outfit']">How to Get 100% Perfect GPS Location</h3>
+                  <p className="text-[11px] text-slate-400">Understanding hardware GPS vs Wi-Fi estimates</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGpsModalOpen(false)}
+                className="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer border-none"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* 1. Hardware Difference */}
+            <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
+              <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                <AlertCircle size={14} />
+                <span>Why Laptops/PCs Give Inaccurate or Static Locations</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Laptops and desktop computers <strong>do not have satellite GPS hardware chips</strong>. Windows guesses your position based on nearby Wi-Fi network IDs (BSSID) or your internet provider's IP address. This can be off by 100 meters to several kilometers and never moves while you are at your desk.
+              </p>
+            </div>
+
+            {/* 2. Three Ways to Test with Pinpoint Accuracy */}
+            <div className="space-y-3 text-xs">
+              <div className="font-bold text-white uppercase tracking-wider text-[11px]">
+                3 Ways to Get Perfect Pinpoint Accuracy:
+              </div>
+
+              {/* Method A: Mobile Phone */}
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-1.5">
+                <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                  <span>📱 Method 1: Real Mobile Phone GPS (Satellite GNSS)</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed">
+                  Smartphones contain real satellite GPS chips with <strong>3–5 meter accuracy</strong>:
+                </p>
+                <ol className="list-decimal list-inside text-slate-400 space-y-1 pl-1">
+                  <li>Deploy your app to Vercel/Render (HTTPS is required for mobile browsers).</li>
+                  <li>Open the URL on your Android or iPhone browser.</li>
+                  <li>Switch to the <strong>Delivery Dashboard</strong> and tap "Allow Location".</li>
+                  <li>As you walk or ride on campus, your live satellite coordinates broadcast every 2-3 seconds!</li>
+                </ol>
+              </div>
+
+              {/* Method B: 1-Tap Landmarks & Map Drag */}
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-1.5">
+                <div className="font-bold text-blue-400 flex items-center gap-1.5">
+                  <span>🗺️ Method 2: Tap Map or Click Landmark Buttons (Instant Precision)</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed">
+                  Use the built-in campus tools in this dashboard:
+                </p>
+                <ul className="list-disc list-inside text-slate-400 space-y-1 pl-1">
+                  <li>Click any button in <strong>1-Tap Landmark Teleport</strong> (Central Dining, Ganga Hostel, Library, etc.) to immediately place the courier at that exact building.</li>
+                  <li>Click anywhere on the <strong>Live Campus Map</strong> or drag the 🛵 scooter pin to set custom coordinates with 100% precision.</li>
+                </ul>
+              </div>
+
+              {/* Method C: Chrome Sensors */}
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-1.5">
+                <div className="font-bold text-purple-400 flex items-center gap-1.5">
+                  <span>💻 Method 3: Chrome DevTools Geolocation Simulator</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed">
+                  Press <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono text-[10px]">F12</kbd> &gt; Press <kbd className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 font-mono text-[10px]">Ctrl+Shift+P</kbd> &gt; Type <strong>Show Sensors</strong> &gt; Select "Custom Location" to feed exact coordinates right from your computer!
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsGpsModalOpen(false)}
+                className="px-5 py-2 rounded-xl bg-[#FF5722] hover:bg-[#FF7A50] text-white font-bold text-xs cursor-pointer border-none shadow-md shadow-[#FF5722]/30"
+              >
+                Got It, Thanks!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

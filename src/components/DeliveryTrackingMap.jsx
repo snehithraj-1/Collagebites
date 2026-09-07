@@ -13,7 +13,8 @@ import {
   Key, 
   Check, 
   X,
-  AlertCircle
+  AlertCircle,
+  Maximize2
 } from 'lucide-react';
 
 // Real SRM-AP Campus Coordinates (Neerukonda, Amaravati: 16.4631° N, 80.5065° E)
@@ -25,6 +26,31 @@ const CAMPUS_LOCATIONS = {
   'hostel-b': [16.4612, 80.5055], // Yamuna Hostel Block
   'hostel-c': [16.4608, 80.5060], // Krishna Hostel Block
   'default-destination': [16.4612, 80.5055]
+};
+
+// Global Tile Providers (Google Maps tiles render with 0 API key required, zero flicker)
+const TILE_PROVIDERS = {
+  'google-roads': {
+    name: 'Google Roadmap',
+    url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    maxZoom: 20,
+    attribution: '&copy; Google Maps'
+  },
+  'google-satellite': {
+    name: 'Google Satellite',
+    url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    maxZoom: 20,
+    attribution: '&copy; Google Maps'
+  },
+  'osm': {
+    name: 'OpenStreetMap',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    subdomains: ['a', 'b', 'c'],
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }
 };
 
 // Haversine distance in meters
@@ -59,18 +85,20 @@ export default function DeliveryTrackingMap({
   restaurantName,
   deliveryLocation,
   partnerName = 'Campus Courier',
-  status = 'OUT_FOR_DELIVERY'
+  status = 'OUT_FOR_DELIVERY',
+  interactive = false, // When true (e.g. Courier Dashboard), allows clicking map to set location or dragging pin
+  onLocationUpdate = null // Callback when location is pinned manually
 }) {
-  // Map Engine Selection: 'google' (default per request) | 'leaflet'
-  const [mapEngine, setMapEngine] = useState(() => {
+  // Map Layer Selection: 'google-roads' | 'google-satellite' | 'osm' | 'google-sdk'
+  const [mapLayer, setMapLayer] = useState(() => {
     try {
-      return localStorage.getItem('cb_map_engine') || 'google';
+      return localStorage.getItem('cb_map_layer') || 'google-roads';
     } catch {
-      return 'google';
+      return 'google-roads';
     }
   });
 
-  // Google Maps API Key handling
+  // Google Maps API Key handling (for optional Google JS SDK)
   const [googleApiKey, setGoogleApiKey] = useState(() => {
     try {
       return localStorage.getItem('cb_google_maps_key') || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
@@ -86,6 +114,7 @@ export default function DeliveryTrackingMap({
   // Leaflet refs
   const leafletContainerRef = useRef(null);
   const leafletMapRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const partnerMarkerRef = useRef(null);
   const accuracyCircleRef = useRef(null);
   const destMarkerRef = useRef(null);
@@ -93,7 +122,7 @@ export default function DeliveryTrackingMap({
   const routeLineRef = useRef(null);
   const hasFittedInitialLeafletRef = useRef(false);
 
-  // Google Maps JS API refs
+  // Google Maps JS SDK refs
   const googleContainerRef = useRef(null);
   const googleMapRef = useRef(null);
   const googlePartnerMarkerRef = useRef(null);
@@ -104,32 +133,30 @@ export default function DeliveryTrackingMap({
   const destCoords = resolveDestinationCoords(deliveryLocation);
   const kitchenCoords = resolveKitchenCoords(restaurantId);
 
-  // Robust coordinate extraction
+  // Extract coordinates cleanly
   const rawLat = partnerLocation?.latitude ?? partnerLocation?.lat;
   const rawLng = partnerLocation?.longitude ?? partnerLocation?.lng;
   const rawAcc = partnerLocation?.accuracy ?? 8;
 
   const partnerLat = rawLat ? parseFloat(rawLat) : kitchenCoords[0];
   const partnerLng = rawLng ? parseFloat(rawLng) : kitchenCoords[1];
-  const accuracy = rawAcc ? Math.max(5, Math.min(parseFloat(rawAcc), 40)) : 8;
+  const accuracy = rawAcc ? Math.max(4, Math.min(parseFloat(rawAcc), 50)) : 8;
 
   // Real-time distance and ETA
   const distanceToDestMeters = calculateDistanceMeters(partnerLat, partnerLng, destCoords[0], destCoords[1]);
   const etaMinutes = Math.max(1, Math.ceil(distanceToDestMeters / 150));
-  const isArrived = distanceToDestMeters <= 50;
+  const isArrived = distanceToDestMeters <= 40;
 
-  // Google Maps Directions Deep Link
+  // Native Google Maps Directions URL
   const googleDirectionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${partnerLat},${partnerLng}&destination=${destCoords[0]},${destCoords[1]}&travelmode=driving`;
 
-  // Save map engine selection
-  const handleSwitchEngine = (engine) => {
-    setMapEngine(engine);
+  const handleSwitchLayer = (layerKey) => {
+    setMapLayer(layerKey);
     try {
-      localStorage.setItem('cb_map_engine', engine);
+      localStorage.setItem('cb_map_layer', layerKey);
     } catch (e) {}
   };
 
-  // Save custom Google Maps API Key
   const handleSaveApiKey = (e) => {
     e.preventDefault();
     const clean = tempApiKey.trim();
@@ -142,13 +169,21 @@ export default function DeliveryTrackingMap({
     setIsGoogleJsLoaded(false);
   };
 
+  // Center view on courier marker
+  const handleRecenter = () => {
+    if (leafletMapRef.current) {
+      leafletMapRef.current.setView([partnerLat, partnerLng], 17, { animate: true });
+    } else if (googleMapRef.current) {
+      googleMapRef.current.panTo({ lat: partnerLat, lng: partnerLng });
+      googleMapRef.current.setZoom(17);
+    }
+  };
+
   // -------------------------------------------------------------
-  // GOOGLE MAPS JAVASCRIPT API LOADER (If API key provided)
+  // 1. OPTIONAL GOOGLE MAPS JS SDK LOADER
   // -------------------------------------------------------------
   useEffect(() => {
-    if (mapEngine !== 'google' || !googleApiKey) {
-      return;
-    }
+    if (mapLayer !== 'google-sdk' || !googleApiKey) return;
 
     if (window.google?.maps) {
       setIsGoogleJsLoaded(true);
@@ -164,29 +199,25 @@ export default function DeliveryTrackingMap({
       script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(googleApiKey)}&libraries=geometry`;
       script.async = true;
       script.defer = true;
-
       script.onload = () => {
         setIsGoogleJsLoaded(true);
         setGoogleJsError(false);
       };
-
       script.onerror = () => {
-        console.warn('Google Maps JS API failed to load with provided key.');
         setGoogleJsError(true);
         setIsGoogleJsLoaded(false);
       };
-
       document.head.appendChild(script);
     } else {
       setIsGoogleJsLoaded(true);
     }
-  }, [mapEngine, googleApiKey]);
+  }, [mapLayer, googleApiKey]);
 
   // -------------------------------------------------------------
-  // GOOGLE MAPS JS INSTANCE INITIALIZATION
+  // 2. GOOGLE MAPS JS SDK CANVAS INITIALIZATION (When active)
   // -------------------------------------------------------------
   useEffect(() => {
-    if (mapEngine !== 'google' || !isGoogleJsLoaded || !window.google?.maps || !googleContainerRef.current) {
+    if (mapLayer !== 'google-sdk' || !isGoogleJsLoaded || !window.google?.maps || !googleContainerRef.current) {
       return;
     }
 
@@ -197,13 +228,9 @@ export default function DeliveryTrackingMap({
         mapTypeId: 'roadmap',
         mapTypeControl: true,
         streetViewControl: false,
-        fullscreenControl: false,
-        styles: [
-          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'on' }] }
-        ]
+        fullscreenControl: false
       });
 
-      // 1. Kitchen Marker
       googleKitchenMarkerRef.current = new window.google.maps.Marker({
         position: { lat: kitchenCoords[0], lng: kitchenCoords[1] },
         map: gMap,
@@ -211,7 +238,6 @@ export default function DeliveryTrackingMap({
         label: { text: '🍳', fontSize: '18px' }
       });
 
-      // 2. Destination Marker
       googleDestMarkerRef.current = new window.google.maps.Marker({
         position: { lat: destCoords[0], lng: destCoords[1] },
         map: gMap,
@@ -219,16 +245,29 @@ export default function DeliveryTrackingMap({
         label: { text: '📍', fontSize: '20px' }
       });
 
-      // 3. Moving Courier Marker
       googlePartnerMarkerRef.current = new window.google.maps.Marker({
         position: { lat: partnerLat, lng: partnerLng },
         map: gMap,
         title: partnerName,
         label: { text: '🛵', fontSize: '22px' },
-        zIndex: 999
+        zIndex: 999,
+        draggable: interactive
       });
 
-      // 4. Polyline Route
+      if (interactive && onLocationUpdate) {
+        googlePartnerMarkerRef.current.addListener('dragend', (e) => {
+          const lat = e.latLng.lat();
+          const lng = e.latLng.lng();
+          onLocationUpdate({ latitude: lat, longitude: lng, accuracy: 4 });
+        });
+
+        gMap.addListener('click', (e) => {
+          const lat = e.latLng.lat();
+          const lng = e.latLng.lng();
+          onLocationUpdate({ latitude: lat, longitude: lng, accuracy: 4 });
+        });
+      }
+
       googlePolylineRef.current = new window.google.maps.Polyline({
         path: [
           { lat: kitchenCoords[0], lng: kitchenCoords[1] },
@@ -242,16 +281,8 @@ export default function DeliveryTrackingMap({
         map: gMap
       });
 
-      // Fit bounds once
-      const bounds = new window.google.maps.LatLngBounds();
-      bounds.extend({ lat: kitchenCoords[0], lng: kitchenCoords[1] });
-      bounds.extend({ lat: partnerLat, lng: partnerLng });
-      bounds.extend({ lat: destCoords[0], lng: destCoords[1] });
-      gMap.fitBounds(bounds);
-
       googleMapRef.current = gMap;
     } else {
-      // Update courier position and polyline
       if (googlePartnerMarkerRef.current) {
         googlePartnerMarkerRef.current.setPosition({ lat: partnerLat, lng: partnerLng });
       }
@@ -263,64 +294,100 @@ export default function DeliveryTrackingMap({
         ]);
       }
     }
-  }, [mapEngine, isGoogleJsLoaded, partnerLat, partnerLng, kitchenCoords, destCoords, restaurantName, partnerName]);
+  }, [mapLayer, isGoogleJsLoaded, partnerLat, partnerLng, kitchenCoords, destCoords, restaurantName, partnerName, interactive, onLocationUpdate]);
 
   // -------------------------------------------------------------
-  // OPENSTREETMAP LEAFLET INSTANCE (Rock-solid Fallback / Toggle)
+  // 3. LEAFLET HIGH-PERFORMANCE CANVAS (Google Roads, Google Satellite, OSM)
   // -------------------------------------------------------------
   useEffect(() => {
-    if (mapEngine !== 'leaflet') {
+    if (mapLayer === 'google-sdk') {
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
-        hasFittedInitialLeafletRef.current = false;
         partnerMarkerRef.current = null;
         accuracyCircleRef.current = null;
         destMarkerRef.current = null;
         kitchenMarkerRef.current = null;
         routeLineRef.current = null;
+        tileLayerRef.current = null;
+        hasFittedInitialLeafletRef.current = false;
       }
       return;
     }
 
-    if (!leafletContainerRef.current || leafletMapRef.current) return;
+    if (!leafletContainerRef.current) return;
 
-    const map = L.map(leafletContainerRef.current, {
-      center: [partnerLat, partnerLng],
-      zoom: 16,
-      zoomControl: false,
-      attributionControl: false
-    });
+    const currentProvider = TILE_PROVIDERS[mapLayer] || TILE_PROVIDERS['google-roads'];
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
-    }).addTo(map);
+    if (!leafletMapRef.current) {
+      const map = L.map(leafletContainerRef.current, {
+        center: [partnerLat, partnerLng],
+        zoom: 17,
+        zoomControl: false,
+        attributionControl: false
+      });
 
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-    leafletMapRef.current = map;
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    const t = setTimeout(() => {
-      map.invalidateSize();
-      try {
-        const bounds = L.latLngBounds([
-          [partnerLat, partnerLng],
-          destCoords,
-          kitchenCoords
-        ]);
-        map.fitBounds(bounds, { padding: [45, 45], maxZoom: 17 });
-      } catch (e) {}
-    }, 200);
+      tileLayerRef.current = L.tileLayer(currentProvider.url, {
+        maxZoom: currentProvider.maxZoom || 20,
+        subdomains: currentProvider.subdomains || ['mt0', 'mt1', 'mt2', 'mt3']
+      }).addTo(map);
 
-    return () => {
-      clearTimeout(t);
-      map.remove();
-      leafletMapRef.current = null;
-    };
-  }, [mapEngine]);
+      // Interactive click to pin courier location
+      if (interactive && onLocationUpdate) {
+        map.on('click', (e) => {
+          onLocationUpdate({
+            latitude: parseFloat(e.latlng.lat.toFixed(6)),
+            longitude: parseFloat(e.latlng.lng.toFixed(6)),
+            accuracy: 4
+          });
+        });
+      }
 
-  // Update Leaflet markers on coordinate updates
+      leafletMapRef.current = map;
+
+      const t = setTimeout(() => {
+        map.invalidateSize();
+        try {
+          const bounds = L.latLngBounds([
+            [partnerLat, partnerLng],
+            destCoords,
+            kitchenCoords
+          ]);
+          map.fitBounds(bounds, { padding: [45, 45], maxZoom: 17 });
+          hasFittedInitialLeafletRef.current = true;
+        } catch (e) {}
+      }, 200);
+
+      return () => {
+        clearTimeout(t);
+        map.remove();
+        leafletMapRef.current = null;
+        partnerMarkerRef.current = null;
+        accuracyCircleRef.current = null;
+        destMarkerRef.current = null;
+        kitchenMarkerRef.current = null;
+        routeLineRef.current = null;
+        tileLayerRef.current = null;
+      };
+    } else {
+      // Switch active tile provider without reloading the map
+      if (tileLayerRef.current) {
+        leafletMapRef.current.removeLayer(tileLayerRef.current);
+      }
+      tileLayerRef.current = L.tileLayer(currentProvider.url, {
+        maxZoom: currentProvider.maxZoom || 20,
+        subdomains: currentProvider.subdomains || ['mt0', 'mt1', 'mt2', 'mt3']
+      }).addTo(leafletMapRef.current);
+    }
+  }, [mapLayer, interactive, onLocationUpdate]);
+
+  // -------------------------------------------------------------
+  // 4. LEAFLET MARKERS & ROUTE UPDATES (Smooth Glide)
+  // -------------------------------------------------------------
   useEffect(() => {
-    if (mapEngine !== 'leaflet') return;
+    if (mapLayer === 'google-sdk') return;
     const map = leafletMapRef.current;
     if (!map) return;
 
@@ -328,18 +395,19 @@ export default function DeliveryTrackingMap({
     const destLatLng = destCoords;
     const kitchenLatLng = kitchenCoords;
 
-    // 1. Kitchen Marker
+    // Kitchen Marker
     if (!kitchenMarkerRef.current) {
       const kitchenIcon = L.divIcon({
         className: 'custom-kitchen-marker',
-        html: `<div style="background: #0F172A; color: #FF5722; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.35);">🍳</div>`,
+        html: `<div style="background: #0F172A; color: #FF5722; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">🍳</div>`,
         iconSize: [34, 34],
         iconAnchor: [17, 17]
       });
       kitchenMarkerRef.current = L.marker(kitchenLatLng, { icon: kitchenIcon }).addTo(map);
+      kitchenMarkerRef.current.bindTooltip(restaurantName || 'Kitchen Pickup', { permanent: false, direction: 'top' });
     }
 
-    // 2. Destination Marker
+    // Destination Marker
     if (!destMarkerRef.current) {
       const destIcon = L.divIcon({
         className: 'custom-dest-marker',
@@ -348,9 +416,10 @@ export default function DeliveryTrackingMap({
         iconAnchor: [18, 18]
       });
       destMarkerRef.current = L.marker(destLatLng, { icon: destIcon }).addTo(map);
+      destMarkerRef.current.bindTooltip(deliveryLocation || 'Student Hostel', { permanent: false, direction: 'top' });
     }
 
-    // 3. Accuracy Circle
+    // Accuracy Circle
     if (!accuracyCircleRef.current) {
       accuracyCircleRef.current = L.circle(partnerLatLng, {
         radius: accuracy,
@@ -365,13 +434,13 @@ export default function DeliveryTrackingMap({
       accuracyCircleRef.current.setRadius(accuracy);
     }
 
-    // 4. Moving Courier Marker
+    // Courier Marker (Draggable if interactive)
     const partnerIcon = L.divIcon({
       className: 'custom-partner-marker',
       html: `
-        <div style="position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;">
+        <div style="position: relative; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; cursor: ${interactive ? 'grab' : 'default'};">
           <div style="position: absolute; width: 46px; height: 46px; border-radius: 50%; background: rgba(255, 87, 34, 0.3); animation: pulse 1.5s infinite;"></div>
-          <div style="position: relative; background: #FF5722; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 19px; border: 2.5px solid white; box-shadow: 0 4px 16px rgba(255, 87, 34, 0.55);">🛵</div>
+          <div style="position: relative; background: #FF5722; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 19px; border: 2.5px solid white; box-shadow: 0 4px 16px rgba(255, 87, 34, 0.6);">🛵</div>
         </div>
       `,
       iconSize: [46, 46],
@@ -379,13 +448,30 @@ export default function DeliveryTrackingMap({
     });
 
     if (!partnerMarkerRef.current) {
-      partnerMarkerRef.current = L.marker(partnerLatLng, { icon: partnerIcon }).addTo(map);
+      const marker = L.marker(partnerLatLng, { 
+        icon: partnerIcon,
+        draggable: interactive,
+        zIndexOffset: 1000 
+      }).addTo(map);
+
+      if (interactive && onLocationUpdate) {
+        marker.on('dragend', (e) => {
+          const pos = e.target.getLatLng();
+          onLocationUpdate({
+            latitude: parseFloat(pos.lat.toFixed(6)),
+            longitude: parseFloat(pos.lng.toFixed(6)),
+            accuracy: 4
+          });
+        });
+      }
+
+      partnerMarkerRef.current = marker;
     } else {
       partnerMarkerRef.current.setIcon(partnerIcon);
       partnerMarkerRef.current.setLatLng(partnerLatLng);
     }
 
-    // 5. Polyline
+    // Polyline Route
     const routePoints = [kitchenLatLng, partnerLatLng, destLatLng];
     if (!routeLineRef.current) {
       routeLineRef.current = L.polyline(routePoints, {
@@ -398,7 +484,7 @@ export default function DeliveryTrackingMap({
       routeLineRef.current.setLatLngs(routePoints);
     }
 
-    // Initial fit once
+    // Initial fit
     if (!hasFittedInitialLeafletRef.current) {
       try {
         const bounds = L.latLngBounds([partnerLatLng, destLatLng, kitchenLatLng]);
@@ -406,10 +492,7 @@ export default function DeliveryTrackingMap({
         hasFittedInitialLeafletRef.current = true;
       } catch (e) {}
     }
-  }, [mapEngine, partnerLat, partnerLng, accuracy, destCoords, kitchenCoords]);
-
-  // Google Maps Free Embed URL (Zero API Key required, displays real Google Maps terrain & roads)
-  const googleEmbedUrl = `https://maps.google.com/maps?q=${partnerLat},${partnerLng}&z=17&output=embed`;
+  }, [mapLayer, partnerLat, partnerLng, accuracy, destCoords, kitchenCoords, restaurantName, deliveryLocation, interactive, onLocationUpdate]);
 
   return (
     <div className="relative w-full rounded-3xl overflow-hidden border border-[#E2D9D0] shadow-card bg-slate-900 select-none">
@@ -423,40 +506,66 @@ export default function DeliveryTrackingMap({
               <span>{isArrived ? 'Arrived at Destination! 🎉' : `~${etaMinutes} mins (${distanceToDestMeters}m away)`}</span>
             </div>
             <div className="text-[10px] text-slate-400">
-              {mapEngine === 'google' ? 'Google Maps Live Tracking 🗺️' : 'OpenStreetMap Live Tracking 🌍'}
+              {mapLayer === 'google-roads' ? 'Google Maps Roadmap 🗺️' : 
+               mapLayer === 'google-satellite' ? 'Google Satellite Hybrid 🛰️' : 
+               mapLayer === 'google-sdk' ? 'Google Maps JS SDK 🚀' : 'OpenStreetMap 🌍'}
             </div>
           </div>
         </div>
 
-        {/* Engine Switcher & External Actions */}
+        {/* Layer Switcher & External Actions */}
         <div className="flex items-center gap-1.5 pointer-events-auto flex-wrap">
-          {/* Engine Selector */}
+          {/* Layer Selector */}
           <div className="bg-slate-900/90 backdrop-blur-md p-1 rounded-xl border border-slate-700/80 flex items-center gap-1 text-[11px] shadow-lg">
             <button
               type="button"
-              onClick={() => handleSwitchEngine('google')}
-              className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer border-none ${
-                mapEngine === 'google'
+              onClick={() => handleSwitchLayer('google-roads')}
+              className={`px-2 py-1 rounded-lg font-bold transition-all cursor-pointer border-none ${
+                mapLayer === 'google-roads'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'bg-transparent text-slate-300 hover:text-white'
               }`}
+              title="Google Maps Roadmap Tiles"
             >
-              <span>Google Maps</span>
+              Google
             </button>
             <button
               type="button"
-              onClick={() => handleSwitchEngine('leaflet')}
-              className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer border-none ${
-                mapEngine === 'leaflet'
+              onClick={() => handleSwitchLayer('google-satellite')}
+              className={`px-2 py-1 rounded-lg font-bold transition-all cursor-pointer border-none ${
+                mapLayer === 'google-satellite'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-transparent text-slate-300 hover:text-white'
+              }`}
+              title="Google Satellite Hybrid Imagery"
+            >
+              Satellite
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSwitchLayer('osm')}
+              className={`px-2 py-1 rounded-lg font-bold transition-all cursor-pointer border-none ${
+                mapLayer === 'osm'
                   ? 'bg-[#FF5722] text-white shadow-md'
                   : 'bg-transparent text-slate-300 hover:text-white'
               }`}
+              title="OpenStreetMap Standard Tiles"
             >
-              <span>OpenStreetMap</span>
+              OSM
             </button>
           </div>
 
-          {/* Open In Native Google Maps App */}
+          {/* Re-center Button */}
+          <button
+            type="button"
+            onClick={handleRecenter}
+            className="w-8 h-8 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 flex items-center justify-center cursor-pointer shadow-lg"
+            title="Re-center on Courier"
+          >
+            <Crosshair size={14} />
+          </button>
+
+          {/* Native Google Maps App Directions */}
           <a
             href={googleDirectionsUrl}
             target="_blank"
@@ -468,63 +577,39 @@ export default function DeliveryTrackingMap({
             <span className="hidden sm:inline">Google Maps App</span>
           </a>
 
-          {/* Optional Google API Key Config Button */}
-          {mapEngine === 'google' && (
-            <button
-              type="button"
-              onClick={() => {
-                setTempApiKey(googleApiKey);
-                setIsKeyModalOpen(true);
-              }}
-              className="p-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
-              title="Configure Google Maps API Key"
-            >
-              <Key size={13} />
-            </button>
-          )}
+          {/* Optional Google API Key Config */}
+          <button
+            type="button"
+            onClick={() => {
+              setTempApiKey(googleApiKey);
+              setIsKeyModalOpen(true);
+            }}
+            className="p-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+            title="Configure Google Maps API Key"
+          >
+            <Key size={13} />
+          </button>
         </div>
       </div>
 
-      {/* MAP CANVAS VIEWPORTS */}
-      {mapEngine === 'google' ? (
-        googleApiKey && isGoogleJsLoaded && !googleJsError ? (
-          /* 1. Full Google Maps JavaScript API Canvas */
-          <div 
-            ref={googleContainerRef} 
-            className="w-full h-72 sm:h-96 z-0 bg-[#0F172A]"
-            style={{ minHeight: '280px' }}
-          />
-        ) : (
-          /* 2. Google Maps Interactive Embed (Works instantly with 0 API Key required!) */
-          <div className="relative w-full h-72 sm:h-96 z-0 bg-[#0F172A]" style={{ minHeight: '280px' }}>
-            <iframe
-              title="Google Maps Live Delivery Location"
-              src={googleEmbedUrl}
-              width="100%"
-              height="100%"
-              className="w-full h-full border-0"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-            {/* Overlay notification regarding active tracking */}
-            <div className="absolute bottom-2 left-2 right-2 bg-slate-900/85 backdrop-blur-md px-3 py-1.5 rounded-xl text-white text-[11px] border border-slate-700 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Google Maps GPS Pin: <strong>{partnerLat.toFixed(5)}, {partnerLng.toFixed(5)}</strong></span>
-              </div>
-              <a
-                href={googleDirectionsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-400 font-bold hover:underline"
-              >
-                Turn-by-turn Route →
-              </a>
-            </div>
+      {/* Interactive Helper Banner for Delivery Dashboard */}
+      {interactive && (
+        <div className="absolute top-14 left-3 right-3 z-[390] pointer-events-none">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF5722]/90 backdrop-blur-md text-white text-[11px] font-bold shadow-lg">
+            <Compass size={12} />
+            <span>Click map or drag 🛵 to set exact courier location</span>
           </div>
-        )
+        </div>
+      )}
+
+      {/* MAP VIEWPORT */}
+      {mapLayer === 'google-sdk' && googleApiKey && isGoogleJsLoaded && !googleJsError ? (
+        <div 
+          ref={googleContainerRef} 
+          className="w-full h-72 sm:h-96 z-0 bg-[#0F172A]"
+          style={{ minHeight: '280px' }}
+        />
       ) : (
-        /* 3. OpenStreetMap Leaflet Canvas */
         <div 
           ref={leafletContainerRef} 
           className="w-full h-72 sm:h-96 z-0 bg-[#0F172A]"
@@ -551,7 +636,7 @@ export default function DeliveryTrackingMap({
 
         <div className="flex items-center gap-2 text-[11px]">
           <span className="text-slate-400">Hostel Drop:</span>
-          <strong className="text-[#0F172A]">{deliveryLocation || 'Hostel'}</strong>
+          <strong className="text-[#0F172A]">{deliveryLocation || 'Campus Hostel'}</strong>
         </div>
       </div>
 
@@ -562,7 +647,7 @@ export default function DeliveryTrackingMap({
             <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
               <div className="flex items-center gap-2 font-black font-['Outfit'] text-base">
                 <Key size={16} className="text-amber-400" />
-                <span>Google Maps API Settings</span>
+                <span>Google Maps Settings</span>
               </div>
               <button
                 type="button"
@@ -574,7 +659,7 @@ export default function DeliveryTrackingMap({
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Google Maps is already active with the <strong>Zero-Key Interactive Embed</strong>. If you have a Google Cloud API Key with the Maps JavaScript API enabled, you can enter it below to unlock native custom 3D overlays.
+              Google Roadmap & Google Satellite tiles are already streaming smoothly with zero API key required. If you have a paid Google Cloud Key for official JS SDK overlays, enter it below.
             </p>
 
             <form onSubmit={handleSaveApiKey} className="space-y-3">
