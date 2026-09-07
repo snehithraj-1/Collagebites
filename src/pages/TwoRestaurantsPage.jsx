@@ -173,9 +173,22 @@ export default function TwoRestaurantsPage({ onSelectRestaurant }) {
 
                   {/* Location, Landmark & Phone */}
                   <div className="space-y-1.5 text-xs text-[#475569] mb-6 p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#F1EAE4]">
-                    <div className="flex items-center gap-2">
-                      <MapPin size={14} className="text-[#FF5722] flex-shrink-0" />
-                      <span><strong>Location:</strong> {restaurant.location}</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MapPin size={14} className="text-[#FF5722] flex-shrink-0" />
+                        <span><strong>Location:</strong> {restaurant.location}</span>
+                      </div>
+                      {restaurant.id === 'local-home-kitchen' && (
+                        <a
+                          href="https://maps.app.goo.gl/AFSw8xGrMji3TbDJ9"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-extrabold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 no-underline bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/80"
+                          title="Open verified location in Google Maps"
+                        >
+                          Maps 📍
+                        </a>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Store size={14} className="text-[#94A3B8] flex-shrink-0" />

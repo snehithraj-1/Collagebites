@@ -77,6 +77,19 @@ function generateRouteWaypoints(startCoord, endCoord, count = 10) {
   return waypoints;
 }
 
+// Haversine distance in meters to calculate movement delta
+function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371e3;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
 export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStudent, onSwitchToAdmin }) {
   const [orders, setOrders] = useState([]);
   const [activeOrder, setActiveOrder] = useState(null);
@@ -98,25 +111,56 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
   const generalWatcherRef = useRef(null);
   const simTimerRef = useRef(null);
   const lastSentTimeRef = useRef(0);
+  const lastTransmittedCoordsRef = useRef(null);
+  const manualHoldUntilRef = useRef(0);
+  const simulationModeRef = useRef(false);
   const waypointsRef = useRef([]);
 
   // Helper to resolve coordinates for active order
   const getOrderPoints = useCallback((order) => {
     if (!order) return { start: CAMPUS_POINTS['default-kitchen'], end: CAMPUS_POINTS['default-destination'] };
-    const start = CAMPUS_POINTS[order.restaurantId] || CAMPUS_POINTS['default-kitchen'];
-    const loc = (order.deliveryLocation || '').toLowerCase();
+    const rId = order.restaurantId || order.restaurant_id || 'local-home-kitchen';
+    const start = CAMPUS_POINTS[rId] || CAMPUS_POINTS['default-kitchen'];
+    const loc = (order.deliveryLocation || order.delivery_location || '').toLowerCase();
     let end = CAMPUS_POINTS['default-destination'];
-    if (loc.includes('block a')) end = CAMPUS_POINTS['hostel-a'];
-    else if (loc.includes('block b')) end = CAMPUS_POINTS['hostel-b'];
-    else if (loc.includes('block c')) end = CAMPUS_POINTS['hostel-c'];
+    if (loc.includes('block a') || loc.includes('ganga')) end = CAMPUS_POINTS['hostel-a'];
+    else if (loc.includes('block b') || loc.includes('yamuna')) end = CAMPUS_POINTS['hostel-b'];
+    else if (loc.includes('block c') || loc.includes('krishna')) end = CAMPUS_POINTS['hostel-c'];
     return { start, end };
   }, []);
 
-  // Send Location to Neon backend
+  // Send Location to Neon backend with deadband jitter filter
   const transmitLocation = useCallback(async (targetOrderId, lat, lng, acc = 5, force = false) => {
     const now = Date.now();
-    if (!force && now - lastSentTimeRef.current < 2000) return; // Throttle 2s
+
+    // If manual teleport or pin drag was recently performed, hold for 15s so phone sensor jitter doesn't overwrite it
+    if (!force && now < manualHoldUntilRef.current) {
+      return;
+    }
+
+    if (force) {
+      manualHoldUntilRef.current = now + 15000;
+    }
+
+    // Deadband jitter filter: If moved less than 2.5 meters, only broadcast heartbeat every 8 seconds
+    if (!force && lastTransmittedCoordsRef.current) {
+      const dist = calculateDistanceMeters(
+        lastTransmittedCoordsRef.current.lat,
+        lastTransmittedCoordsRef.current.lng,
+        lat,
+        lng
+      );
+      const timeSinceLast = now - lastSentTimeRef.current;
+      if (dist < 2.5 && timeSinceLast < 8000) {
+        return; // Suppress stationary jitter
+      }
+      if (timeSinceLast < 2000) {
+        return; // Rate limit 2s
+      }
+    }
+
     lastSentTimeRef.current = now;
+    lastTransmittedCoordsRef.current = { lat, lng };
 
     try {
       const recorded = await sendDeliveryLocation({
@@ -179,17 +223,19 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
   }, []);
 
   // 3. Start GPS Broadcast (Real Phone Hardware Satellite GNSS or Simulation)
-  const startGpsBroadcast = useCallback((targetOrderId) => {
+  const startGpsBroadcast = useCallback((targetOrderId, overrideSimMode = null) => {
     stopGpsBroadcast();
     setIsGpsActive(true);
     setGpsError(null);
+
+    const isSim = overrideSimMode !== null ? overrideSimMode : simulationModeRef.current;
 
     const waypoints = waypointsRef.current.length > 0
       ? waypointsRef.current
       : generateRouteWaypoints(CAMPUS_POINTS['default-kitchen'], CAMPUS_POINTS['default-destination'], 10);
 
     // Mode A: Simulation Mode
-    if (simulationMode || !navigator.geolocation) {
+    if (isSim || !navigator.geolocation) {
       let currentIdx = simStepIndex % waypoints.length;
       const initial = waypoints[currentIdx];
       transmitLocation(targetOrderId, initial.lat, initial.lng, 4, true);
@@ -248,7 +294,7 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
     } catch (e) {
       setGpsError(`GPS unsupported: ${e.message}`);
     }
-  }, [simulationMode, simStepIndex, stopGpsBroadcast, transmitLocation]);
+  }, [simStepIndex, stopGpsBroadcast, transmitLocation]);
 
   // CONTINUOUS PHONE GPS WATCHER (Runs immediately on mount so courier's real position is visible on map)
   useEffect(() => {
@@ -266,11 +312,13 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
 
-    // Watch position continuously
+    // Watch position continuously (only updates UI coords when broadcasting is not actively doing so)
     generalWatcherRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        setCurrentCoords({ latitude, longitude, accuracy });
+        if (watchIdRef.current === null) {
+          const { latitude, longitude, accuracy } = pos.coords;
+          setCurrentCoords({ latitude, longitude, accuracy });
+        }
       },
       () => {},
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -594,7 +642,10 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                     onClick={() => {
                       const next = !simulationMode;
                       setSimulationMode(next);
-                      if (isGpsActive) startGpsBroadcast(activeOrder.id);
+                      simulationModeRef.current = next;
+                      if (activeOrder && isGpsActive) {
+                        startGpsBroadcast(activeOrder.id, next);
+                      }
                     }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer flex items-center gap-1.5 ${
                       !simulationMode 
@@ -714,9 +765,9 @@ export default function DeliveryDashboardPage({ partner, onLogout, onSwitchToStu
                   longitude: CAMPUS_POINTS['default-kitchen'][1], 
                   accuracy: 4 
                 }}
-                restaurantId={activeOrder.restaurantId || 'local-home-kitchen'}
+                restaurantId={activeOrder.restaurantId || activeOrder.restaurant_id || 'local-home-kitchen'}
                 restaurantName={activeOrder.restaurantName || activeOrder.restaurant_name || 'Local Home Kitchen'}
-                deliveryLocation={activeOrder.deliveryLocation}
+                deliveryLocation={activeOrder.deliveryLocation || activeOrder.delivery_location}
                 partnerName={partner?.name}
                 status={activeOrder.status}
                 interactive={true}

@@ -133,7 +133,19 @@ export default function OrderTrackingPage({ orderId, onNavigateHome }) {
     try {
       const locRes = await getLiveDeliveryLocation(orderId);
       if (locRes.active && locRes.location) {
-        setLiveLocation(locRes.location);
+        setLiveLocation(prev => {
+          if (!prev) return locRes.location;
+          const prevLat = parseFloat(prev.latitude ?? prev.lat);
+          const prevLng = parseFloat(prev.longitude ?? prev.lng);
+          const nextLat = parseFloat(locRes.location.latitude ?? locRes.location.lat);
+          const nextLng = parseFloat(locRes.location.longitude ?? locRes.location.lng);
+
+          // If change is microscopic (< ~1.5m), preserve prev object reference to prevent re-render churn
+          if (Math.abs(prevLat - nextLat) < 0.000015 && Math.abs(prevLng - nextLng) < 0.000015) {
+            return prev;
+          }
+          return locRes.location;
+        });
       } else if (locRes.status === 'DELIVERED') {
         setLiveLocation(null);
       }
