@@ -87,8 +87,9 @@ export default function Navbar({ onNavigate, onOpenSearch }) {
                     <div className="text-xs font-black text-[#0F172A] truncate max-w-[120px]">
                       {studentProfile?.name || 'Student'}
                     </div>
-                    <div className="text-[10px] text-[#64748B] font-semibold">
-                      {studentProfile?.roomNumber || 'Hostel'}
+                    <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                      <span>✓</span>
+                      <span>+91 {studentProfile?.phone || 'Verified'}</span>
                     </div>
                   </div>
                 </div>

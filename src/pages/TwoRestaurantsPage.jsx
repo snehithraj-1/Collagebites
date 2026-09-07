@@ -44,9 +44,9 @@ export default function TwoRestaurantsPage({ onSelectRestaurant }) {
               Hello, {studentProfile?.name || 'Student'} 👋
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 font-medium mt-1 flex items-center gap-2 flex-wrap">
-              <span>Hostel: <strong className="text-white">{studentProfile?.hostel || 'Hostel Block'}</strong></span>
+              <span>📱 <strong className="text-white">+91 {studentProfile?.phone || 'Campus Student'}</strong></span>
               <span>•</span>
-              <span>Room: <strong className="text-white">{studentProfile?.roomNumber || 'Room #'}</strong></span>
+              <span className="text-emerald-400 font-semibold">Free Hostel Doorstep Drop</span>
             </p>
           </div>
 
