@@ -3,10 +3,14 @@
 > **Unofficial UI/UX Redesign Concept for Campus Dining**  
 > *A modern, premium, fully responsive full-stack concept inspired by the campus food ordering ecosystem at SRM University-AP (SRM-AP).*
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-collagebites.vercel.app-FF5722?logo=vercel&logoColor=white)](https://collagebites.vercel.app/)
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Collagebites-181717?logo=github&logoColor=white)](https://github.com/snehithraj-1/Collagebites)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
+> 🚀 **Live Demo:** [https://collagebites.vercel.app/](https://collagebites.vercel.app/)  
+> 📦 **GitHub Code:** [https://github.com/snehithraj-1/Collagebites](https://github.com/snehithraj-1/Collagebites)
 
 ---
 
@@ -116,8 +120,8 @@ collage-bites/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/snehithraj-1/CampusBites-Redesign.git
-cd CampusBites-Redesign
+git clone https://github.com/snehithraj-1/Collagebites.git
+cd Collagebites
 
 # 2. Install dependencies
 npm install
