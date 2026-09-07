@@ -1,6 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { RESTAURANTS, INITIAL_ORDERS, CAMPUS_LOCATIONS } from '../data/campusData';
+import { 
+  isNeonConfigured, 
+  initNeonDb, 
+  fetchNeonOrders, 
+  insertNeonOrder, 
+  updateNeonOrderStatus, 
+  deleteNeonOrder,
+  fetchNeonRestaurantStatuses,
+  upsertNeonRestaurantStatus,
+  fetchNeonOverallOrdering,
+  upsertNeonOverallOrdering 
+} from '../lib/neon';
 
 const AppContext = createContext();
 
@@ -86,10 +98,42 @@ export function AppProvider({ children }) {
   // 6. Toast Notification
   const [toast, setToast] = useState(null);
 
+  // 7. Neon Database State
+  const [isNeonConnected, setIsNeonConnected] = useState(isNeonConfigured());
+
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   }, []);
+
+  // Neon Cloud Synchronization
+  const syncWithNeon = useCallback(async () => {
+    if (!isNeonConfigured()) return;
+    try {
+      const initialized = await initNeonDb();
+      if (initialized) {
+        setIsNeonConnected(true);
+        const cloudOrders = await fetchNeonOrders();
+        if (cloudOrders && cloudOrders.length > 0) {
+          setOrders(cloudOrders);
+        }
+        const cloudStatuses = await fetchNeonRestaurantStatuses();
+        if (cloudStatuses && Object.keys(cloudStatuses).length > 0) {
+          setRestaurantStatuses(cloudStatuses);
+        }
+        const cloudOverall = await fetchNeonOverallOrdering();
+        if (cloudOverall !== null) {
+          setOverallOrderingEnabled(cloudOverall);
+        }
+      }
+    } catch (err) {
+      console.warn('[Neon Sync] Fallback to local storage:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    syncWithNeon();
+  }, [syncWithNeon]);
 
   // Sync state to LocalStorage
   useEffect(() => {
@@ -194,6 +238,7 @@ export function AppProvider({ children }) {
   // Admin Controls
   const toggleOverallOrdering = (enabled) => {
     setOverallOrderingEnabled(enabled);
+    upsertNeonOverallOrdering(enabled);
     showToast(
       enabled ? 'Master Ordering is now ACTIVE' : 'Master Ordering has been PAUSED',
       enabled ? 'success' : 'info'
@@ -206,6 +251,7 @@ export function AppProvider({ children }) {
       const next = current === 'OPEN' ? 'CLOSED' : 'OPEN';
       const restObj = RESTAURANTS.find((r) => r.id === restaurantId);
       const restName = restObj ? restObj.name : restaurantId;
+      upsertNeonRestaurantStatus(restaurantId, next);
       showToast(`${restName} is now ${next}`, next === 'OPEN' ? 'success' : 'info');
       return { ...prev, [restaurantId]: next };
     });
@@ -339,6 +385,9 @@ export function AppProvider({ children }) {
     setPendingOrder(null);
     clearCart();
 
+    // Persist to Neon PostgreSQL
+    insertNeonOrder(finalizedOrder);
+
     // Confetti celebration
     confetti({
       particleCount: 140,
@@ -370,6 +419,9 @@ export function AppProvider({ children }) {
     setPendingOrder(null);
     setIsConfirmationModalOpen(false);
 
+    // Persist to Neon PostgreSQL
+    insertNeonOrder(cancelledOrder);
+
     showToast(
       isTimeout
         ? '30-second window expired. Order was automatically cancelled.'
@@ -385,11 +437,13 @@ export function AppProvider({ children }) {
         o.id === orderId ? { ...o, status: 'CANCELLED', cancelledReason: 'Cancelled by Administrator' } : o
       )
     );
+    updateNeonOrderStatus(orderId, 'CANCELLED', 'Cancelled by Administrator');
     showToast(`Order #${orderId} marked as Cancelled`, 'info');
   };
 
   const deleteOrderByAdmin = (orderId) => {
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    deleteNeonOrder(orderId);
     showToast(`Order #${orderId} deleted permanently`, 'info');
   };
 
@@ -441,7 +495,11 @@ export function AppProvider({ children }) {
 
         // Notifications
         toast,
-        showToast
+        showToast,
+
+        // Neon Database Status & Actions
+        isNeonConnected,
+        syncWithNeon
       }}
     >
       {children}

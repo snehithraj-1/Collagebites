@@ -6,6 +6,8 @@ dist/
 dist-ssr/
 
 # Local env & logs
+.env
+.env.*
 *.local
 *.log
 npm-debug.log*

@@ -18,7 +18,8 @@ import {
   LogOut,
   MapPin,
   Phone,
-  DollarSign
+  DollarSign,
+  Database
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { RESTAURANTS } from '../data/campusData';
@@ -32,7 +33,9 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
     orders,
     cancelOrderByAdmin,
     deleteOrderByAdmin,
-    logout
+    logout,
+    isNeonConnected,
+    syncWithNeon
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,7 +98,32 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Neon Cloud Database Status Pill */}
+            {isNeonConnected ? (
+              <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-950/60 border border-emerald-800/80 text-emerald-300 text-xs font-bold shadow-xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <Database size={13} className="text-emerald-400" />
+                <span>Neon Postgres: Connected</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-300 text-xs font-semibold" title="Add DATABASE_URL to .env to connect Neon Cloud Database">
+                <Database size={13} className="text-amber-400" />
+                <span>Storage: Local Cache</span>
+              </div>
+            )}
+
+            {/* Cloud Refresh Action */}
+            <button
+              onClick={() => {
+                syncWithNeon();
+              }}
+              title="Refresh / Sync Cloud Database"
+              className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
+            >
+              <RefreshCw size={15} />
+            </button>
+
             <button
               onClick={onSwitchToStudentView}
               className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer border border-slate-700"
