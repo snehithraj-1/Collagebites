@@ -27,28 +27,26 @@ export default function App() {
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
 
   // Sync URL hash or path with admin route
+  const [isAdminRoute, setIsAdminRoute] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.location.pathname.toLowerCase().includes('/admin') || window.location.hash.toLowerCase().includes('admin');
+  });
+
   useEffect(() => {
-    const checkAdminRoute = () => {
+    const handleUrlChange = () => {
       const isPathAdmin = window.location.pathname.toLowerCase().includes('/admin');
       const isHashAdmin = window.location.hash.toLowerCase().includes('admin');
-      if ((isPathAdmin || isHashAdmin) && userRole !== 'admin') {
-        if (isAdminAuthenticated) {
-          setUserRole('admin');
-        } else {
-          setUserRole('admin_login');
-        }
-      }
+      setIsAdminRoute(isPathAdmin || isHashAdmin);
     };
 
-    checkAdminRoute();
-    window.addEventListener('hashchange', checkAdminRoute);
-    window.addEventListener('popstate', checkAdminRoute);
+    window.addEventListener('hashchange', handleUrlChange);
+    window.addEventListener('popstate', handleUrlChange);
 
     return () => {
-      window.removeEventListener('hashchange', checkAdminRoute);
-      window.removeEventListener('popstate', checkAdminRoute);
+      window.removeEventListener('hashchange', handleUrlChange);
+      window.removeEventListener('popstate', handleUrlChange);
     };
-  }, [userRole, isAdminAuthenticated, setUserRole]);
+  }, []);
 
   // Scroll to top on view changes
   useEffect(() => {
@@ -72,33 +70,57 @@ export default function App() {
     }
   };
 
-  // 1. ADMIN LOGIN VIEW
-  if (userRole === 'admin_login' || (!userRole && window.location.hash === '#admin')) {
+  // 1. ADMIN FLOW: If URL has #admin / /admin, or role is admin / admin_login
+  const shouldShowAdmin = userRole === 'admin' || userRole === 'admin_login' || isAdminRoute;
+
+  if (shouldShowAdmin) {
+    if (isAdminAuthenticated) {
+      return (
+        <div className="min-h-screen bg-[#0F172A]">
+          <AdminDashboardPage 
+            onSwitchToStudentView={() => {
+              window.location.hash = '';
+              if (window.location.pathname.toLowerCase().includes('/admin')) {
+                window.history.pushState(null, '', '/');
+              }
+              setIsAdminRoute(false);
+              setUserRole('student');
+            }} 
+          />
+          {renderToast(toast)}
+        </div>
+      );
+    }
+
+    // Admin login view if not authenticated
     return (
       <>
-        <AdminLoginPage onSwitchToStudent={() => setUserRole('student')} />
+        <AdminLoginPage 
+          onSwitchToStudent={() => {
+            window.location.hash = '';
+            if (window.location.pathname.toLowerCase().includes('/admin')) {
+              window.history.pushState(null, '', '/');
+            }
+            setIsAdminRoute(false);
+            setUserRole('student');
+          }} 
+        />
         {renderToast(toast)}
       </>
     );
   }
 
-  // 2. ADMIN DASHBOARD VIEW (Protected)
-  if (userRole === 'admin' && isAdminAuthenticated) {
-    return (
-      <div className="min-h-screen bg-[#0F172A]">
-        <AdminDashboardPage 
-          onSwitchToStudentView={() => setUserRole('student')} 
-        />
-        {renderToast(toast)}
-      </div>
-    );
-  }
-
-  // 3. STUDENT NOT LOGGED IN -> STUDENT LOGIN VIEW
+  // 2. STUDENT NOT LOGGED IN -> STUDENT LOGIN VIEW
   if (!studentProfile || userRole !== 'student') {
     return (
       <>
-        <StudentLoginPage onSwitchToAdmin={() => switchRole('admin')} />
+        <StudentLoginPage 
+          onSwitchToAdmin={() => {
+            window.location.hash = 'admin';
+            setIsAdminRoute(true);
+            switchRole('admin');
+          }} 
+        />
         {renderToast(toast)}
       </>
     );

@@ -51,6 +51,7 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
   const totalOrdersCount = orders.length;
   const pendingOrdersCount = orders.filter((o) => o.status === 'PENDING_CONFIRMATION').length;
   const activeOrdersCount = orders.filter((o) => ['CONFIRMED', 'PREPARING', 'READY', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(o.status)).length;
+  const confirmedOrdersCount = orders.filter((o) => ['CONFIRMED', 'PREPARING', 'READY', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(o.status)).length;
   const deliveredOrdersCount = orders.filter((o) => o.status === 'DELIVERED').length;
   const cancelledOrdersCount = orders.filter((o) => ['CANCELLED', 'EXPIRED'].includes(o.status)).length;
   const totalRevenue = orders
@@ -118,7 +119,7 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
             {/* Cloud Refresh Action */}
             <button
               onClick={() => {
-                syncWithNeon();
+                refreshCloudData();
               }}
               title="Refresh / Sync Cloud Database"
               className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
@@ -135,7 +136,13 @@ export default function AdminDashboardPage({ onSwitchToStudentView }) {
             </button>
 
             <button
-              onClick={logout}
+              onClick={() => {
+                window.location.hash = '';
+                if (window.location.pathname.toLowerCase().includes('/admin')) {
+                  window.history.pushState(null, '', '/');
+                }
+                logout();
+              }}
               className="px-4 py-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer border border-rose-800/60"
             >
               <LogOut size={15} />

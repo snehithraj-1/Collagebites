@@ -14,6 +14,8 @@ export default function AdminLoginPage({ onSwitchToStudent }) {
     const success = loginAdmin(password);
     if (!success) {
       setError('Invalid administrator credentials. (Hint: admin123 or clgbites@admin2024)');
+    } else {
+      window.location.hash = 'admin';
     }
   };
 
