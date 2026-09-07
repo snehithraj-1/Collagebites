@@ -4,33 +4,95 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { getVerifiedItemPrice } from './menuCatalog.js';
 
-// Resolve database URL from process.env or .env file
-function getDatabaseUrl() {
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+// Resolve database URL from process.env or .env file with sanitization
+export function getDatabaseUrl() {
+  let url = process.env.DATABASE_URL 
+         || process.env.POSTGRES_URL 
+         || process.env.VITE_DATABASE_URL 
+         || process.env.DATABASE_PUBLIC_URL 
+         || '';
 
-  try {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const envPath = path.resolve(__dirname, '../.env');
-    if (fs.existsSync(envPath)) {
-      const content = fs.readFileSync(envPath, 'utf8');
-      const match = content.match(/DATABASE_URL=(.+)/);
-      if (match) return match[1].trim();
+  if (!url) {
+    try {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const envPath = path.resolve(__dirname, '../.env');
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, 'utf8');
+        const match = content.match(/DATABASE_URL=(.+)/);
+        if (match) url = match[1].trim();
+      }
+    } catch (e) {
+      // Ignore and fallback
     }
-  } catch (e) {
-    // Ignore and fallback
   }
 
-  return '';
+  if (url) {
+    url = url.trim();
+    // Strip accidental "DATABASE_URL=" prefix if pasted into Vercel value field
+    if (url.startsWith('DATABASE_URL=')) {
+      url = url.replace(/^DATABASE_URL=/, '').trim();
+    }
+    // Strip accidental surrounding single or double quotes
+    if ((url.startsWith('"') && url.endsWith('"')) || (url.startsWith("'") && url.endsWith("'"))) {
+      url = url.slice(1, -1).trim();
+    }
+  }
+
+  return url;
 }
 
 const DATABASE_URL = getDatabaseUrl();
 
 if (!DATABASE_URL) {
-  console.warn('[Server DB] WARNING: DATABASE_URL is not set!');
+  console.warn('[Server DB] WARNING: DATABASE_URL is not set in environment variables!');
 }
 
 export const sql = neon(DATABASE_URL);
+
+// Health check function for /api/health diagnostic
+export async function checkDbHealth() {
+  const url = getDatabaseUrl();
+  if (!url) {
+    return {
+      ok: false,
+      error: 'DATABASE_URL is missing in environment variables. Add it in Vercel Settings -> Environment Variables.'
+    };
+  }
+
+  let sanitized = {};
+  try {
+    const parsed = new URL(url);
+    sanitized = {
+      user: parsed.username,
+      host: parsed.hostname,
+      database: parsed.pathname.replace(/^\//, ''),
+      hasPassword: Boolean(parsed.password),
+      passwordLength: parsed.password ? parsed.password.length : 0
+    };
+  } catch (e) {
+    sanitized = { formatError: 'Invalid URL format' };
+  }
+
+  try {
+    const rows = await sql`SELECT 1 as connected, NOW() as server_time;`;
+    return {
+      ok: true,
+      message: 'Neon PostgreSQL connected successfully! 🎉',
+      serverTime: rows[0]?.server_time,
+      info: sanitized
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err.message,
+      info: sanitized,
+      diagnosis: err.message.includes('password authentication failed')
+        ? 'Password mismatch! The password configured in Vercel Environment Variables does not match the active password in your Neon Console. Please copy the fresh connection string from Neon Console (https://console.neon.tech), update DATABASE_URL in Vercel, and REDEPLOY.'
+        : 'Database connection failed. Please verify your connection string in Neon Console.'
+    };
+  }
+}
 
 // Phase 5 State Machine
 export const ALLOWED_TRANSITIONS = {

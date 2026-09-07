@@ -21,7 +21,8 @@ import {
   getOrdersForDeliveryPartnerFromDb,
   updateDeliveryOrderStatusInDb,
   recordDeliveryLocationInDb,
-  getLatestDeliveryLocationFromDb
+  getLatestDeliveryLocationFromDb,
+  checkDbHealth
 } from './db.js';
 
 const router = express.Router();
@@ -29,6 +30,16 @@ const router = express.Router();
 // Middlewares
 router.use(cors());
 router.use(express.json());
+
+// Diagnostic endpoint: GET /api/health
+router.get('/health', async (req, res) => {
+  try {
+    const health = await checkDbHealth();
+    return res.status(health.ok ? 200 : 500).json(health);
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 // Optional Admin Authentication / Authorization Hook
 const adminAuthMiddleware = (req, res, next) => {
