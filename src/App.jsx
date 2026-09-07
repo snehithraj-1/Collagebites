@@ -11,8 +11,6 @@ import TwoRestaurantsPage from './pages/TwoRestaurantsPage';
 import RestaurantMenuPage from './pages/RestaurantMenuPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import OrderTrackingPage from './pages/OrderTrackingPage';
-import DeliveryLoginPage from './pages/DeliveryLoginPage';
-import DeliveryDashboardPage from './pages/DeliveryDashboardPage';
 import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
 
 // Helper to parse order ID from URL pathname or hash
@@ -37,9 +35,6 @@ export default function App() {
     setUserRole,
     studentProfile,
     isAdminAuthenticated,
-    deliveryPartnerProfile,
-    loginDeliveryPartner,
-    logoutDeliveryPartner,
     switchRole,
     toast
   } = useApp();
@@ -58,21 +53,11 @@ export default function App() {
     return window.location.pathname.toLowerCase().includes('/admin') || window.location.hash.toLowerCase().includes('admin');
   });
 
-  // Sync URL hash or path with delivery courier route
-  const [isDeliveryRoute, setIsDeliveryRoute] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.location.pathname.toLowerCase().includes('/delivery') || window.location.hash.toLowerCase().includes('delivery');
-  });
-
   useEffect(() => {
     const handleUrlChange = () => {
       const isPathAdmin = window.location.pathname.toLowerCase().includes('/admin');
       const isHashAdmin = window.location.hash.toLowerCase().includes('admin');
       setIsAdminRoute(isPathAdmin || isHashAdmin);
-
-      const isPathDelivery = window.location.pathname.toLowerCase().includes('/delivery');
-      const isHashDelivery = window.location.hash.toLowerCase().includes('delivery');
-      setIsDeliveryRoute(isPathDelivery || isHashDelivery);
 
       const parsedOrderId = parseTrackingOrderIdFromUrl();
       if (parsedOrderId) {
@@ -133,15 +118,9 @@ export default function App() {
   };
 
   // Deterministic portal resolution:
-  // If URL explicitly indicates a role, that takes precedence over stale state
+  // If URL explicitly indicates admin role, that takes precedence over stale state
   let activePortal = 'student';
-  if (isDeliveryRoute) {
-    activePortal = 'delivery';
-  } else if (isAdminRoute) {
-    activePortal = 'admin';
-  } else if (userRole === 'delivery' || userRole === 'delivery_partner') {
-    activePortal = 'delivery';
-  } else if (userRole === 'admin' || userRole === 'admin_login') {
+  if (isAdminRoute || userRole === 'admin' || userRole === 'admin_login') {
     activePortal = 'admin';
   } else {
     activePortal = 'student';
@@ -156,7 +135,6 @@ export default function App() {
           <div className="flex-1">
             <AdminDashboardPage 
               onSwitchToStudentView={() => switchRole('student')}
-              onSwitchToDelivery={() => switchRole('delivery')}
             />
           </div>
           {renderToast(toast)}
@@ -171,7 +149,6 @@ export default function App() {
         <div className="flex-1 flex flex-col justify-center">
           <AdminLoginPage 
             onSwitchToStudent={() => switchRole('student')}
-            onSwitchToDelivery={() => switchRole('delivery')}
           />
         </div>
         {renderToast(toast)}
@@ -179,46 +156,7 @@ export default function App() {
     );
   }
 
-  // 2. DELIVERY PARTNER FLOW
-  if (activePortal === 'delivery') {
-    if (deliveryPartnerProfile) {
-      return (
-        <div className="min-h-screen bg-[#0F172A] flex flex-col">
-          <RoleSwitcherBar activePortal={activePortal} />
-          <div className="flex-1">
-            <DeliveryDashboardPage
-              partner={deliveryPartnerProfile}
-              onLogout={() => {
-                logoutDeliveryPartner();
-                switchRole('student');
-              }}
-              onSwitchToStudent={() => switchRole('student')}
-              onSwitchToAdmin={() => switchRole('admin')}
-            />
-          </div>
-          {renderToast(toast)}
-        </div>
-      );
-    }
-
-    return (
-      <div className="min-h-screen bg-[#0F172A] flex flex-col">
-        <RoleSwitcherBar activePortal={activePortal} />
-        <div className="flex-1 flex flex-col justify-center">
-          <DeliveryLoginPage
-            onLoginSuccess={(partner) => {
-              loginDeliveryPartner(partner);
-            }}
-            onSwitchToStudent={() => switchRole('student')}
-            onSwitchToAdmin={() => switchRole('admin')}
-          />
-        </div>
-        {renderToast(toast)}
-      </div>
-    );
-  }
-
-  // 3. STUDENT NOT LOGGED IN -> STUDENT LOGIN VIEW
+  // 2. STUDENT NOT LOGGED IN -> STUDENT LOGIN VIEW
   if (!studentProfile || userRole !== 'student') {
     return (
       <div className="min-h-screen bg-[#FAF8F5] flex flex-col">
@@ -226,7 +164,6 @@ export default function App() {
         <div className="flex-1 flex flex-col justify-center">
           <StudentLoginPage 
             onSwitchToAdmin={() => switchRole('admin')}
-            onSwitchToDelivery={() => switchRole('delivery')}
           />
         </div>
         {renderToast(toast)}
@@ -234,7 +171,7 @@ export default function App() {
     );
   }
 
-  // 4. AUTHENTICATED STUDENT VIEW
+  // 3. AUTHENTICATED STUDENT VIEW
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF8F5]">
       {/* Universal Top Multi-Role Switcher */}
@@ -291,17 +228,6 @@ export default function App() {
             <p className="text-slate-500 mt-0.5">SRM-AP Campus Food Ordering & Delivery Network</p>
           </div>
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-4 sm:gap-6">
-            <button
-              onClick={() => {
-                window.location.hash = 'delivery';
-                setIsDeliveryRoute(true);
-                switchRole('delivery');
-              }}
-              className="hover:text-white transition-colors cursor-pointer border-none bg-transparent text-[#FF8A65] font-extrabold flex items-center gap-1"
-            >
-              <span>🛵 Delivery Partner Portal</span>
-            </button>
-            <span className="text-slate-600 hidden sm:inline">•</span>
             <button
               onClick={() => switchRole('admin')}
               className="hover:text-white transition-colors cursor-pointer border-none bg-transparent text-slate-400 font-semibold"

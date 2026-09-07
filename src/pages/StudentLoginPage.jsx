@@ -5,12 +5,11 @@ import {
   ShieldCheck, 
   ArrowRight, 
   Lock, 
-  Utensils,
-  Bike
+  Utensils
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-export default function StudentLoginPage({ onSwitchToAdmin, onSwitchToDelivery }) {
+export default function StudentLoginPage({ onSwitchToAdmin }) {
   const { loginStudent } = useApp();
 
   const [name, setName] = useState('');
@@ -156,20 +155,12 @@ export default function StudentLoginPage({ onSwitchToAdmin, onSwitchToDelivery }
             </button>
           </form>
 
-          {/* Switch to Other Campus Portals */}
-          <div className="mt-6 pt-5 border-t border-[#F1EAE4] space-y-2 text-center">
-            <button
-              type="button"
-              onClick={onSwitchToDelivery}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-extrabold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <Bike size={15} className="text-amber-600" />
-              <span>Delivery Partner Sign In & Live GPS 🛵</span>
-            </button>
+          {/* Switch to Admin Portal */}
+          <div className="mt-6 pt-5 border-t border-[#F1EAE4] text-center">
             <button
               type="button"
               onClick={onSwitchToAdmin}
-              className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-[#64748B] hover:text-[#0F172A] hover:bg-[#F4EFEA] flex items-center justify-center gap-1.5 transition-colors cursor-pointer border-none bg-transparent"
+              className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-[#64748B] hover:text-[#0F172A] hover:bg-[#F4EFEA] flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-[#E2D9D0] bg-white"
             >
               <Lock size={13} />
               <span>Campus Manager / Admin Portal</span>

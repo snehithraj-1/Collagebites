@@ -28,7 +28,7 @@ import { useApp } from '../context/AppContext';
 import { RESTAURANTS } from '../data/campusData';
 import { getDeliveryPartners } from '../lib/api';
 
-export default function AdminDashboardPage({ onSwitchToStudentView, onSwitchToDelivery }) {
+export default function AdminDashboardPage({ onSwitchToStudentView }) {
   const {
     overallOrderingEnabled,
     toggleOverallOrdering,
@@ -147,15 +147,6 @@ export default function AdminDashboardPage({ onSwitchToStudentView, onSwitchToDe
               className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
             >
               <RefreshCw size={15} />
-            </button>
-
-            <button
-              onClick={onSwitchToDelivery}
-              className="px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer border border-amber-500/40"
-              title="Open Delivery Partner Management & Live GPS Portal"
-            >
-              <Bike size={15} className="text-amber-400" />
-              <span>Delivery Portal 🛵</span>
             </button>
 
             <button
@@ -758,16 +749,6 @@ export default function AdminDashboardPage({ onSwitchToStudentView, onSwitchToDe
                         <span>Call</span>
                       </a>
                     )}
-                    <button
-                      onClick={() => {
-                        setViewingOrder(null);
-                        if (onSwitchToDelivery) onSwitchToDelivery();
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                    >
-                      <Bike size={12} />
-                      <span>Open Courier Portal</span>
-                    </button>
                   </div>
                 </div>
               ) : viewingOrder.status === 'READY' ? (

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Utensils, Bike, ShieldCheck } from 'lucide-react';
+import { Utensils, ShieldCheck } from 'lucide-react';
 
 export default function RoleSwitcherBar({ activePortal }) {
   const { switchRole } = useApp();
@@ -15,11 +15,11 @@ export default function RoleSwitcherBar({ activePortal }) {
             SRM-AP CampusBites System
           </span>
           <span className="text-[10px] text-slate-400 hidden md:inline">
-            • Instant Multi-Role Portal Switcher
+            • Instant Portal Switcher (Student & Admin)
           </span>
         </div>
 
-        {/* 3 Role Navigation Tabs */}
+        {/* 2 Role Navigation Tabs */}
         <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
           {/* 1. Student App */}
           <button
@@ -34,21 +34,7 @@ export default function RoleSwitcherBar({ activePortal }) {
             <span>Student App</span>
           </button>
 
-          {/* 2. Delivery Partner Portal */}
-          <button
-            onClick={() => switchRole('delivery')}
-            className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all cursor-pointer border-none ${
-              activePortal === 'delivery'
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/30 scale-102'
-                : 'bg-transparent text-slate-400 hover:text-white hover:bg-slate-800/80'
-            }`}
-          >
-            <Bike size={14} />
-            <span>Delivery Partner</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping hidden lg:inline" />
-          </button>
-
-          {/* 3. Admin Portal */}
+          {/* 2. Admin Portal */}
           <button
             onClick={() => switchRole('admin')}
             className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all cursor-pointer border-none ${
@@ -65,3 +51,4 @@ export default function RoleSwitcherBar({ activePortal }) {
     </div>
   );
 }
+

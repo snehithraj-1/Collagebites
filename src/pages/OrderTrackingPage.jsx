@@ -20,7 +20,6 @@ import {
   Utensils 
 } from 'lucide-react';
 import { getOrderById } from '../lib/api';
-import { useApp } from '../context/AppContext';
 
 const ORDER_STAGES = [
   {
@@ -87,7 +86,6 @@ const STAGE_INDEX_MAP = {
 const TERMINAL_STATUSES = ['DELIVERED', 'CANCELLED', 'EXPIRED'];
 
 export default function OrderTrackingPage({ orderId, onNavigateHome }) {
-  const { switchRole } = useApp();
   const [order, setOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -380,8 +378,8 @@ export default function OrderTrackingPage({ orderId, onNavigateHome }) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {order.deliveryPartnerPhone && (
+            {order.deliveryPartnerPhone && (
+              <div className="flex items-center gap-2">
                 <a
                   href={`tel:${order.deliveryPartnerPhone}`}
                   className="px-4 py-2.5 rounded-2xl bg-[#ECFDF5] hover:bg-[#D1FAE5] text-[#059669] text-xs font-bold transition-colors flex items-center gap-1.5 no-underline shadow-xs"
@@ -389,16 +387,8 @@ export default function OrderTrackingPage({ orderId, onNavigateHome }) {
                   <Phone size={14} />
                   <span>Call Rider</span>
                 </a>
-              )}
-              <button
-                onClick={() => switchRole('delivery')}
-                className="px-3.5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer border-none"
-                title="Switch to Delivery Partner View"
-              >
-                <Bike size={14} className="text-slate-600" />
-                <span>Courier View</span>
-              </button>
-            </div>
+              </div>
+            )}
           </div>
         )}
 

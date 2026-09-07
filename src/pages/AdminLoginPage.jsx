@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Lock, ShieldAlert, ArrowLeft, KeyRound, Bike } from 'lucide-react';
+import { Lock, ShieldAlert, ArrowLeft, KeyRound } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-export default function AdminLoginPage({ onSwitchToStudent, onSwitchToDelivery }) {
+export default function AdminLoginPage({ onSwitchToStudent }) {
   const { loginAdmin } = useApp();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -77,15 +77,7 @@ export default function AdminLoginPage({ onSwitchToStudent, onSwitchToDelivery }
             </button>
           </form>
 
-          <div className="mt-6 pt-5 border-t border-slate-700/60 flex flex-col gap-2.5 text-center">
-            <button
-              type="button"
-              onClick={onSwitchToDelivery}
-              className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center justify-center gap-1.5 mx-auto transition-colors cursor-pointer border-none bg-transparent"
-            >
-              <Bike size={14} className="text-amber-400" />
-              <span>Go to Delivery Partner Portal 🛵</span>
-            </button>
+          <div className="mt-6 pt-5 border-t border-slate-700/60 text-center">
             <button
               type="button"
               onClick={onSwitchToStudent}

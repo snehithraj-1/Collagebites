@@ -235,11 +235,6 @@ export function AppProvider({ children }) {
       } else {
         setUserRole('admin_login');
       }
-    } else if (newRole === 'delivery' || newRole === 'delivery_partner') {
-      if (typeof window !== 'undefined') {
-        window.location.hash = 'delivery';
-      }
-      setUserRole('delivery');
     } else {
       if (typeof window !== 'undefined') {
         if (window.location.hash.includes('admin') || window.location.hash.includes('delivery')) {
