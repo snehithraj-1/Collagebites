@@ -12,8 +12,8 @@ import { useApp } from '../context/AppContext';
 export default function StudentLoginPage({ onSwitchToAdmin }) {
   const { loginStudent } = useApp();
 
-  const [name, setName] = useState('Raj Snehith');
-  const [phone, setPhone] = useState('9989955833');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -106,7 +106,7 @@ export default function StudentLoginPage({ onSwitchToAdmin }) {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Raj Snehith"
+                placeholder="Enter your Full name"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E2D9D0] text-sm text-[#0F172A] focus:outline-none focus:border-[#FF5722] focus:ring-1 focus:ring-[#FF5722]"
               />
             </div>
@@ -128,7 +128,7 @@ export default function StudentLoginPage({ onSwitchToAdmin }) {
                   maxLength={10}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                  placeholder="9989955833"
+                  placeholder="Enter your no"
                   className="w-full px-3.5 py-2.5 text-sm text-[#0F172A] font-semibold tracking-wider focus:outline-none bg-white"
                 />
               </div>
