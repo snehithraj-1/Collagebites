@@ -4,14 +4,14 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite student-app --port 5173",
-    "dev:student": "vite student-app --port 5173",
-    "dev:admin": "vite admin-app --port 5174",
-    "build": "vite build student-app && vite build admin-app",
-    "build:student": "vite build student-app",
-    "build:admin": "vite build admin-app",
-    "preview:student": "vite preview student-app --port 5173",
-    "preview:admin": "vite preview admin-app --port 5174"
+    "dev": "node scripts/dev.js",
+    "dev:student": "vite student-app --config student-app/vite.config.js --port 5173 --host",
+    "dev:admin": "vite admin-app --config admin-app/vite.config.js --port 5174 --host",
+    "build": "vite build student-app --config student-app/vite.config.js && vite build admin-app --config admin-app/vite.config.js",
+    "build:student": "vite build student-app --config student-app/vite.config.js",
+    "build:admin": "vite build admin-app --config admin-app/vite.config.js",
+    "preview:student": "vite preview student-app --config student-app/vite.config.js --port 5173",
+    "preview:admin": "vite preview admin-app --config admin-app/vite.config.js --port 5174"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
