@@ -4,12 +4,18 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "vite student-app --port 5173",
+    "dev:student": "vite student-app --port 5173",
+    "dev:admin": "vite admin-app --port 5174",
+    "build": "vite build student-app && vite build admin-app",
+    "build:student": "vite build student-app",
+    "build:admin": "vite build admin-app",
+    "preview:student": "vite preview student-app --port 5173",
+    "preview:admin": "vite preview admin-app --port 5174"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "@supabase/supabase-js": "^2.116.0",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "cors": "^2.8.6",

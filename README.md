@@ -1,145 +1,146 @@
-# 🍔 CampusBites — College Campus Food Ordering Platform
+# CampusBites — Multi-Portal Campus Food Ordering System
 
-> **Unofficial UI/UX Redesign Concept for Campus Dining**  
-> *A modern, premium, fully responsive full-stack concept inspired by the campus food ordering ecosystem at SRM University-AP (SRM-AP).*
+CampusBites is structured as **TWO COMPLETELY SEPARATE FRONTEND WEBSITES** connected to **ONE shared Supabase backend & database**:
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-collagebites.vercel.app-FF5722?logo=vercel&logoColor=white)](https://collagebites.vercel.app/)
-[![GitHub Repo](https://img.shields.io/badge/GitHub-Collagebites-181717?logo=github&logoColor=white)](https://github.com/snehithraj-1/Collagebites)
-[![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![TailwindCSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-
-> 🚀 **Live Demo:** [https://collagebites.vercel.app/](https://collagebites.vercel.app/)  
-> 📦 **GitHub Code:** [https://github.com/snehithraj-1/Collagebites](https://github.com/snehithraj-1/Collagebites)
-
----
-
-## 🌟 Overview
-
-**CampusBites** is an unofficial redesign and modernized full-stack web application concept for college campus dining. Tailored specifically around student dorm life, fast class intervals, and campus vendor logistics, it elevates the digital food ordering experience to match top-tier consumer apps like Swiggy, Zomato, and UberEats while remaining tailored to university campus needs.
-
----
-
-## ✨ Key Features
-
-### 1. 🏠 Dynamic Campus Home Page
-- **Time-Aware Greeting**: Automatically greets students with *"Good Morning"*, *"Good Afternoon"*, *"Good Evening"*, or *"Late Night Cravings?"* based on campus time.
-- **Campus Drop-off Selector**: Choose between Hostel Blocks A, B, C, D, Central Library, and Academic Blocks.
-- **Interactive Search**: Full-screen instant search modal with recent and popular campus cravings.
-- **Cuisine Filters**: Quick filters for Biryani, Chinese Wok, Rolls & Wraps, Fresh Fruits, Shakes, and Sweets.
-- **Bestsellers Shelf**: Horizontal scrollable shelf featuring top-ordered dishes with ratings and prep times.
-
-### 2. 🏪 Campus Food Corner Storefronts
-- Dedicated vendor storefronts for authentic campus partners:
-  - **Hotel Bheemasena** (5.0 ⭐ — Authentic Biryani, Butter Chicken & Starters)
-  - **Food Corner** (4.8 ⭐ — Chicken Noodles, Fried Rice & Veg Manchurian)
-  - **A1 Biryani** (4.9 ⭐ — High-value Hyderabadi Dum & Mixed Biryanis)
-  - **Fruit Market** (4.7 ⭐ — Daily fresh seasonal fruits delivered at market rates)
-  - **The Caffeine Lab** (4.8 ⭐ — Oreo Milkshakes, Cold Brews & Cutting Chai)
-
-### 3. 🍱 Food Customization Modal
-- High-resolution photography and ingredient transparency.
-- Interactive **Spiciness Level selector** (*Mild 🌶️*, *Medium 🌶️🌶️*, *Extra Spicy 🌶️🌶️🌶️*).
-- Chef instructions input for custom requests (*"Less oil, extra green chutney"*).
-- Animated quantity counter.
-
-### 4. 🛒 Slide-Over Cart & Promo Engine
-- Persistent cart state saved via `LocalStorage`.
-- Working campus voucher engine:
-  - `CAMPUS50`: 50% OFF up to ₹100 for verified campus students
-  - `SRMFEAST`: Flat ₹40 OFF
-  - `FREEDEL`: Free campus doorstep delivery
-- Real-time bill breakdown (Subtotal, Promo discount, Packaging, Grand Total).
-
-### 5. 💳 Hostel Checkout Flow
-- Select hostel block, room number, and courier drop-off instructions.
-- Simulated payment options:
-  - UPI on Delivery (Google Pay, PhonePe, Paytm QR)
-  - Cash on Delivery (COD) at Hostel Gate
-  - Student Campus Meal Card simulation
-- Confetti celebration upon placing the order.
-
-### 6. 🛵 5-Stage Live Order Tracker
-- Real-time multi-stage status progress:
-  1. **Order Placed** — Recorded by dining desk
-  2. **Order Confirmed** — Kitchen printed ticket
-  3. **Being Prepared** — Chef cooking fresh
-  4. **Out for Delivery** — Courier en route to hostel block
-  5. **Delivered** — Pick up & enjoy!
-- **"Simulate Next Stage (Demo)"** button to showcase status progression during presentations.
-- Simulated delivery partner contact card.
-
-### 7. 👤 Student Profile & History
-- Student ID card with verified status, roll number, and contact info.
-- Full order history with **1-Click Reorder** button.
-- Saved campus drop-off locations and hostel curfew guidelines.
-
----
-
-## 🛠️ Tech Stack & Architecture
+1. **Student Dining Portal** (`student-app/`) → Deploy to `student-app.vercel.app`
+2. **Admin Operations Portal** (`admin-app/`) → Deploy to `admin-app.vercel.app`
 
 ```
-collage-bites/
-├── index.html               # Responsive viewport, Outfit & Plus Jakarta Sans typography
-├── package.json             # React 18, Vite, Lucide-react, Canvas-confetti
-├── vite.config.js           # Vite development server
-├── src/
-│   ├── index.css            # Custom tokens, glassmorphism, veg/non-veg badges & animations
-│   ├── main.jsx             # React entrypoint wrapped in CartProvider
-│   ├── App.jsx              # Main router, navbar, bottom nav, modals & floating order pill
-│   ├── context/
-│   │   └── CartContext.jsx  # Global state for cart, coupons, active order & toast
-│   ├── data/
-│   │   └── campusFoodData.js# Data models for vendors, dishes, prices, and locations
-│   ├── components/
-│   │   ├── Navbar.jsx       # Frosted glass top header with location picker
-│   │   ├── BottomNav.jsx    # Native mobile bottom app bar
-│   │   ├── FoodCard.jsx     # Food card with dual-state ADD button
-│   │   ├── VendorCard.jsx   # Campus kitchen highlight card
-│   │   ├── CategoryPills.jsx# Scrollable cuisine filters
-│   │   ├── CartDrawer.jsx   # Slide-over cart drawer with voucher engine
-│   │   ├── FoodDetailModal.jsx # Dish customization modal
-│   │   ├── SearchModal.jsx  # Instant campus search modal
-│   │   └── CheckoutModal.jsx# Hostel room drop-off & payment form
-│   └── pages/
-│       ├── HomePage.jsx     # Split hero, categories, popular shelf & student reviews
-│       ├── VendorPage.jsx   # Vendor storefront with in-menu search
-│       ├── OrderTrackingPage.jsx # 5-stage live status tracker with demo simulator
-│       └── ProfilePage.jsx  # Student ID card, past orders & campus FAQ
+STUDENT WEBSITE (student-app)
+        │
+        ▼
+   SUPABASE BACKEND & POSTGRESQL DATABASE
+        ▲
+        │
+ADMIN WEBSITE (admin-app)
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start (Local Development)
 
-### Prerequisites
-- Node.js (v18 or higher)
-- npm or yarn
-
-### Installation & Run Locally
-
+### 1. Install Dependencies
 ```bash
-# 1. Clone the repository
-git clone https://github.com/snehithraj-1/Collagebites.git
-cd Collagebites
-
-# 2. Install dependencies
 npm install
-
-# 3. Start local development server
-npm run dev
 ```
 
-The application will be live at:
-👉 **`http://localhost:5174/`**
+### 2. Run the Portals
+You can run both portals simultaneously on separate ports:
 
-### Production Build
-```bash
-npm run build
-```
+- **Run Student Portal** (runs on `http://localhost:5173`):
+  ```bash
+  npm run dev:student
+  ```
+
+- **Run Admin Portal** (runs on `http://localhost:5174`):
+  ```bash
+  npm run dev:admin
+  ```
+
+- **Build Both Applications for Production**:
+  ```bash
+  npm run build
+  ```
 
 ---
 
-## ⚠️ Disclaimer
+## 🗄️ One-Click Supabase Database Setup
 
-*This project is an **unofficial UI/UX redesign concept** created independently for design and development demonstration purposes. It is not officially affiliated with, maintained by, or endorsed by any existing platform or university entity.*
+Both applications connect to the same Supabase project.
+
+1. Create a free project at [Supabase](https://supabase.com/).
+2. In your Supabase Dashboard, open the **SQL Editor**.
+3. Open [`supabase/setup_all.sql`](./supabase/setup_all.sql) in this repository, copy its entire contents, and paste it into the Supabase SQL Editor.
+4. Click **Run**.
+
+### What `setup_all.sql` Sets Up:
+- **Tables**:
+  - `profiles`: Linked to `auth.users`, role = `'student'` or `'admin'`.
+  - `restaurants`: Stores campus vendors and their `is_open` status.
+  - `menu_items`: Dishes, categories, pricing, veg/non-veg tags.
+  - `orders`: Confirmed student orders, amounts, delivery destinations.
+  - `order_items`: Line-by-line dishes in each order.
+  - `system_settings`: Master campus ordering switch (`ordering_enabled`).
+- **Row Level Security (RLS)**:
+  - Students can only view and create their own orders.
+  - Admins can view all orders, delete orders, and toggle restaurant & system statuses.
+- **Supabase Realtime**:
+  - Automatic updates on `orders`, `restaurants`, and `system_settings`.
+- **Seed Data**:
+  - Pre-seeds *Local Home Kitchen* and *Campus Delight Kitchen* with their full menu items.
+
+---
+
+## 🔑 Environment Variables Configuration
+
+In both `student-app/.env` and `admin-app/.env`:
+
+```env
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-public-key
+```
+
+> **Note**: Both apps have a built-in **Local Preview / Demo Mode**. If Supabase keys are not set, you can still test the entire ordering and admin workflows with local state. As soon as you add your Supabase keys, both portals switch to live cloud database queries and real email OTPs!
+
+---
+
+## 📱 Website 1: Student Portal (`student-app`)
+
+- **Authentication**: Supabase Auth Email OTP (`signInWithOtp` $\to$ `verifyOtp`).
+- **Profile**: Automatically saved to `profiles` table with `role = 'student'`. Students cannot access the Admin portal.
+- **Restaurant Selection**: Displays the 2 campus kitchens with real-time `OPEN / CLOSED` status from Supabase.
+- **Food Menu**: Filter by categories (Biryani, Starters, Rice & Noodles, Curries, Thalis), live search, veg/non-veg markers, and interactive quantity steppers.
+- **Cart & Checkout**: Slide-out cart, calculates ₹5 platform fee, free delivery, and captures hostel block & room number.
+- **30-Second Order Confirmation**:
+  - Displays *"You have 30 seconds to confirm your order."*
+  - Animated visual circular countdown from 30s to 0.
+  - **[ CONFIRM ORDER ]**: Generates order ID (`CB-XXXXXX`), saves order to Supabase with status `CONFIRMED`, triggers celebration confetti, and opens receipt.
+  - **[ CANCEL ORDER ]**: Aborts order and sets status to `CANCELLED`.
+  - **Timeout**: Automatically cancels order if timer reaches 0.
+  - Duplicate prevention guard.
+- **Order Success & Student Order History**:
+  - Itemized digital receipt with estimated arrival time.
+  - Student Order History strictly queries only orders belonging to the logged-in student (`user_id = auth.uid()`).
+
+---
+
+## 🛡️ Website 2: Admin Portal (`admin-app`)
+
+- **Authentication**: Supabase Auth login with strict `role = 'admin'` verification. If a student tries to sign in, access is denied immediately with *"Unauthorized access."*
+- **Dashboard Metrics**:
+  - Total Orders, Confirmed Orders, Cancelled Orders, Active Vendors, Master System Status.
+- **Master Ordering Switch**:
+  - `ORDERING SYSTEM: 🟢 ON / [ TURN OFF ]`
+  - Instantly toggles `system_settings.ordering_enabled`. When OFF, students can browse menus but cannot place new orders.
+- **Individual Restaurant Controls**:
+  - Dedicated `OPEN / CLOSED` toggle for each restaurant.
+  - Updates `restaurants.is_open` in Supabase in real-time.
+- **Real-time Student Orders Board**:
+  - Incoming student orders appear automatically via Supabase Realtime without refreshing.
+  - Displays: Order ID, Time, Student Name, Email, Student ID, Drop Location, Dishes, Total Amount, and Status.
+  - **Actions**:
+    - `[ Details ]`: Inspect full customer details and student cooking notes.
+    - `[ CANCEL ORDER ]`: Marks status as `CANCELLED`.
+    - `[ DELETE ORDER ]`: Displays confirmation modal before permanently removing the order from the database.
+
+---
+
+## 🌐 Vercel Independent Deployment
+
+Deploying the two separate frontends on Vercel is straightforward:
+
+### Deploy Student Portal (`student-app.vercel.app`)
+1. Create a new project in Vercel from this repository.
+2. In **Project Settings** → **General** → **Root Directory**, set to: `student-app`.
+3. Add Environment Variables:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+4. Deploy!
+
+### Deploy Admin Portal (`admin-app.vercel.app`)
+1. Create a second new project in Vercel from this same repository.
+2. In **Project Settings** → **General** → **Root Directory**, set to: `admin-app`.
+3. Add Environment Variables:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+4. Deploy!

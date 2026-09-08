@@ -1,0 +1,85 @@
+/* CampusBites Student Portal Theme & CSS */
+
+:root {
+  --primary: #FF5722;
+  --primary-hover: #F4511E;
+  --primary-light: #FFF0EB;
+  --accent: #FF9800;
+  --bg-main: #FAF8F5;
+  --card-bg: #FFFFFF;
+  --text-main: #0F172A;
+  --text-muted: #64748B;
+  --border-color: #F1EAE4;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4, .font-heading {
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Custom Component Utilities */
+.btn-primary {
+  background: linear-gradient(135deg, #FF5722 0%, #FF7A50 100%);
+  color: #FFFFFF;
+  font-weight: 700;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px 0 rgba(255, 87, 34, 0.25);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #F4511E 0%, #FF5722 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px 0 rgba(255, 87, 34, 0.35);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.card-elevated {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  transition: all 0.25s ease;
+}
+
+.card-elevated:hover {
+  box-shadow: 0 12px 30px -4px rgba(15, 23, 42, 0.08);
+  border-color: #E6DCD2;
+}
+
+/* 30-Second Countdown Pulse Animation */
+@keyframes timerPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.animate-timer-pulse {
+  animation: timerPulse 1s infinite ease-in-out;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF8F5;
+}
+::-webkit-scrollbar-thumb {
+  background: #E2D9D0;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C4B5A5;
+}
