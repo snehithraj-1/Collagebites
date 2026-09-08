@@ -56,6 +56,7 @@ export default async function handler(req, res) {
       }
     }
 
+    const cleanId = (orderId || '').trim();
     const updated = await sql`
       UPDATE orders 
       SET 
@@ -63,12 +64,12 @@ export default async function handler(req, res) {
         delivery_partner_name = ${pName},
         delivery_partner_phone = ${pPhone},
         updated_at = NOW()
-      WHERE id = ${orderId}
+      WHERE id = ${cleanId} OR id LIKE ${cleanId + '%'}
       RETURNING *;
     `;
 
     if (!updated || updated.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ error: 'Order not found', receivedOrderId: orderId, cleanId, pId, pName, pPhone });
     }
 
     const r = updated[0];
