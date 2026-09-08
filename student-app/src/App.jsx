@@ -11,11 +11,14 @@ import RestaurantsPage from './pages/RestaurantsPage';
 import MenuPage from './pages/MenuPage';
 import OrderSuccessPage from './pages/OrderSuccessPage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
+import StudentProfilePage from './pages/StudentProfilePage';
+import StudentNotificationToast from './components/StudentNotificationToast';
+import BottomNav from './components/BottomNav';
 
 function StudentAppInner() {
   const { isAuthenticated, loading } = useStudentAuth();
   
-  // Navigation state: 'restaurants' | 'menu' | 'success' | 'history'
+  // Navigation state: 'restaurants' | 'menu' | 'success' | 'history' | 'profile'
   const [currentView, setCurrentView] = useState('restaurants');
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
@@ -24,36 +27,49 @@ function StudentAppInner() {
   // Overall Ordering System Status from Supabase
   const [orderingEnabled, setOrderingEnabled] = useState(true);
 
-  // 1. Fetch and listen to System Settings
+  // 1. Fetch and listen to System Settings (Neon PostgreSQL via Backend API)
   useEffect(() => {
     async function loadSystemSettings() {
-      if (!isSupabaseConfigured() || !supabase) {
+      try {
+        const res = await fetch('/api/settings/ordering');
+        if (res.ok) {
+          const json = await res.json();
+          if (typeof json.ordering_enabled === 'boolean') {
+            setOrderingEnabled(json.ordering_enabled);
+            return;
+          }
+        }
+      } catch (e) {}
+
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('system_settings')
+            .select('ordering_enabled')
+            .eq('id', 'global')
+            .single();
+
+          if (error) throw error;
+          if (data) {
+            setOrderingEnabled(data.ordering_enabled !== false);
+          }
+        } catch (err) {
+          console.warn('[Supabase Settings]:', err.message);
+        }
+      } else {
         try {
           const localSetting = localStorage.getItem('cb_shared_ordering_enabled');
           if (localSetting !== null) {
             setOrderingEnabled(localSetting === 'true');
           }
         } catch {}
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('system_settings')
-          .select('ordering_enabled')
-          .eq('id', 'global')
-          .single();
-
-        if (error) throw error;
-        if (data) {
-          setOrderingEnabled(data.ordering_enabled !== false);
-        }
-      } catch (err) {
-        console.warn('[Supabase Settings]:', err.message);
       }
     }
 
     loadSystemSettings();
+
+    // High-frequency 2.5s poll to sync Admin's Master Toggle instantly
+    const pollInterval = setInterval(loadSystemSettings, 2500);
 
     // Realtime listener for Master Ordering Switch
     if (isSupabaseConfigured() && supabase) {
@@ -67,17 +83,28 @@ function StudentAppInner() {
         .subscribe();
 
       return () => {
+        clearInterval(pollInterval);
         supabase.removeChannel(channel);
       };
     }
+
+    return () => clearInterval(pollInterval);
   }, []);
 
   // Handlers
   const handleSelectRestaurant = (restaurant) => {
+    if (!orderingEnabled || restaurant.is_open === false) return;
     setSelectedRestaurant(restaurant);
     setCurrentView('menu');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // If ordering gets paused while student is on the menu page, return them to restaurants page
+  useEffect(() => {
+    if (!orderingEnabled && currentView === 'menu') {
+      setCurrentView('restaurants');
+    }
+  }, [orderingEnabled, currentView]);
 
   const handleOrderConfirmed = (order) => {
     setIsConfirmationOpen(false);
@@ -116,7 +143,7 @@ function StudentAppInner() {
       <SystemAlertBanner orderingEnabled={orderingEnabled} />
 
       {/* Main Pages */}
-      <main className="flex-1 pb-16">
+      <main className="flex-1 pb-24 md:pb-12">
         {currentView === 'restaurants' && (
           <RestaurantsPage
             onSelectRestaurant={handleSelectRestaurant}
@@ -155,6 +182,24 @@ function StudentAppInner() {
               setCurrentView('restaurants');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+            onTrackOrder={(order) => {
+              setConfirmedOrder(order);
+              setCurrentView('success');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        )}
+
+        {currentView === 'profile' && (
+          <StudentProfilePage
+            onBackToHome={() => {
+              setCurrentView('restaurants');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onViewOrders={() => {
+              setCurrentView('history');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         )}
       </main>
@@ -172,6 +217,24 @@ function StudentAppInner() {
         onClose={() => setIsConfirmationOpen(false)}
         restaurant={selectedRestaurant}
         onOrderConfirmed={handleOrderConfirmed}
+      />
+
+      {/* Floating Real-Time Order Status Notifications (Cooking, Ready, Out for delivery to Gate 3) */}
+      <StudentNotificationToast
+        onTrackOrder={(order) => {
+          setConfirmedOrder(order);
+          setCurrentView('success');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+
+      {/* Swiggy-Style Bottom Navigation Bar (Home, Cart, My Orders, Profile) */}
+      <BottomNav
+        currentView={currentView}
+        onNavigate={(view) => {
+          setCurrentView(view);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
 
       {/* Modern Student Footer */}

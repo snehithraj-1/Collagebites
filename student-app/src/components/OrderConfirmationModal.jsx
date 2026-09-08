@@ -93,11 +93,10 @@ export default function OrderConfirmationModal({
       user_id: profile?.id || null,
       student_name: profile?.name || 'Student',
       student_email: profile?.email || 'student@srmap.edu.in',
-      student_id: profile?.student_id || null,
       student_phone: deliveryDetails.phone || profile?.phone || '9999999999',
-      hostel_block: deliveryDetails.hostelBlock || 'Hostel',
-      room_number: deliveryDetails.roomNumber || 'Room',
-      delivery_location: `${deliveryDetails.hostelBlock}, Room ${deliveryDetails.roomNumber}`,
+      hostel_block: 'SRM University',
+      room_number: 'Gate 3',
+      delivery_location: 'SRM University - Gate 3',
       restaurant_id: restaurant?.id || 'local-home-kitchen',
       restaurant_name: restaurant?.name || 'Campus Kitchen',
       total_amount: totalAmount,
@@ -208,8 +207,8 @@ export default function OrderConfirmationModal({
       {/* Backdrop */}
       <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" />
 
-      {/* Modal Card */}
-      <div className="relative bg-white w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#F1EAE4] space-y-6 text-center">
+      {/* Modal Card with Spring Scale Animation */}
+      <div className="relative bg-white w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#F1EAE4] space-y-6 text-center animate-scale-in">
         
         {/* Header Title */}
         <div>
@@ -273,7 +272,7 @@ export default function OrderConfirmationModal({
           </div>
           <div className="flex items-center gap-1.5 text-[#64748B] text-[11px]">
             <MapPin size={12} className="text-[#FF5722]" />
-            <span>{deliveryDetails.hostelBlock}, Room {deliveryDetails.roomNumber}</span>
+            <span className="font-semibold text-[#0F172A]">SRM University — Gate 3</span>
           </div>
           <div className="text-[11px] text-slate-500 truncate">
             {items.map(i => `${i.name} x${i.quantity}`).join(', ')}

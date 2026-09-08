@@ -35,52 +35,85 @@ export default function Navbar({ currentView, onNavigate }) {
           </div>
         </div>
 
-        {/* Right Actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          
-          {/* Order History Button */}
+        {/* Center Desktop Navigation Links (Visible on Desktop, Hidden on Mobile where BottomNav is used) */}
+        <nav className="hidden md:flex items-center gap-1.5 lg:gap-2">
+          {/* Home */}
           <button
-            onClick={() => onNavigate(currentView === 'history' ? 'restaurants' : 'history')}
-            className={`px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
-              currentView === 'history'
-                ? 'bg-[#0F172A] text-white border-[#0F172A]'
-                : 'bg-white text-[#475569] hover:text-[#0F172A] hover:bg-[#FAF8F5] border-[#E2D9D0]'
+            onClick={() => onNavigate('restaurants')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer border-none ${
+              currentView === 'restaurants' || currentView === 'menu'
+                ? 'bg-[#FFF0EB] text-[#FF5722] shadow-xs'
+                : 'bg-transparent text-[#64748B] hover:text-[#0F172A] hover:bg-[#FAF8F5]'
             }`}
           >
-            <Clock size={16} className={currentView === 'history' ? 'text-amber-400' : 'text-[#64748B]'} />
-            <span className="hidden sm:inline">My Orders</span>
+            <span>🏠 Kitchens</span>
           </button>
 
-          {/* Cart Trigger */}
+          {/* My Orders */}
+          <button
+            onClick={() => onNavigate('history')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer border-none ${
+              currentView === 'history' || currentView === 'success'
+                ? 'bg-[#FFF0EB] text-[#FF5722] shadow-xs'
+                : 'bg-transparent text-[#64748B] hover:text-[#0F172A] hover:bg-[#FAF8F5]'
+            }`}
+          >
+            <Clock size={14} />
+            <span>My Orders</span>
+          </button>
+
+          {/* Food Cart */}
           <button
             onClick={() => setIsCartOpen(true)}
-            className="relative px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-[#FF5722] to-[#FF7A50] hover:from-[#F4511E] hover:to-[#FF5722] text-white flex items-center gap-2 shadow-md shadow-[#FF5722]/25 transition-all cursor-pointer border-none"
+            className="px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer border-none bg-transparent text-[#64748B] hover:text-[#0F172A] hover:bg-[#FAF8F5] relative"
           >
-            <ShoppingBag size={16} />
-            <span className="hidden sm:inline">Cart</span>
+            <ShoppingBag size={14} />
+            <span>Cart</span>
             {totalItemsCount > 0 && (
-              <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-white text-[#FF5722] text-xs font-black">
+              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#FF5722] text-white text-[10px] font-black flex items-center justify-center shadow-sm shadow-[#FF5722]/40 animate-pulse">
                 {totalItemsCount}
               </span>
             )}
-            {totalAmount > 0 && (
-              <span className="hidden md:inline pl-1 border-l border-white/30 font-mono font-bold text-xs">
-                ₹{totalAmount}
-              </span>
-            )}
           </button>
+
+          {/* Profile */}
+          <button
+            onClick={() => onNavigate('profile')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer border-none ${
+              currentView === 'profile'
+                ? 'bg-[#FFF0EB] text-[#FF5722] shadow-xs'
+                : 'bg-transparent text-[#64748B] hover:text-[#0F172A] hover:bg-[#FAF8F5]'
+            }`}
+          >
+            <User size={14} />
+            <span>Profile</span>
+          </button>
+        </nav>
+
+        {/* Right Actions: Student Profile & Sign Out */}
+        <div className="flex items-center gap-2 sm:gap-3">
 
           {/* Student Profile & Sign Out */}
           {profile && (
             <div className="flex items-center gap-2 pl-2 border-l border-[#F1EAE4]">
-              <div className="hidden lg:block text-right">
-                <div className="text-xs font-extrabold text-[#0F172A] leading-tight">
-                  {profile.name}
+              <button
+                onClick={() => onNavigate('profile')}
+                className="flex items-center gap-2 text-right bg-transparent border-none p-0 cursor-pointer group"
+                title="View & Edit Profile"
+              >
+                <div className="hidden lg:block text-right">
+                  <div className="text-xs font-extrabold text-[#0F172A] group-hover:text-[#FF5722] transition-colors leading-tight">
+                    {profile.name}
+                  </div>
+                  <div className="text-[10px] text-[#64748B] font-mono">
+                    {profile.phone ? `+91 ${profile.phone}` : profile.email}
+                  </div>
                 </div>
-                <div className="text-[10px] text-[#64748B] font-mono">
-                  {profile.student_id || profile.email}
+
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#FFF0EB] to-[#FFE5DC] text-[#FF5722] font-black text-xs flex items-center justify-center border border-[#FFD3C4] shadow-xs group-hover:scale-105 transition-transform">
+                  {profile.name ? profile.name.slice(0, 2).toUpperCase() : 'ST'}
                 </div>
-              </div>
+              </button>
 
               <button
                 onClick={logout}

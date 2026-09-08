@@ -1,9 +1,9 @@
-import { LOCAL_HOME_KITCHEN_MENU, SECOND_RESTAURANT_MENU } from '../src/data/campusData.js';
+import { AUTHENTIC_MENU_ITEMS } from './authenticMenuData.js';
 
 // Precompute lookup maps for instant, authoritative price validation
 const menuMap = new Map();
 
-[...LOCAL_HOME_KITCHEN_MENU, ...SECOND_RESTAURANT_MENU].forEach((item) => {
+AUTHENTIC_MENU_ITEMS.forEach((item) => {
   // Key by item id and lowercase item name
   if (item.id) menuMap.set(item.id, item);
   if (item.name) menuMap.set(item.name.toLowerCase().trim(), item);

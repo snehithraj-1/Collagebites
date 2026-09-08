@@ -8,7 +8,13 @@ export function AdminAuthProvider({ children }) {
   const [profile, setProfile] = useState(() => {
     try {
       const saved = localStorage.getItem('cb_admin_profile');
-      return saved ? JSON.parse(saved) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.role === 'admin' && parsed.email?.toLowerCase() === 'rajsrmap2@gmail.com') {
+          return parsed;
+        }
+      }
+      return null;
     } catch {
       return null;
     }
@@ -19,7 +25,7 @@ export function AdminAuthProvider({ children }) {
   // Persist admin session
   useEffect(() => {
     try {
-      if (profile && profile.role === 'admin') {
+      if (profile && profile.role === 'admin' && profile.email?.toLowerCase() === 'rajsrmap2@gmail.com') {
         localStorage.setItem('cb_admin_profile', JSON.stringify(profile));
       } else {
         localStorage.removeItem('cb_admin_profile');
@@ -77,7 +83,6 @@ export function AdminAuthProvider({ children }) {
         .single();
 
       if (error || !userProfile) {
-        // Not found or student
         await supabase.auth.signOut();
         setUser(null);
         setProfile(null);
@@ -85,12 +90,11 @@ export function AdminAuthProvider({ children }) {
         return false;
       }
 
-      if (userProfile.role !== 'admin') {
-        // Reject Student accounts trying to access Admin Portal
+      if (userProfile.role !== 'admin' || userProfile.email?.toLowerCase() !== 'rajsrmap2@gmail.com') {
         await supabase.auth.signOut();
         setUser(null);
         setProfile(null);
-        setUnauthorizedError('Unauthorized access. Your account does not have administrator privileges.');
+        setUnauthorizedError('Unauthorized access. Access restricted to authorized administrator account.');
         return false;
       }
 
@@ -105,59 +109,63 @@ export function AdminAuthProvider({ children }) {
     }
   };
 
-  // Login with Email & Password in Supabase
+  // Strict Admin Login (rajsrmap2@gmail.com & Snehith@007)
   const loginAdmin = async (email, password) => {
     setUnauthorizedError('');
 
-    if (!isSupabaseConfigured() || !supabase) {
-      // Demo Mode login check
-      if (password === 'admin123' || password === 'clgbites@admin2024' || email.includes('admin')) {
-        const demoAdminProfile = {
-          id: 'admin-master-id',
-          name: 'Campus Operations Manager',
-          email: email || 'admin@srmap.edu.in',
+    const cleanEmail = email ? email.trim().toLowerCase() : '';
+    const cleanPassword = password ? password.trim() : '';
+
+    if (!cleanEmail || !cleanPassword) {
+      return { success: false, error: 'Please enter both admin email and password.' };
+    }
+
+    // 1. Authenticate via Backend API
+    try {
+      const res = await fetch('/api/auth/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        setProfile(data.user);
+        setUser({ id: data.user.id, email: data.user.email });
+        setUnauthorizedError('');
+        try {
+          localStorage.setItem('cb_admin_profile', JSON.stringify(data.user));
+        } catch {}
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: data.error || 'Invalid administrator credentials. Access restricted to authorized campus admin.'
+        };
+      }
+    } catch (apiErr) {
+      // Direct credential fallback check
+      if (cleanEmail === 'rajsrmap2@gmail.com' && cleanPassword === 'Snehith@007') {
+        const adminProfile = {
+          id: 'admin-snehith',
+          name: 'Gaddam Snehithraj (Super Admin)',
+          email: 'rajsrmap2@gmail.com',
           role: 'admin',
           created_at: new Date().toISOString()
         };
-        setProfile(demoAdminProfile);
-        setUser({ id: demoAdminProfile.id, email: demoAdminProfile.email });
+        setProfile(adminProfile);
+        setUser({ id: adminProfile.id, email: adminProfile.email });
+        setUnauthorizedError('');
+        try {
+          localStorage.setItem('cb_admin_profile', JSON.stringify(adminProfile));
+        } catch {}
         return { success: true };
-      } else {
-        return { success: false, error: 'Invalid administrator password. (Hint: admin123)' };
-      }
-    }
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password
-      });
-
-      if (error) throw error;
-
-      const isValidAdmin = await verifyAndSetAdmin(data.user);
-      if (!isValidAdmin) {
-        return { success: false, error: 'Unauthorized access. Only administrator accounts are permitted.' };
       }
 
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message || 'Login failed.' };
+      return {
+        success: false,
+        error: 'Invalid administrator credentials. Access restricted to authorized campus admin.'
+      };
     }
-  };
-
-  // Demo Admin Login helper
-  const demoAdminLogin = () => {
-    const demoAdminProfile = {
-      id: 'admin-master-id',
-      name: 'Campus Operations Director',
-      email: 'admin.director@srmap.edu.in',
-      role: 'admin',
-      created_at: new Date().toISOString()
-    };
-    setProfile(demoAdminProfile);
-    setUser({ id: demoAdminProfile.id, email: demoAdminProfile.email });
-    setUnauthorizedError('');
   };
 
   // Logout
@@ -170,6 +178,9 @@ export function AdminAuthProvider({ children }) {
     setUser(null);
     setProfile(null);
     setUnauthorizedError('');
+    try {
+      localStorage.removeItem('cb_admin_profile');
+    } catch {}
   };
 
   return (
@@ -178,11 +189,10 @@ export function AdminAuthProvider({ children }) {
         user,
         profile,
         loading,
-        isAuthenticated: Boolean(profile && profile.role === 'admin'),
+        isAuthenticated: Boolean(profile && profile.role === 'admin' && profile.email?.toLowerCase() === 'rajsrmap2@gmail.com'),
         unauthorizedError,
         setUnauthorizedError,
         loginAdmin,
-        demoAdminLogin,
         logout,
         isConfigured: isSupabaseConfigured()
       }}

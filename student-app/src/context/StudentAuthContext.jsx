@@ -86,125 +86,115 @@ export function StudentAuthProvider({ children }) {
     return null;
   };
 
-  // 1. Send Email OTP
-  const sendEmailOtp = async (email, name = '', studentId = '') => {
-    if (!isSupabaseConfigured() || !supabase) {
-      // In demo mode without keys, simulate instant OTP dispatch
-      return { success: true, isDemo: true };
-    }
-
+  // 1. Send Real Email OTP via Gmail Backend
+  const sendEmailOtp = async (email, name = '', phone = '') => {
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim().toLowerCase(),
-        options: {
-          data: {
-            name: name.trim() || splitEmailName(email),
-            student_id: studentId.trim() || null,
-            role: 'student'
-          }
-        }
-      });
-
-      if (error) throw error;
-      return { success: true };
-    } catch (err) {
-      console.error('[Supabase OTP Send Error]:', err);
-      return { success: false, error: err.message };
-    }
-  };
-
-  // 2. Verify Email OTP
-  const verifyEmailOtp = async (email, token, name = '', studentId = '') => {
-    const cleanEmail = email.trim().toLowerCase();
-
-    if (!isSupabaseConfigured() || !supabase) {
-      // Demo mode OTP verification (accepts 123456 or any 6 digits)
-      const mockProfile = {
-        id: 'demo-student-' + Math.random().toString(36).substring(2, 9),
-        name: name.trim() || splitEmailName(cleanEmail),
-        email: cleanEmail,
-        student_id: studentId.trim() || 'SRMAP-2024',
-        role: 'student',
-        created_at: new Date().toISOString()
-      };
-      setProfile(mockProfile);
-      setUser({ id: mockProfile.id, email: mockProfile.email });
-
-      // Save to Neon DB
-      try {
-        fetch('/api/students', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(mockProfile)
-        }).catch(() => {});
-      } catch (e) {}
-
-      return { success: true, profile: mockProfile };
-    }
-
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: cleanEmail,
-        token: token.trim(),
-        type: 'email'
-      });
-
-      if (error) throw error;
-
-      if (data?.user) {
-        const studentProfile = {
-          id: data.user.id,
-          name: name.trim() || data.user.user_metadata?.name || splitEmailName(cleanEmail),
-          email: cleanEmail,
-          student_id: studentId.trim() || data.user.user_metadata?.student_id || null,
-          role: 'student'
-        };
-
-        // Upsert profile in Supabase
-        await supabase.from('profiles').upsert(studentProfile);
-
-        // Save to Neon DB
-        try {
-          fetch('/api/students', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(studentProfile)
-          }).catch(() => {});
-        } catch (e) {}
-
-        setUser(data.user);
-        setProfile(studentProfile);
-        return { success: true, profile: studentProfile };
-      }
-
-      return { success: false, error: 'No user session returned' };
-    } catch (err) {
-      console.error('[Supabase OTP Verify Error]:', err);
-      return { success: false, error: err.message };
-    }
-  };
-
-  // Demo Login helper
-  const demoLogin = (name = 'Aryan Sharma', email = 'aryan.srm@example.com', studentId = 'AP23110010482') => {
-    const demoProfile = {
-      id: 'demo-student-id-01',
-      name,
-      email,
-      student_id: studentId,
-      role: 'student',
-      created_at: new Date().toISOString()
-    };
-    setProfile(demoProfile);
-    setUser({ id: demoProfile.id, email: demoProfile.email });
-
-    // Save student details to Neon DB
-    try {
-      fetch('/api/students', {
+      const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(demoProfile)
-      }).catch(() => {});
-    } catch (e) {}
+        body: JSON.stringify({ email: email.trim().toLowerCase(), name, phone })
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to send OTP to email.');
+      }
+      return { success: true, message: data.message };
+    } catch (err) {
+      console.error('[Send OTP Error]:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  // 2. Verify Real Email OTP via Backend & Neon DB
+  const verifyEmailOtp = async (email, token, name = '', phone = '') => {
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, otp: token.trim(), name, phone })
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Invalid or expired OTP code.');
+      }
+
+      const studentUser = data.user || {
+        id: 'student-' + cleanEmail.replace(/[^a-zA-Z0-9]/g, '_'),
+        name: name.trim() || splitEmailName(cleanEmail),
+        email: cleanEmail,
+        phone: phone.trim() || '9989955833',
+        role: 'student'
+      };
+
+      setUser({ id: studentUser.id, email: cleanEmail });
+      setProfile(studentUser);
+
+      // Sync delivery details phone with logged in student
+      try {
+        const savedDeliv = localStorage.getItem('cb_delivery_details');
+        const parsedDeliv = savedDeliv ? JSON.parse(savedDeliv) : {};
+        localStorage.setItem('cb_delivery_details', JSON.stringify({
+          ...parsedDeliv,
+          phone: studentUser.phone,
+          deliveryLocation: 'SRM University - Gate 3'
+        }));
+      } catch {}
+
+      return { success: true, profile: studentUser };
+    } catch (err) {
+      console.error('[Verify OTP Error]:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
+  // Update Profile details
+  const updateProfile = async ({ name, phone, email }) => {
+    const updated = {
+      ...profile,
+      name: name !== undefined ? name.trim() : profile?.name,
+      phone: phone !== undefined ? phone.trim() : profile?.phone,
+      email: email !== undefined ? email.trim().toLowerCase() : profile?.email,
+      updated_at: new Date().toISOString()
+    };
+
+    setProfile(updated);
+    try {
+      localStorage.setItem('cb_student_profile', JSON.stringify(updated));
+    } catch {}
+
+    // Also update delivery details in localStorage
+    try {
+      const savedDeliv = localStorage.getItem('cb_delivery_details');
+      const parsedDeliv = savedDeliv ? JSON.parse(savedDeliv) : {};
+      localStorage.setItem('cb_delivery_details', JSON.stringify({
+        ...parsedDeliv,
+        phone: updated.phone,
+        deliveryLocation: 'SRM University - Gate 3'
+      }));
+    } catch {}
+
+    // 1. Sync to Neon PostgreSQL
+    try {
+      await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch (e) {
+      console.warn('[Sync to Neon DB Error]:', e.message);
+    }
+
+    // 2. Sync to Supabase if configured
+    if (isSupabaseConfigured() && supabase && profile?.id) {
+      try {
+        await supabase.from('profiles').upsert(updated);
+      } catch (err) {
+        console.warn('[Supabase Profile Update Error]:', err.message);
+      }
+    }
+
+    return { success: true, profile: updated };
   };
 
   // Sign out
@@ -218,6 +208,9 @@ export function StudentAuthProvider({ children }) {
     }
     setUser(null);
     setProfile(null);
+    try {
+      localStorage.removeItem('cb_delivery_details');
+    } catch {}
   };
 
   return (
@@ -229,7 +222,7 @@ export function StudentAuthProvider({ children }) {
         isAuthenticated: Boolean(profile && profile.role === 'student'),
         sendEmailOtp,
         verifyEmailOtp,
-        demoLogin,
+        updateProfile,
         logout,
         isConfigured: isSupabaseConfigured()
       }}

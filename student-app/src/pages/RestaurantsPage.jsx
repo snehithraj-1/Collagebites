@@ -9,10 +9,35 @@ export default function RestaurantsPage({ onSelectRestaurant, orderingEnabled })
   const [restaurants, setRestaurants] = useState(DEFAULT_RESTAURANTS);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch restaurants from Supabase
+  // Fetch restaurants from Neon PostgreSQL backend API
   const loadRestaurants = async () => {
-    if (!isSupabaseConfigured() || !supabase) {
-      // Check shared local storage fallback
+    try {
+      const res = await fetch('/api/restaurants');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.restaurants) && json.restaurants.length > 0) {
+          setRestaurants(json.restaurants);
+          setIsLoading(false);
+          return;
+        }
+      }
+    } catch (e) {}
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('restaurants')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+          setRestaurants(data);
+        }
+      } catch (err) {
+        console.warn('[Supabase Restaurants Fetch]:', err.message);
+      }
+    } else {
       try {
         const localSettings = JSON.parse(localStorage.getItem('cb_shared_restaurants') || 'null');
         if (localSettings && Array.isArray(localSettings)) {
@@ -23,48 +48,32 @@ export default function RestaurantsPage({ onSelectRestaurant, orderingEnabled })
       } catch {
         setRestaurants(DEFAULT_RESTAURANTS);
       }
-      setIsLoading(false);
-      return;
     }
-
-    try {
-      const { data, error } = await supabase
-        .from('restaurants')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      if (data && data.length > 0) {
-        setRestaurants(data);
-      }
-    } catch (err) {
-      console.warn('[Supabase Restaurants Fetch]:', err.message);
-    } finally {
-      setIsLoading(false);
-    }
+    setIsLoading(false);
   };
 
   useEffect(() => {
     loadRestaurants();
 
-    // Supabase Realtime Subscription for instant status updates
+    // High frequency 2.5s poll to sync Admin kitchen open/closed toggles
+    const interval = setInterval(loadRestaurants, 2500);
+
+    // Supabase Realtime Subscription for instant status updates if configured
     if (isSupabaseConfigured() && supabase) {
       const channel = supabase
         .channel('public:restaurants')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, (payload) => {
-          console.log('[Realtime] Restaurant updated:', payload);
           loadRestaurants();
         })
         .subscribe();
 
       return () => {
+        clearInterval(interval);
         supabase.removeChannel(channel);
       };
-    } else {
-      // Periodic check for local demo mode changes
-      const interval = setInterval(loadRestaurants, 3000);
-      return () => clearInterval(interval);
     }
+
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -111,15 +120,27 @@ export default function RestaurantsPage({ onSelectRestaurant, orderingEnabled })
 
       {/* Two Restaurant Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {restaurants.map((restaurant) => {
-          const isOpen = restaurant.is_open !== false;
-          const canOrder = isOpen && orderingEnabled;
+        {isLoading ? (
+          [1, 2].map((n) => (
+            <div key={n} className="card-elevated overflow-hidden border border-[#F1EAE4] bg-white animate-fade-in">
+              <div className="h-48 sm:h-56 w-full skeleton-shimmer" />
+              <div className="p-6 space-y-4">
+                <div className="w-3/4 h-5 skeleton-shimmer" />
+                <div className="w-full h-10 skeleton-shimmer" />
+                <div className="w-full h-12 skeleton-shimmer rounded-2xl" />
+              </div>
+            </div>
+          ))
+        ) : (
+          restaurants.map((restaurant) => {
+          // When overall campus ordering is closed/paused, all restaurants are strictly CLOSED!
+          const isOpen = Boolean(orderingEnabled) && restaurant.is_open !== false;
 
           return (
             <div
               key={restaurant.id}
-              className={`card-elevated overflow-hidden flex flex-col justify-between ${
-                !isOpen ? 'opacity-85' : ''
+              className={`card-elevated overflow-hidden flex flex-col justify-between transition-all ${
+                !isOpen ? 'opacity-75 grayscale-[40%]' : ''
               }`}
             >
               {/* Image Banner */}
@@ -128,7 +149,7 @@ export default function RestaurantsPage({ onSelectRestaurant, orderingEnabled })
                   src={restaurant.image_url || 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=1200&q=80'}
                   alt={restaurant.name}
                   className={`w-full h-full object-cover transition-transform duration-500 hover:scale-105 ${
-                    !isOpen ? 'grayscale-50' : ''
+                    !isOpen ? 'grayscale' : ''
                   }`}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
@@ -167,33 +188,33 @@ export default function RestaurantsPage({ onSelectRestaurant, orderingEnabled })
                   {restaurant.description}
                 </p>
 
-                {/* Notice if restaurant closed */}
+                {/* Notice if restaurant closed or overall ordering paused */}
                 {!isOpen && (
                   <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
                     <AlertCircle size={16} className="flex-shrink-0" />
-                    <span>This restaurant is currently unavailable.</span>
+                    <span>Currently Unavailable</span>
                   </div>
                 )}
 
                 {/* Action button */}
                 <div className="pt-2">
                   <button
-                    onClick={() => onSelectRestaurant(restaurant)}
+                    onClick={() => isOpen && onSelectRestaurant(restaurant)}
                     disabled={!isOpen}
-                    className={`w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer border-none shadow-md ${
+                    className={`w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all border-none shadow-md ${
                       isOpen
-                        ? 'btn-primary'
+                        ? 'btn-primary cursor-pointer'
                         : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                     }`}
                   >
-                    <span>{isOpen ? 'Browse Food Menu' : 'Currently Closed'}</span>
+                    <span>{isOpen ? 'Browse Food Menu' : 'Currently Unavailable'}</span>
                     {isOpen && <ArrowRight size={16} />}
                   </button>
                 </div>
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
 
     </div>

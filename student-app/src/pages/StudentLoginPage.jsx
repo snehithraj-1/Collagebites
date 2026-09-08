@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { Mail, KeyRound, ArrowRight, ShieldCheck, Sparkles, User, GraduationCap, CheckCircle2 } from 'lucide-react';
+import { Mail, KeyRound, ArrowRight, ShieldCheck, Sparkles, User, Phone, CheckCircle2 } from 'lucide-react';
 import { useStudentAuth } from '../context/StudentAuthContext';
 
 export default function StudentLoginPage() {
-  const { sendEmailOtp, verifyEmailOtp, demoLogin, isConfigured } = useStudentAuth();
+  const { sendEmailOtp, verifyEmailOtp, isConfigured } = useStudentAuth();
 
   const [step, setStep] = useState('ENTER_EMAIL'); // 'ENTER_EMAIL' | 'ENTER_OTP'
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [studentId, setStudentId] = useState('');
+  const [phone, setPhone] = useState('');
   const [otpToken, setOtpToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -20,11 +20,15 @@ export default function StudentLoginPage() {
       setMessage({ type: 'error', text: 'Please enter a valid student email address.' });
       return;
     }
+    if (!phone.trim() || phone.trim().length < 10) {
+      setMessage({ type: 'error', text: 'Please enter your 10-digit mobile number.' });
+      return;
+    }
 
     setIsLoading(true);
     setMessage(null);
 
-    const result = await sendEmailOtp(email, name, studentId);
+    const result = await sendEmailOtp(email, name, phone);
     setIsLoading(false);
 
     if (result.success) {
@@ -49,7 +53,7 @@ export default function StudentLoginPage() {
     setIsLoading(true);
     setMessage(null);
 
-    const result = await verifyEmailOtp(email, otpToken, name, studentId);
+    const result = await verifyEmailOtp(email, otpToken, name, phone);
     setIsLoading(false);
 
     if (!result.success) {
@@ -73,12 +77,10 @@ export default function StudentLoginPage() {
           SRM-AP Student Food Ordering & Hostel Delivery Portal
         </p>
 
-        {!isConfigured && (
-          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-bold">
-            <Sparkles size={13} className="text-amber-600" />
-            <span>Local Preview / Demo Mode Available</span>
-          </div>
-        )}
+        <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
+          <Sparkles size={13} className="text-emerald-600" />
+          <span>Real Gmail OTP Verification Active</span>
+        </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -105,7 +107,7 @@ export default function StudentLoginPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Aryan Sharma"
+                  placeholder="Enter your full name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white"
@@ -120,7 +122,7 @@ export default function StudentLoginPage() {
                 <input
                   type="email"
                   required
-                  placeholder="e.g. aryan_sharma@srmap.edu.in"
+                  placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white"
@@ -132,14 +134,15 @@ export default function StudentLoginPage() {
 
               <div>
                 <label className="block text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <GraduationCap size={13} className="text-[#FF5722]" />
-                  <span>Student ID (Optional)</span>
+                  <Phone size={13} className="text-[#FF5722]" />
+                  <span>Mobile Phone Number *</span>
                 </label>
                 <input
-                  type="text"
-                  placeholder="e.g. AP23110010482"
-                  value={studentId}
-                  onChange={(e) => setStudentId(e.target.value)}
+                  type="tel"
+                  required
+                  placeholder="Enter 10digit  mobile number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white"
                 />
               </div>
@@ -187,11 +190,9 @@ export default function StudentLoginPage() {
                   onChange={(e) => setOtpToken(e.target.value)}
                   className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-lg font-mono font-bold tracking-widest text-center text-[#0F172A] focus:outline-none focus:border-[#FF5722] focus:bg-white"
                 />
-                {!isConfigured && (
-                  <p className="text-[11px] text-slate-500 mt-1 text-center">
-                    (Demo Mode: Enter any 6 digits like <code className="bg-slate-200 px-1 rounded">123456</code>)
-                  </p>
-                )}
+                <p className="text-[11px] text-slate-500 mt-1.5 text-center">
+                  Check your inbox (or spam) for the 6-digit code sent from <b>CampusBites SRM</b>.
+                </p>
               </div>
 
               <button
@@ -221,18 +222,6 @@ export default function StudentLoginPage() {
               </div>
             </form>
           )}
-
-          {/* Demo Fallback Quick Button */}
-          <div className="pt-4 border-t border-[#F1EAE4] text-center">
-            <button
-              type="button"
-              onClick={() => demoLogin(name || 'Aryan Sharma', email || 'aryan.srm@example.com', studentId || 'AP23110010482')}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-extrabold text-slate-700 bg-[#FAF8F5] hover:bg-slate-200 border border-[#E2D9D0] flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <Sparkles size={14} className="text-amber-500" />
-              <span>Instant Demo Login (Test Mode)</span>
-            </button>
-          </div>
 
         </div>
 

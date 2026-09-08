@@ -1,8 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useStudentAuth } from './StudentAuthContext';
 
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
+  const { profile } = useStudentAuth();
+
   const [items, setItems] = useState(() => {
     try {
       const saved = localStorage.getItem('cb_student_cart');
@@ -22,25 +25,49 @@ export function CartProvider({ children }) {
 
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // Delivery drop details
+  // Delivery drop details (Locked default for SRM University - Gate 3)
   const [deliveryDetails, setDeliveryDetails] = useState(() => {
+    const defaultData = {
+      deliveryLocation: 'SRM University - Gate 3',
+      phone: '',
+      instructions: ''
+    };
     try {
+      let initialPhone = '';
+      const savedProfile = localStorage.getItem('cb_student_profile');
+      if (savedProfile) {
+        try {
+          initialPhone = JSON.parse(savedProfile)?.phone || '';
+        } catch {}
+      }
+
       const saved = localStorage.getItem('cb_delivery_details');
-      return saved ? JSON.parse(saved) : {
-        hostelBlock: 'Ganga Hostel',
-        roomNumber: '',
-        phone: '',
-        instructions: ''
-      };
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...defaultData,
+          phone: initialPhone || parsed.phone || '',
+          instructions: parsed.instructions || '',
+          deliveryLocation: 'SRM University - Gate 3'
+        };
+      }
+      return { ...defaultData, phone: initialPhone };
     } catch {
-      return {
-        hostelBlock: 'Ganga Hostel',
-        roomNumber: '',
-        phone: '',
-        instructions: ''
-      };
+      return defaultData;
     }
   });
+
+  // Always keep deliveryDetails.phone synchronized with logged-in student's phone
+  useEffect(() => {
+    if (profile?.phone) {
+      setDeliveryDetails((prev) => {
+        if (prev.phone !== profile.phone) {
+          return { ...prev, phone: profile.phone };
+        }
+        return prev;
+      });
+    }
+  }, [profile?.phone]);
 
   // Sync to localStorage
   useEffect(() => {

@@ -9,28 +9,36 @@ export default function SystemToggle({ orderingEnabled, onToggleSuccess }) {
     const nextState = !orderingEnabled;
     setIsUpdating(true);
 
-    if (!isSupabaseConfigured() || !supabase) {
-      // Local demo persistence
+    try {
+      // 1. Update Neon PostgreSQL shared backend
+      await fetch('/api/settings/ordering', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ordering_enabled: nextState })
+      });
+
+      // 2. Also sync to Supabase if configured
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          await supabase
+            .from('system_settings')
+            .upsert({
+              id: 'global',
+              ordering_enabled: nextState,
+              updated_at: new Date().toISOString()
+            });
+        } catch (supaErr) {
+          console.warn('[Supabase Sync Warning]:', supaErr.message);
+        }
+      }
+
+      // 3. Fallback localStorage
       localStorage.setItem('cb_shared_ordering_enabled', String(nextState));
       onToggleSuccess(nextState);
-      setIsUpdating(false);
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('system_settings')
-        .upsert({
-          id: 'global',
-          ordering_enabled: nextState,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-      onToggleSuccess(nextState);
     } catch (err) {
-      console.error('[Supabase System Toggle Error]:', err);
-      alert('Failed to update system setting: ' + err.message);
+      console.error('[System Toggle Error]:', err);
+      // Still update locally
+      onToggleSuccess(nextState);
     } finally {
       setIsUpdating(false);
     }

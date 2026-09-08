@@ -8,7 +8,7 @@ export default function DeleteConfirmModal({ order, isOpen, onClose, onConfirmDe
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
       <div onClick={onClose} className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
 
-      <div className="relative bg-[#111827] border border-rose-900/60 w-full max-w-md rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 text-center text-white">
+      <div className="relative bg-[#111827] border border-rose-900/60 w-full max-w-md rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 text-center text-white animate-scale-in">
         <div className="w-16 h-16 rounded-3xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center mx-auto text-3xl shadow-lg">
           <AlertTriangle size={32} />
         </div>

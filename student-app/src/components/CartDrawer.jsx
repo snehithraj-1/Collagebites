@@ -1,21 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Trash2, Plus, Minus, MapPin, Phone, MessageSquare, ArrowRight, ShoppingBag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useStudentAuth } from '../context/StudentAuthContext';
 
-const HOSTEL_BLOCKS = [
-  'Ganga Hostel',
-  'Godavari Hostel',
-  'Krishna Hostel',
-  'Kaveri Hostel',
-  'Mahanadi Hostel',
-  'Yamuna Hostel',
-  'Saravati Hostel',
-  'Vedavathi Hostel'
-];
 
 export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, isRestaurantOpen }) {
-  const { profile } = useStudentAuth();
+  const { profile, updateProfile } = useStudentAuth();
   const {
     items,
     isCartOpen,
@@ -33,6 +23,16 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
   } = useCart();
 
   const [validationError, setValidationError] = useState('');
+
+  // Keep phone number synchronized with authenticated student profile
+  useEffect(() => {
+    if (profile?.phone && deliveryDetails.phone !== profile.phone) {
+      setDeliveryDetails((prev) => ({
+        ...prev,
+        phone: profile.phone
+      }));
+    }
+  }, [profile?.phone, isCartOpen]);
 
   if (!isCartOpen) return null;
 
@@ -55,13 +55,8 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
       return;
     }
 
-    if (!deliveryDetails.roomNumber.trim()) {
-      setValidationError('Please enter your hostel room number.');
-      return;
-    }
-
-    if (!deliveryDetails.phone.trim()) {
-      setValidationError('Please enter your mobile phone number.');
+    if (!deliveryDetails.phone || !deliveryDetails.phone.trim()) {
+      setValidationError('Please enter your mobile phone number for delivery contact.');
       return;
     }
 
@@ -75,12 +70,12 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
       {/* Backdrop */}
       <div 
         onClick={() => setIsCartOpen(false)}
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
+        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-300"
       />
 
-      {/* Drawer */}
-      <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col">
+      {/* Drawer with Spring Slide Animation */}
+      <div className="absolute inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
+        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col animate-drawer-right">
           
           {/* Header */}
           <div className="p-5 border-b border-[#F1EAE4] flex items-center justify-between bg-[#FAF8F5]">
@@ -188,52 +183,48 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
 
                 {/* Delivery Drop Address Form */}
                 <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#F1EAE4] space-y-3 text-xs">
-                  <div className="font-extrabold text-[#0F172A] flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
-                    <MapPin size={13} className="text-[#FF5722]" />
-                    <span>Hostel Drop Location</span>
+                  <div className="font-extrabold text-[#0F172A] flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                      <MapPin size={13} className="text-[#FF5722]" />
+                      <span>Campus Delivery Destination</span>
+                    </div>
+                    <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Default & Fixed
+                    </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">
-                        Hostel Block *
-                      </label>
-                      <select
-                        value={deliveryDetails.hostelBlock}
-                        onChange={(e) => setDeliveryDetails({ ...deliveryDetails, hostelBlock: e.target.value })}
-                        className="w-full px-2.5 py-2 rounded-xl bg-white border border-[#E2D9D0] text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#FF5722]"
-                      >
-                        {HOSTEL_BLOCKS.map((block) => (
-                          <option key={block} value={block}>{block}</option>
-                        ))}
-                      </select>
+                  {/* Fixed SRM University - Gate 3 Destination Card */}
+                  <div className="p-3 bg-white border border-[#E2D9D0] rounded-xl flex items-start gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#FFF0EB] text-[#FF5722] flex items-center justify-center shrink-0 mt-0.5 border border-[#FF5722]/20">
+                      <MapPin size={16} />
                     </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">
-                        Room Number *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. 412"
-                        value={deliveryDetails.roomNumber}
-                        onChange={(e) => setDeliveryDetails({ ...deliveryDetails, roomNumber: e.target.value })}
-                        className="w-full px-2.5 py-2 rounded-xl bg-white border border-[#E2D9D0] text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#FF5722]"
-                      />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-black text-xs text-[#0F172A]">SRM University — Gate 3</div>
+                      <div className="text-[11px] text-[#64748B] mt-0.5">
+                        Built exclusively for SRM University. All food parcels arrive directly at <strong>Gate 3</strong> for quick campus collection.
+                      </div>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 mb-1">
-                      Student Phone Number *
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1 flex items-center justify-between">
+                      <span>Student Phone Number *</span>
+                      {profile?.phone && (
+                        <span className="text-[10px] text-emerald-600 font-bold">Synced from Profile</span>
+                      )}
                     </label>
                     <input
                       type="tel"
                       required
-                      placeholder="10-digit mobile number"
-                      value={deliveryDetails.phone}
-                      onChange={(e) => setDeliveryDetails({ ...deliveryDetails, phone: e.target.value })}
+                      placeholder="Enter 10digit  mobile number"
+                      value={deliveryDetails.phone ?? profile?.phone ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDeliveryDetails((prev) => ({ ...prev, phone: val }));
+                        if (profile && updateProfile) {
+                          updateProfile({ phone: val });
+                        }
+                      }}
                       className="w-full px-2.5 py-2 rounded-xl bg-white border border-[#E2D9D0] text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#FF5722]"
                     />
                   </div>

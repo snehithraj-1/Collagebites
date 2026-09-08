@@ -3,7 +3,7 @@ import { Lock, ShieldAlert, KeyRound, ArrowRight, Sparkles, Mail, ShieldCheck } 
 import { useAdminAuth } from '../context/AdminAuthContext';
 
 export default function AdminLoginPage() {
-  const { loginAdmin, demoAdminLogin, unauthorizedError, isConfigured } = useAdminAuth();
+  const { loginAdmin, unauthorizedError } = useAdminAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,13 +38,6 @@ export default function AdminLoginPage() {
         <p className="mt-1 text-sm text-slate-400 font-medium">
           CampusBites Central Operations & Management Dashboard
         </p>
-
-        {!isConfigured && (
-          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950/80 text-blue-300 text-xs font-bold border border-blue-800">
-            <Sparkles size={13} className="text-blue-400" />
-            <span>Local Preview / Demo Admin Mode Ready</span>
-          </div>
-        )}
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -85,7 +78,7 @@ export default function AdminLoginPage() {
               <input
                 type="email"
                 required
-                placeholder="admin@srmap.edu.in"
+                placeholder="rajsrmap2@gmail.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3.5 py-3 rounded-xl border border-slate-700 bg-slate-900/90 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
@@ -100,14 +93,11 @@ export default function AdminLoginPage() {
               <input
                 type="password"
                 required
-                placeholder="Enter password..."
+                placeholder="Enter admin password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3.5 py-3 rounded-xl border border-slate-700 bg-slate-900/90 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
               />
-              <p className="text-[11px] text-slate-500 mt-1">
-                Demo Key: <code className="text-amber-400 bg-black/40 px-1.5 py-0.5 rounded font-mono">admin123</code>
-              </p>
             </div>
 
             <button
@@ -125,18 +115,6 @@ export default function AdminLoginPage() {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Login */}
-          <div className="pt-4 border-t border-slate-800 text-center">
-            <button
-              type="button"
-              onClick={demoAdminLogin}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-extrabold text-blue-300 bg-blue-950/60 hover:bg-blue-900/80 border border-blue-800/80 flex items-center justify-center gap-2 transition-colors cursor-pointer"
-            >
-              <Sparkles size={14} className="text-blue-400" />
-              <span>Instant Demo Admin Access</span>
-            </button>
-          </div>
 
         </div>
 

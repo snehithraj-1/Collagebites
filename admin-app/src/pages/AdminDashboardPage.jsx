@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, RefreshCw, LogOut, Power, Store, ShoppingBag } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ShieldCheck, RefreshCw, LogOut, Power, Store, ShoppingBag, Bell, Volume2, VolumeX, ArrowRight, X, Menu, MoreVertical } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { DEFAULT_RESTAURANTS } from '../lib/campusSeedData';
 import { useAdminAuth } from '../context/AdminAuthContext';
+import { playAdminChime, sendAdminNotification, requestNotificationPermission } from '../lib/notificationSound';
 import MetricsOverview from '../components/MetricsOverview';
 import SystemToggle from '../components/SystemToggle';
 import RestaurantToggles from '../components/RestaurantToggles';
@@ -10,6 +11,9 @@ import OrdersTable from '../components/OrdersTable';
 import OrderDetailsModal from '../components/OrderDetailsModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import StudentsModal from '../components/StudentsModal';
+import MenuManagerModal from '../components/MenuManagerModal';
+import DeliveryPartnersModal from '../components/DeliveryPartnersModal';
+import AdminSideMenuDrawer from '../components/AdminSideMenuDrawer';
 
 export default function AdminDashboardPage() {
   const { profile, logout } = useAdminAuth();
@@ -19,39 +23,96 @@ export default function AdminDashboardPage() {
   const [orderingEnabled, setOrderingEnabled] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Modals state
+  // Modals & Drawers state
   const [inspectingOrder, setInspectingOrder] = useState(null);
   const [orderToDelete, setOrderToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isStudentsModalOpen, setIsStudentsModalOpen] = useState(false);
+  const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
+  const [deliveryPartners, setDeliveryPartners] = useState([]);
+  const [isDeliveryPartnersModalOpen, setIsDeliveryPartnersModalOpen] = useState(false);
+  const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
+
+  // New Order Notifications & Audio Alert
+  const prevOrderIdsRef = useRef(new Set());
+  const isFirstLoadRef = useRef(true);
+  const [newOrderAlert, setNewOrderAlert] = useState(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const soundEnabledRef = useRef(soundEnabled);
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
+
+  // Request browser notification permission on first admin interaction
+  useEffect(() => {
+    const handleFirstClick = () => {
+      requestNotificationPermission();
+      window.removeEventListener('click', handleFirstClick);
+    };
+    window.addEventListener('click', handleFirstClick);
+    return () => window.removeEventListener('click', handleFirstClick);
+  }, []);
 
   // 1. Load System Settings
   const loadSystemSettings = useCallback(async () => {
-    if (!isSupabaseConfigured() || !supabase) {
+    try {
+      const res = await fetch('/api/settings/ordering');
+      if (res.ok) {
+        const json = await res.json();
+        if (typeof json.ordering_enabled === 'boolean') {
+          setOrderingEnabled(json.ordering_enabled);
+          return;
+        }
+      }
+    } catch (apiErr) {}
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('ordering_enabled')
+          .eq('id', 'global')
+          .single();
+
+        if (error) throw error;
+        if (data) setOrderingEnabled(data.ordering_enabled !== false);
+      } catch (err) {
+        console.warn('[Supabase Settings Fetch]:', err.message);
+      }
+    } else {
       try {
         const local = localStorage.getItem('cb_shared_ordering_enabled');
         if (local !== null) setOrderingEnabled(local === 'true');
       } catch {}
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('system_settings')
-        .select('ordering_enabled')
-        .eq('id', 'global')
-        .single();
-
-      if (error) throw error;
-      if (data) setOrderingEnabled(data.ordering_enabled !== false);
-    } catch (err) {
-      console.warn('[Supabase Settings Fetch]:', err.message);
     }
   }, []);
 
   // 2. Load Restaurants
   const loadRestaurants = useCallback(async () => {
-    if (!isSupabaseConfigured() || !supabase) {
+    try {
+      const res = await fetch('/api/restaurants');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.restaurants) && json.restaurants.length > 0) {
+          setRestaurants(json.restaurants);
+          return;
+        }
+      }
+    } catch (apiErr) {}
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('restaurants')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        if (data && data.length > 0) setRestaurants(data);
+      } catch (err) {
+        console.warn('[Supabase Restaurants Fetch]:', err.message);
+      }
+    } else {
       try {
         const local = JSON.parse(localStorage.getItem('cb_shared_restaurants') || 'null');
         if (local && Array.isArray(local)) setRestaurants(local);
@@ -59,19 +120,21 @@ export default function AdminDashboardPage() {
       } catch {
         setRestaurants(DEFAULT_RESTAURANTS);
       }
-      return;
     }
+  }, []);
 
+  // Load Delivery Partners
+  const loadDeliveryPartners = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('restaurants')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      if (data && data.length > 0) setRestaurants(data);
+      const res = await fetch('/api/delivery-partners');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.partners)) {
+          setDeliveryPartners(json.partners);
+        }
+      }
     } catch (err) {
-      console.warn('[Supabase Restaurants Fetch]:', err.message);
+      console.warn('[Fetch Delivery Partners Error]:', err.message);
     }
   }, []);
 
@@ -87,6 +150,30 @@ export default function AdminDashboardPage() {
         if (json.success && Array.isArray(json.orders)) {
           setOrders(json.orders);
           setIsRefreshing(false);
+
+          // Alert admin when a brand new order is placed
+          if (!isFirstLoadRef.current) {
+            const incoming = json.orders.filter(
+              (o) => !prevOrderIdsRef.current.has(o.id) && o.status === 'CONFIRMED'
+            );
+            if (incoming.length > 0) {
+              const latest = incoming[0];
+              setNewOrderAlert(latest);
+
+              if (soundEnabledRef.current) {
+                playAdminChime('new_order');
+              }
+
+              sendAdminNotification(
+                `🔔 New Order Received: #${latest.id}`,
+                `${latest.student_name || 'Student'} placed an order (₹${latest.total_amount}) for delivery to SRM University Gate 3!`
+              );
+            }
+          } else {
+            isFirstLoadRef.current = false;
+          }
+
+          prevOrderIdsRef.current = new Set(json.orders.map((o) => o.id));
           return;
         }
       }
@@ -104,7 +191,8 @@ export default function AdminDashboardPage() {
           `)
           .order('created_at', { ascending: false });
 
-        if (!error && data) {
+        if (error) throw error;
+        if (data && data.length > 0) {
           setOrders(data);
           setIsRefreshing(false);
           return;
@@ -129,6 +217,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     loadSystemSettings();
     loadRestaurants();
+    loadDeliveryPartners();
     loadOrders();
 
     // Live Polling every 2s ensures instant order updates across ports
@@ -182,9 +271,8 @@ export default function AdminDashboardPage() {
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
     );
-    setInspectingOrder((prev) =>
-      prev && prev.id === orderId ? { ...prev, status: nextStatus } : prev
-    );
+    // Always close inspecting modal so admin immediately goes back to the orders dashboard
+    setInspectingOrder(null);
 
     // 1. Update in Shared Central Backend API
     try {
@@ -215,6 +303,50 @@ export default function AdminDashboardPage() {
       const updated = stored.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o));
       localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
     } catch {}
+  };
+
+  // Action: Assign Delivery Partner to an Order
+  const handleAssignPartner = async (orderId, partner) => {
+    if (!orderId || !partner) return;
+
+    // Optimistic UI update
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              delivery_partner_id: partner.id,
+              delivery_partner_name: partner.name,
+              delivery_partner_phone: partner.phone
+            }
+          : o
+      )
+    );
+    setInspectingOrder((prev) =>
+      prev && prev.id === orderId
+        ? {
+            ...prev,
+            delivery_partner_id: partner.id,
+            delivery_partner_name: partner.name,
+            delivery_partner_phone: partner.phone
+          }
+        : prev
+    );
+
+    // 1. Update in Shared Backend API
+    try {
+      await fetch(`/api/orders/${orderId}/assign-partner`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          partner_id: partner.id,
+          partner_name: partner.name,
+          partner_phone: partner.phone
+        })
+      });
+    } catch (e) {
+      console.warn('[Assign Partner Error]:', e.message);
+    }
   };
 
   // Action: Cancel Order
@@ -284,44 +416,52 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {/* Right Header Controls */}
-          <div className="flex items-center gap-2.5">
+          {/* Right Header Controls: Clean, Uncluttered with Three-Lines Menu Drawer */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Quick Audio Alert Chime Toggle */}
             <button
-              onClick={() => setIsStudentsModalOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-              title="View Student Database Records"
+              onClick={() => {
+                const next = !soundEnabled;
+                setSoundEnabled(next);
+                if (next) playAdminChime('test');
+              }}
+              className={`p-2 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                soundEnabled
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                  : 'bg-slate-800 text-slate-400 border-slate-700'
+              }`}
+              title={soundEnabled ? 'Chime Alert is ON (Click to Mute)' : 'Chime Alert is MUTED (Click to Enable)'}
             >
-              <span>👥 Students DB</span>
+              {soundEnabled ? <Volume2 size={15} className="text-emerald-400" /> : <VolumeX size={15} />}
+              <span className="hidden md:inline">{soundEnabled ? 'Chime' : 'Muted'}</span>
             </button>
 
+            {/* Quick Sync Button */}
             <button
               onClick={() => {
                 loadOrders(false);
                 loadRestaurants();
                 loadSystemSettings();
               }}
-              className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
-              title="Sync & Refresh Data"
+              className="p-2 sm:p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
+              title="Sync & Refresh Live Data"
             >
               <RefreshCw size={15} className={isRefreshing ? 'animate-spin text-blue-400' : ''} />
             </button>
 
-            <div className="hidden sm:block text-right text-xs">
-              <div className="font-extrabold text-white leading-tight">
-                {profile?.name || 'Administrator'}
-              </div>
-              <div className="text-[10px] text-slate-400 font-mono">
-                {profile?.email}
-              </div>
-            </div>
-
+            {/* THREE-LINES (☰) / THREE-DOTS (⋮) SIDE MENU BUTTON */}
             <button
-              onClick={logout}
-              className="px-3.5 py-2 rounded-xl bg-rose-950/50 hover:bg-rose-900/80 text-rose-300 text-xs font-bold transition-colors cursor-pointer border border-rose-800 flex items-center gap-1.5"
-              title="Sign Out"
+              onClick={() => setIsSideMenuOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-blue-500/25 active:scale-95 border-none"
+              title="Open Operations Menu (Delivery Partners, Menu, Students, etc.)"
             >
-              <LogOut size={14} />
-              <span className="hidden sm:inline">Sign Out</span>
+              <Menu size={18} />
+              <span className="hidden sm:inline">Menu</span>
+              {deliveryPartners.length > 0 && (
+                <span className="px-1.5 py-0.2 bg-white/25 text-white rounded-full text-[10px] font-mono font-bold">
+                  {deliveryPartners.length}
+                </span>
+              )}
             </button>
           </div>
 
@@ -341,12 +481,17 @@ export default function AdminDashboardPage() {
         {/* 2. Overall Ordering Switch */}
         <SystemToggle
           orderingEnabled={orderingEnabled}
-          onToggleSuccess={(nextState) => setOrderingEnabled(nextState)}
+          onToggleSuccess={(nextState) => {
+            setOrderingEnabled(nextState);
+            setRestaurants((prev) => prev.map((r) => ({ ...r, is_open: nextState })));
+            loadRestaurants();
+          }}
         />
 
         {/* 3. Individual Restaurant Controls */}
         <RestaurantToggles
           restaurants={restaurants}
+          orderingEnabled={orderingEnabled}
           onRestaurantUpdate={(restaurantId, nextState) => {
             setRestaurants((prev) =>
               prev.map((r) => (r.id === restaurantId ? { ...r, is_open: nextState } : r))
@@ -357,6 +502,9 @@ export default function AdminDashboardPage() {
         {/* 4. Real-time Student Orders Table */}
         <OrdersTable
           orders={orders}
+          deliveryPartners={deliveryPartners}
+          onAssignPartner={handleAssignPartner}
+          onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
           onInspectOrder={(order) => setInspectingOrder(order)}
           onUpdateStatus={handleUpdateStatus}
           onCancelOrder={handleCancelOrder}
@@ -368,6 +516,9 @@ export default function AdminDashboardPage() {
       {/* Inspect Order Details Modal */}
       <OrderDetailsModal
         order={inspectingOrder}
+        deliveryPartners={deliveryPartners}
+        onAssignPartner={handleAssignPartner}
+        onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
         onClose={() => setInspectingOrder(null)}
         onUpdateStatus={handleUpdateStatus}
         onCancelOrder={handleCancelOrder}
@@ -383,11 +534,101 @@ export default function AdminDashboardPage() {
         isDeleting={isDeleting}
       />
 
+      {/* Delivery Partners Management Modal */}
+      <DeliveryPartnersModal
+        isOpen={isDeliveryPartnersModalOpen}
+        onClose={() => setIsDeliveryPartnersModalOpen(false)}
+        onPartnersChanged={loadDeliveryPartners}
+      />
+
       {/* Student Database Records Modal */}
       <StudentsModal
         isOpen={isStudentsModalOpen}
         onClose={() => setIsStudentsModalOpen(false)}
       />
+
+      {/* Menu & Dish Inventory Modal */}
+      <MenuManagerModal
+        isOpen={isMenuModalOpen}
+        onClose={() => setIsMenuModalOpen(false)}
+      />
+
+      {/* Admin Three-Lines Operations Side Menu Drawer */}
+      <AdminSideMenuDrawer
+        isOpen={isSideMenuOpen}
+        onClose={() => setIsSideMenuOpen(false)}
+        profile={profile}
+        soundEnabled={soundEnabled}
+        onToggleSound={() => {
+          const next = !soundEnabled;
+          setSoundEnabled(next);
+          if (next) playAdminChime('test');
+        }}
+        onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
+        deliveryPartnersCount={deliveryPartners.length}
+        onOpenMenuManager={() => setIsMenuModalOpen(true)}
+        onOpenStudentsModal={() => setIsStudentsModalOpen(true)}
+        onRefreshData={() => {
+          loadOrders(false);
+          loadRestaurants();
+          loadSystemSettings();
+        }}
+        isRefreshing={isRefreshing}
+        onLogout={logout}
+      />
+
+      {/* Floating Alert Banner for New Incoming Order */}
+      {newOrderAlert && (
+        <div className="fixed top-6 right-6 z-50 max-w-md w-full animate-slide-down">
+          <div className="p-4 rounded-2xl bg-slate-900 border-2 border-emerald-500 shadow-2xl shadow-emerald-500/20 text-white flex flex-col gap-2.5 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-amber-400 to-blue-500 animate-pulse" />
+            
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shrink-0 text-xl">
+                  <Bell size={20} className="animate-bounce" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-wider border border-emerald-500/30">
+                      New Live Order!
+                    </span>
+                    <span className="font-mono text-xs font-bold text-amber-400">
+                      #{newOrderAlert.id}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-black text-white font-['Outfit'] mt-1">
+                    {newOrderAlert.student_name} • ₹{newOrderAlert.total_amount}
+                  </h4>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Drop: <strong className="text-emerald-400">SRM University Gate 3</strong>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setNewOrderAlert(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-800">
+              <button
+                onClick={() => {
+                  setInspectingOrder(newOrderAlert);
+                  setNewOrderAlert(null);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer"
+              >
+                <span>Inspect Order</span>
+                <ArrowRight size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

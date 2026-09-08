@@ -4,6 +4,12 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { DEFAULT_MENU_ITEMS } from '../lib/campusSeedData';
 import { useCart } from '../context/CartContext';
 
+const getFallbackImage = (isVeg) => {
+  return isVeg
+    ? 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=500&q=80'
+    : 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=500&q=80';
+};
+
 export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
   const { items, addToCart, updateQuantity, setIsCartOpen, totalItemsCount, totalAmount } = useCart();
   const [menuItems, setMenuItems] = useState([]);
@@ -12,39 +18,56 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch menu items for this restaurant
+  // Fetch live menu items for this restaurant from backend / Neon DB
   useEffect(() => {
+    let isMounted = true;
+
     async function loadMenu() {
-      if (!isSupabaseConfigured() || !supabase) {
-        const filtered = DEFAULT_MENU_ITEMS.filter((i) => i.restaurant_id === restaurant.id);
-        setMenuItems(filtered.length > 0 ? filtered : DEFAULT_MENU_ITEMS);
-        setIsLoading(false);
-        return;
-      }
-
       try {
-        const { data, error } = await supabase
-          .from('menu_items')
-          .select('*')
-          .eq('restaurant_id', restaurant.id)
-          .eq('is_available', true);
-
-        if (error) throw error;
-        if (data && data.length > 0) {
-          setMenuItems(data);
-        } else {
-          const fallback = DEFAULT_MENU_ITEMS.filter((i) => i.restaurant_id === restaurant.id);
-          setMenuItems(fallback);
+        const res = await fetch(`/api/menu?restaurant_id=${encodeURIComponent(restaurant.id)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.success && Array.isArray(data.items) && data.items.length > 0) {
+            setMenuItems(data.items);
+            setIsLoading(false);
+            return;
+          }
         }
       } catch (err) {
-        console.warn('Menu fetch error:', err.message);
+        // Backend offline, try Supabase or fallback
+      }
+
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('menu_items')
+            .select('*')
+            .eq('restaurant_id', restaurant.id);
+
+          if (!error && data && data.length > 0) {
+            if (isMounted) setMenuItems(data);
+            setIsLoading(false);
+            return;
+          }
+        } catch (err) {}
+      }
+
+      // Default fallback
+      if (isMounted) {
         const fallback = DEFAULT_MENU_ITEMS.filter((i) => i.restaurant_id === restaurant.id);
-        setMenuItems(fallback);
-      } finally {
+        setMenuItems(fallback.length > 0 ? fallback : DEFAULT_MENU_ITEMS);
         setIsLoading(false);
       }
     }
 
     loadMenu();
+
+    // Poll every 4 seconds so "Sold Out" status updates live for students
+    const interval = setInterval(loadMenu, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [restaurant.id]);
 
   // Extract unique categories
@@ -127,7 +150,24 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
       </div>
 
       {/* Menu Items Grid */}
-      {filteredDishes.length === 0 ? (
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 animate-fade-in">
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <div key={n} className="card-elevated p-5 space-y-4 border border-[#F1EAE4] bg-white">
+              <div className="flex justify-between items-center">
+                <div className="w-20 h-4 skeleton-shimmer" />
+                <div className="w-12 h-4 skeleton-shimmer" />
+              </div>
+              <div className="w-3/4 h-5 skeleton-shimmer" />
+              <div className="w-full h-8 skeleton-shimmer" />
+              <div className="pt-2 border-t border-[#F1EAE4] flex justify-between items-center">
+                <div className="w-14 h-5 skeleton-shimmer" />
+                <div className="w-24 h-8 skeleton-shimmer rounded-xl" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filteredDishes.length === 0 ? (
         <div className="py-16 text-center text-[#64748B] space-y-2">
           <div className="text-4xl">🔍</div>
           <h4 className="font-bold text-sm text-[#0F172A]">No dishes matched your search</h4>
@@ -138,64 +178,110 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
           {filteredDishes.map((dish) => {
             const inCart = items.find((i) => i.id === dish.id);
             const qty = inCart ? inCart.quantity : 0;
+            const isSoldOut = dish.is_available === false;
 
             return (
               <div
                 key={dish.id}
-                className="card-elevated p-5 flex flex-col justify-between space-y-4 hover:border-[#FF5722]/40 transition-colors"
+                className={`card-elevated p-4 sm:p-5 flex flex-col justify-between space-y-3 transition-all duration-200 bg-white border border-[#F1EAE4] rounded-2xl ${
+                  isSoldOut
+                    ? 'opacity-70 bg-slate-50/80 border-slate-200'
+                    : 'hover:border-[#FF5722]/40 hover:shadow-md'
+                }`}
               >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className={`w-2.5 h-2.5 rounded-full ${dish.is_veg ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      {dish.category}
-                    </span>
-                  </div>
-
-                  <h4 className="font-bold text-base text-[#0F172A] font-['Outfit']">
-                    {dish.name}
-                  </h4>
-
-                  {dish.description && (
-                    <p className="text-xs text-[#64748B] mt-1 line-clamp-2">
-                      {dish.description}
-                    </p>
-                  )}
-                </div>
-
-                <div className="pt-2 border-t border-[#F1EAE4] flex items-center justify-between">
-                  <div className="font-mono text-base font-black text-[#0F172A]">
-                    ₹{dish.price}
-                  </div>
-
-                  {qty === 0 ? (
-                    <button
-                      onClick={() => addToCart(dish, restaurant.id)}
-                      disabled={!orderingEnabled}
-                      className="px-4 py-2 rounded-xl text-xs font-bold bg-[#FFF0EB] hover:bg-[#FF5722] text-[#FF5722] hover:text-white transition-all cursor-pointer border border-[#FFD3C4] flex items-center gap-1.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Plus size={14} />
-                      <span>Add to Cart</span>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2 bg-[#FAF8F5] border border-[#E2D9D0] rounded-xl p-1">
-                      <button
-                        onClick={() => updateQuantity(dish.id, -1)}
-                        className="w-7 h-7 rounded-lg bg-white text-[#0F172A] hover:bg-slate-100 flex items-center justify-center font-bold text-xs cursor-pointer border-none shadow-xs"
+                <div className="flex items-start justify-between gap-3">
+                  {/* Dish Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <div
+                        className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center ${
+                          dish.is_veg ? 'border-emerald-600 bg-white' : 'border-rose-600 bg-white'
+                        }`}
+                        title={dish.is_veg ? 'Vegetarian' : 'Non-Vegetarian'}
                       >
-                        <Minus size={13} />
-                      </button>
-                      <span className="font-mono text-xs font-extrabold w-5 text-center text-[#FF5722]">
-                        {qty}
+                        <div className={`w-1.5 h-1.5 rounded-full ${dish.is_veg ? 'bg-emerald-600' : 'bg-rose-600'}`} />
+                      </div>
+                      <span className="text-[10px] font-bold text-[#8A7B70] uppercase tracking-wider">
+                        {dish.category}
                       </span>
-                      <button
-                        onClick={() => updateQuantity(dish.id, 1)}
-                        className="w-7 h-7 rounded-lg bg-[#FF5722] text-white hover:bg-[#F4511E] flex items-center justify-center font-bold text-xs cursor-pointer border-none shadow-xs"
-                      >
-                        <Plus size={13} />
-                      </button>
+                      {isSoldOut && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 border border-rose-200 text-[9px] font-black uppercase tracking-wider">
+                          Sold Out
+                        </span>
+                      )}
                     </div>
-                  )}
+
+                    <h4 className={`font-bold text-sm sm:text-base font-['Outfit'] leading-snug ${isSoldOut ? 'text-slate-400 line-through' : 'text-[#0F172A]'}`}>
+                      {dish.name}
+                    </h4>
+
+                    <div className={`font-mono text-sm sm:text-base font-black mt-1 ${isSoldOut ? 'text-slate-400' : 'text-[#0F172A]'}`}>
+                      ₹{dish.price}
+                    </div>
+
+                    {dish.description && (
+                      <p className="text-xs text-[#64748B] mt-1.5 line-clamp-2 leading-relaxed">
+                        {dish.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Food Dish Image */}
+                  <div className="relative flex flex-col items-center shrink-0">
+                    <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-slate-100 border border-[#F1EAE4] shadow-xs relative">
+                      <img
+                        src={dish.image_url || getFallbackImage(dish.is_veg)}
+                        alt={dish.name}
+                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                        onError={(e) => {
+                          e.currentTarget.src = getFallbackImage(dish.is_veg);
+                        }}
+                      />
+                      {isSoldOut && (
+                        <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                          <span className="bg-rose-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider shadow-sm">
+                            Sold Out
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Add to Cart / Quantity Control Button */}
+                    <div className="-mt-3.5 z-10 w-full flex justify-center px-1">
+                      {isSoldOut ? (
+                        <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-100 text-slate-400 border border-slate-200 shadow-xs">
+                          Unavailable
+                        </span>
+                      ) : qty === 0 ? (
+                        <button
+                          onClick={() => addToCart(dish, restaurant.id)}
+                          disabled={!orderingEnabled}
+                          className="px-4 py-1.5 rounded-xl text-xs font-black bg-white hover:bg-[#FF5722] text-[#FF5722] hover:text-white transition-all cursor-pointer border border-[#FF5722]/40 hover:border-[#FF5722] flex items-center gap-1 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Plus size={13} />
+                          <span>ADD</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-1.5 bg-white border border-[#FF5722] rounded-xl p-0.5 shadow-md">
+                          <button
+                            onClick={() => updateQuantity(dish.id, -1)}
+                            className="w-6 h-6 rounded-lg bg-slate-100 text-[#0F172A] hover:bg-slate-200 flex items-center justify-center font-bold text-xs cursor-pointer border-none"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <span className="font-mono text-xs font-black w-4 text-center text-[#FF5722]">
+                            {qty}
+                          </span>
+                          <button
+                            onClick={() => updateQuantity(dish.id, 1)}
+                            className="w-6 h-6 rounded-lg bg-[#FF5722] text-white hover:bg-[#F4511E] flex items-center justify-center font-bold text-xs cursor-pointer border-none"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             );

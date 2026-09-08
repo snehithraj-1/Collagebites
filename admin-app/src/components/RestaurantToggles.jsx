@@ -2,35 +2,42 @@ import React, { useState } from 'react';
 import { Store, CheckCircle2, XCircle, MapPin, Power } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-export default function RestaurantToggles({ restaurants, onRestaurantUpdate }) {
+export default function RestaurantToggles({ restaurants, orderingEnabled, onRestaurantUpdate }) {
   const [updatingId, setUpdatingId] = useState(null);
 
   const handleToggle = async (restaurant) => {
     const nextState = !(restaurant.is_open !== false);
     setUpdatingId(restaurant.id);
 
-    if (!isSupabaseConfigured() || !supabase) {
-      // Local demo persistence
+    try {
+      // 1. Update Neon PostgreSQL shared backend
+      await fetch(`/api/restaurants/${restaurant.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_open: nextState })
+      });
+
+      // 2. Also sync to Supabase if configured
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          await supabase
+            .from('restaurants')
+            .update({ is_open: nextState })
+            .eq('id', restaurant.id);
+        } catch (supaErr) {
+          console.warn('[Supabase Restaurant Sync Warning]:', supaErr.message);
+        }
+      }
+
+      // 3. Fallback localStorage
       const updated = restaurants.map((r) =>
         r.id === restaurant.id ? { ...r, is_open: nextState } : r
       );
       localStorage.setItem('cb_shared_restaurants', JSON.stringify(updated));
       onRestaurantUpdate(restaurant.id, nextState);
-      setUpdatingId(null);
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('restaurants')
-        .update({ is_open: nextState })
-        .eq('id', restaurant.id);
-
-      if (error) throw error;
-      onRestaurantUpdate(restaurant.id, nextState);
     } catch (err) {
-      console.error('[Supabase Restaurant Toggle Error]:', err);
-      alert('Failed to update restaurant status: ' + err.message);
+      console.error('[Restaurant Toggle Error]:', err);
+      onRestaurantUpdate(restaurant.id, nextState);
     } finally {
       setUpdatingId(null);
     }
@@ -50,7 +57,8 @@ export default function RestaurantToggles({ restaurants, onRestaurantUpdate }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {restaurants.map((restaurant) => {
-          const isOpen = restaurant.is_open !== false;
+          const isMasterOpen = orderingEnabled !== false;
+          const isOpen = isMasterOpen && (restaurant.is_open !== false);
           const isBusy = updatingId === restaurant.id;
 
           return (

@@ -1,6 +1,6 @@
 // Authentic Menus for CampusBites: Local Home Kitchen & Clg Bites Biryani Nation
 
-export const DEFAULT_RESTAURANTS = [
+export const AUTHENTIC_RESTAURANTS = [
   {
     id: "local-home-kitchen",
     name: "Local Home Kitchen",
@@ -27,7 +27,7 @@ export const DEFAULT_RESTAURANTS = [
   }
 ];
 
-export const DEFAULT_MENU_ITEMS = [
+export const AUTHENTIC_MENU_ITEMS = [
   // =========================================================================
   // 1. CLG BITES BIRYANI NATION (Biryani Special Menu with Single & Full sizes)
   // =========================================================================

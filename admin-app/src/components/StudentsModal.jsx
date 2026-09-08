@@ -32,7 +32,7 @@ export default function StudentsModal({ isOpen, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
       <div onClick={onClose} className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
 
-      <div className="relative bg-[#111827] border border-slate-700 w-full max-w-2xl rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-white text-xs">
+      <div className="relative bg-[#111827] border border-slate-700 w-full max-w-2xl rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-white text-xs animate-scale-in">
         
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -94,11 +94,6 @@ export default function StudentsModal({ isOpen, onClose }) {
                     <span className="font-extrabold text-sm text-white">
                       {student.name}
                     </span>
-                    {student.student_id && (
-                      <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono text-[10px] border border-slate-700">
-                        {student.student_id}
-                      </span>
-                    )}
                   </div>
                   {student.total_orders !== undefined && (
                     <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-800">

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, RefreshCw, ShoppingBag, ArrowLeft, CheckCircle2, XCircle, AlertCircle, MapPin } from 'lucide-react';
+import { Clock, RefreshCw, ShoppingBag, ArrowLeft, CheckCircle2, XCircle, AlertCircle, MapPin, Phone } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useStudentAuth } from '../context/StudentAuthContext';
 
-export default function OrderHistoryPage({ onBackToRestaurants }) {
+export default function OrderHistoryPage({ onBackToRestaurants, onTrackOrder }) {
   const { profile } = useStudentAuth();
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -239,13 +239,47 @@ export default function OrderHistoryPage({ onBackToRestaurants }) {
                   </div>
                 </div>
 
-                {/* Drop Destination */}
-                <div className="pt-2 border-t border-[#F1EAE4] flex items-center justify-between text-[11px] text-[#64748B]">
+                {/* Assigned Delivery Partner Banner with 1-Tap Call */}
+                {order.delivery_partner_name && (
+                  <div className="p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-base">
+                        🛵
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block">Delivery Partner</span>
+                        <span className="font-extrabold text-[#0F172A]">{order.delivery_partner_name}</span>
+                      </div>
+                    </div>
+
+                    {order.delivery_partner_phone && (
+                      <a
+                        href={`tel:${order.delivery_partner_phone}`}
+                        className="py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                      >
+                        <Phone size={12} />
+                        <span>Call Partner</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Drop Destination & Track Button */}
+                <div className="pt-2.5 border-t border-[#F1EAE4] flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#64748B]">
                   <div className="flex items-center gap-1.5">
                     <MapPin size={12} className="text-[#FF5722]" />
                     <span>Drop: {order.delivery_location}</span>
                   </div>
-                  <span className="text-emerald-600 font-bold">Free Hostel Delivery</span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onTrackOrder && onTrackOrder(order)}
+                      className="px-3 py-1.5 rounded-xl bg-[#FFF0EB] hover:bg-[#FF5722] text-[#FF5722] hover:text-white text-xs font-bold transition-all cursor-pointer border border-[#FFD3C4] flex items-center gap-1 shadow-xs"
+                    >
+                      <span>View Bill & Track</span>
+                      <span>➔</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
