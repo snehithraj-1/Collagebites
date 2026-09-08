@@ -108,11 +108,7 @@ if (DATABASE_URL) {
   }
 }
 
-const INITIAL_DELIVERY_PARTNERS = [
-  { id: 'dp-1', name: 'Ramesh Kumar', phone: '9398414231', is_active: true, total_deliveries: 18 },
-  { id: 'dp-2', name: 'Suresh Reddy', phone: '9876543210', is_active: true, total_deliveries: 12 },
-  { id: 'dp-3', name: 'Anil Varma', phone: '9123456789', is_active: true, total_deliveries: 9 }
-];
+const INITIAL_DELIVERY_PARTNERS = [];
 
 const INITIAL_RESTAURANTS = AUTHENTIC_RESTAURANTS;
 
@@ -246,21 +242,8 @@ async function initNeonSchema() {
       );
     `;
 
-    // Seed delivery partners if empty
-    const dpCount = await sql`SELECT count(*) as c FROM delivery_partners;`;
-    if (parseInt(dpCount[0]?.c || '0', 10) === 0) {
-      console.log('[Neon DB] Seeding default campus delivery partners into Neon DB...');
-      for (const dp of INITIAL_DELIVERY_PARTNERS) {
-        await sql`
-          INSERT INTO delivery_partners (
-            id, name, phone, is_active, total_deliveries
-          ) VALUES (
-            ${dp.id}, ${dp.name}, ${dp.phone}, ${dp.is_active}, ${dp.total_deliveries}
-          ) ON CONFLICT (id) DO NOTHING;
-        `;
-      }
-      console.log('✅ [Neon DB] Default delivery partners seeded successfully!');
-    }
+    // 5. Ensure delivery_partners table exists without force-seeding deleted partners
+    // Seeding is skipped so deleted delivery partners are never resurrected.
 
     // Seed menu items if empty
     const menuCount = await sql`SELECT count(*) as c FROM menu_items;`;
@@ -670,7 +653,7 @@ app.post('/api/auth/send-otp', async (req, res) => {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // 1. Store in Neon PostgreSQL database
-    if (sql && isNeonReady) {
+    if (sql) {
       try {
         await sql`
           INSERT INTO otp_verifications (email, otp, name, phone, expires_at, created_at)
@@ -682,7 +665,7 @@ app.post('/api/auth/send-otp', async (req, res) => {
             expires_at = EXCLUDED.expires_at,
             created_at = NOW();
         `;
-        console.log(`[Neon DB] Saved OTP record for: ${cleanEmail}`);
+        console.log(`[Neon DB] ✅ Saved OTP record in Neon for: ${cleanEmail} -> ${otp}`);
       } catch (dbErr) {
         console.warn('[Neon DB OTP Store Warning]:', dbErr.message);
       }
@@ -769,7 +752,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     }
 
     // 2. Check Neon DB
-    if (!isValid && sql && isNeonReady) {
+    if (!isValid && sql) {
       try {
         const rows = await sql`
           SELECT * FROM otp_verifications 
@@ -795,20 +778,15 @@ app.post('/api/auth/verify-otp', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid or expired OTP code. Please try again.' });
     }
 
-    // Clean up used OTP
+    // Clean up used OTP from memory (keep in Neon DB for audit & visibility in console)
     otpMemoryCache.delete(cleanEmail);
-    if (sql && isNeonReady) {
-      try {
-        await sql`DELETE FROM otp_verifications WHERE email = ${cleanEmail};`;
-      } catch (e) {}
-    }
 
     const studentName = name || storedData?.name || cleanEmail.split('@')[0];
     const studentPhone = phone || storedData?.phone || '9989955833';
     const studentId = `srm-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
     // Upsert into Neon PostgreSQL students table
-    if (sql && isNeonReady) {
+    if (sql) {
       try {
         await sql`
           INSERT INTO students (id, name, email, phone, updated_at)
@@ -1141,10 +1119,11 @@ app.post('/api/orders', async (req, res) => {
   res.status(201).json({ success: true, order: newOrder, stored_in_neon: isNeonReady });
 });
 
-// 4. PATCH /api/orders/:id/status - Admin updates order status (PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED)
-app.patch('/api/orders/:id/status', async (req, res) => {
-  const { status } = req.body;
-  const orderId = req.params.id;
+// 4. Update Order Status - Supports POST/PATCH on /api/orders/status & /api/orders/:id/status
+const handleOrderStatusUpdate = async (req, res) => {
+  const body = req.body || {};
+  const orderId = req.params.id || body.orderId || body.order_id || req.query.id;
+  const status = body.status;
 
   const validStatuses = [
     'CONFIRMED',
@@ -1156,6 +1135,10 @@ app.patch('/api/orders/:id/status', async (req, res) => {
     'CANCELLED',
     'EXPIRED'
   ];
+
+  if (!orderId) {
+    return res.status(400).json({ success: false, error: 'Order ID is required' });
+  }
 
   if (!status || !validStatuses.includes(status)) {
     return res.status(400).json({
@@ -1172,7 +1155,7 @@ app.patch('/api/orders/:id/status', async (req, res) => {
       const result = await sql`
         UPDATE orders 
         SET status = ${status}, updated_at = NOW() 
-        WHERE id = ${orderId}
+        WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
         RETURNING *;
       `;
       if (result && result.length > 0) {
@@ -1216,16 +1199,26 @@ app.patch('/api/orders/:id/status', async (req, res) => {
     message: `Order #${orderId} status changed to ${status}`,
     order: updatedOrder
   });
-});
+};
 
-// 5. DELETE /api/orders/:id - Admin deletes order
-app.delete('/api/orders/:id', async (req, res) => {
-  const orderId = req.params.id;
+app.post('/api/orders/status', handleOrderStatusUpdate);
+app.patch('/api/orders/status', handleOrderStatusUpdate);
+app.post('/api/orders/:id/status', handleOrderStatusUpdate);
+app.patch('/api/orders/:id/status', handleOrderStatusUpdate);
+
+// 5. Delete Order - Supports POST /api/orders/delete & DELETE /api/orders/:id
+const handleOrderDelete = async (req, res) => {
+  const body = req.body || {};
+  const orderId = req.params.id || body.orderId || body.order_id || req.query.id;
+
+  if (!orderId) {
+    return res.status(400).json({ success: false, error: 'Order ID is required' });
+  }
 
   if (sql) {
     try {
       await sql`DELETE FROM order_items WHERE order_id = ${orderId};`;
-      await sql`DELETE FROM orders WHERE id = ${orderId};`;
+      await sql`DELETE FROM orders WHERE id = ${orderId} OR id LIKE ${orderId + '%'};`;
       console.log(`[Neon DB] Order #${orderId} deleted from PostgreSQL`);
     } catch (err) {
       console.warn('[Neon DB Delete Error]:', err.message);
@@ -1239,7 +1232,11 @@ app.delete('/api/orders/:id', async (req, res) => {
   invalidateOrdersCache();
 
   res.json({ success: true, message: `Order #${orderId} permanently deleted.` });
-});
+};
+
+app.post('/api/orders/delete', handleOrderDelete);
+app.delete('/api/orders/delete', handleOrderDelete);
+app.delete('/api/orders/:id', handleOrderDelete);
 
 // 6. GET /api/students - Admin views all registered students
 app.get('/api/students', async (req, res) => {
@@ -1336,31 +1333,19 @@ app.post('/api/students', async (req, res) => {
 
 // 1. GET /api/delivery-partners - List all delivery partners
 app.get('/api/delivery-partners', async (req, res) => {
-  if (sql && isNeonReady) {
+  if (sql) {
     try {
       const rows = await sql`SELECT * FROM delivery_partners ORDER BY created_at ASC;`;
-      if (rows && rows.length > 0) {
-        return res.json({ success: true, partners: rows, source: 'neon' });
-      }
+      return res.json({ success: true, partners: rows || [], source: 'neon' });
     } catch (err) {
       console.warn('[Neon Fetch Delivery Partners Error]:', err.message);
     }
   }
 
   const local = readLocalDb();
-  let partners = Array.isArray(local.delivery_partners) && local.delivery_partners.length > 0 
-    ? [...local.delivery_partners] 
-    : [...INITIAL_DELIVERY_PARTNERS];
-
-  for (const def of INITIAL_DELIVERY_PARTNERS) {
-    if (!partners.some(p => p.id === def.id || p.phone === def.phone)) {
-      partners.push(def);
-    }
-  }
-
   res.json({
     success: true,
-    partners,
+    partners: Array.isArray(local.delivery_partners) ? local.delivery_partners : [],
     source: 'local_cache'
   });
 });
@@ -1384,7 +1369,7 @@ app.post('/api/delivery-partners', async (req, res) => {
     updated_at: nowIso
   };
 
-  if (sql && isNeonReady) {
+  if (sql) {
     try {
       await sql`
         INSERT INTO delivery_partners (id, name, phone, is_active, total_deliveries, created_at, updated_at)
@@ -1398,7 +1383,7 @@ app.post('/api/delivery-partners', async (req, res) => {
   }
 
   const local = readLocalDb();
-  if (!local.delivery_partners) local.delivery_partners = [...INITIAL_DELIVERY_PARTNERS];
+  if (!Array.isArray(local.delivery_partners)) local.delivery_partners = [];
   local.delivery_partners.push(newPartner);
   writeLocalDb(local);
 
@@ -1409,7 +1394,7 @@ app.post('/api/delivery-partners', async (req, res) => {
 app.delete('/api/delivery-partners/:id', async (req, res) => {
   const partnerId = req.params.id;
 
-  if (sql && isNeonReady) {
+  if (sql) {
     try {
       await sql`DELETE FROM delivery_partners WHERE id = ${partnerId};`;
       console.log(`[Neon DB] Delivery partner ${partnerId} deleted.`);
@@ -1425,12 +1410,35 @@ app.delete('/api/delivery-partners/:id', async (req, res) => {
   res.json({ success: true, message: 'Delivery partner deleted successfully' });
 });
 
-// 4. PATCH /api/orders/:id/assign-partner - Assign or unassign delivery partner to order
-app.patch('/api/orders/:id/assign-partner', async (req, res) => {
-  const orderId = req.params.id;
-  const { partner_id, partner_name, partner_phone, unassign } = req.body || {};
+// 4. Assign or Unassign Delivery Partner to Order
+// Supports POST and PATCH on both /api/orders/assign-partner and /api/orders/:id/assign-partner
+const handleAssignDeliveryPartner = async (req, res) => {
+  const body = req.body || {};
+  const orderId = req.params.id || body.orderId || body.order_id || req.query.id;
 
-  const isUnassign = Boolean(unassign || (partner_id === null && !partner_name));
+  if (!orderId) {
+    return res.status(400).json({ success: false, error: 'Order ID is required' });
+  }
+
+  const { deliveryPartner, unassign } = body;
+  let partner_id = body.partner_id || body.partnerId || deliveryPartner?.id || null;
+  let partner_name = body.partner_name || body.partnerName || deliveryPartner?.name || null;
+  let partner_phone = body.partner_phone || body.partnerPhone || deliveryPartner?.phone || null;
+
+  const isUnassign = Boolean(unassign || (!partner_id && !partner_name));
+
+  // If partner_id is provided but name/phone missing, look up from delivery_partners table
+  if (!isUnassign && partner_id && (!partner_name || !partner_phone) && sql) {
+    try {
+      const dpRows = await sql`SELECT * FROM delivery_partners WHERE id = ${partner_id} LIMIT 1;`;
+      if (dpRows && dpRows.length > 0) {
+        partner_name = dpRows[0].name;
+        partner_phone = dpRows[0].phone;
+      }
+    } catch (e) {
+      console.warn('[Partner Lookup Error]:', e.message);
+    }
+  }
 
   if (!isUnassign && (!partner_name || !partner_phone)) {
     return res.status(400).json({ success: false, error: 'Partner name and phone are required.' });
@@ -1438,7 +1446,7 @@ app.patch('/api/orders/:id/assign-partner', async (req, res) => {
 
   let updatedOrder = null;
 
-  if (sql && isNeonReady) {
+  if (sql) {
     try {
       const result = await sql`
         UPDATE orders 
@@ -1446,7 +1454,7 @@ app.patch('/api/orders/:id/assign-partner', async (req, res) => {
             delivery_partner_name = ${isUnassign ? null : partner_name},
             delivery_partner_phone = ${isUnassign ? null : partner_phone},
             updated_at = NOW() 
-        WHERE id = ${orderId}
+        WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
         RETURNING *;
       `;
       if (result && result.length > 0) {
@@ -1484,7 +1492,12 @@ app.patch('/api/orders/:id/assign-partner', async (req, res) => {
     message: isUnassign ? `Unassigned delivery partner from Order #${orderId}` : `Assigned delivery partner ${partner_name} to Order #${orderId}`,
     order: updatedOrder
   });
-});
+};
+
+app.post('/api/orders/assign-partner', handleAssignDeliveryPartner);
+app.patch('/api/orders/assign-partner', handleAssignDeliveryPartner);
+app.post('/api/orders/:id/assign-partner', handleAssignDeliveryPartner);
+app.patch('/api/orders/:id/assign-partner', handleAssignDeliveryPartner);
 
 // 8. System & Restaurant Toggles (Neon PostgreSQL with Fallback)
 

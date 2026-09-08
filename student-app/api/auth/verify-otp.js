@@ -55,11 +55,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, error: 'Invalid or expired OTP code. Please try again.' });
     }
 
-    // Clean up verified OTP
-    try {
-      await sql`DELETE FROM otp_verifications WHERE email = ${cleanEmail};`;
-    } catch (e) {}
-
+    // Keep record in Neon DB for audit & visibility in console
     const studentName = name || storedData?.name || cleanEmail.split('@')[0];
     const studentPhone = phone || storedData?.phone || '9989955833';
     const studentId = `srm-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;

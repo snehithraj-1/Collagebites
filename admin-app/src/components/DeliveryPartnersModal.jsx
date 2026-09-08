@@ -159,7 +159,7 @@ export default function DeliveryPartnersModal({ isOpen, onClose, onPartnersChang
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Ramesh Kumar"
+                    placeholder="Enter partner name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full pl-8 pr-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-emerald-500"
@@ -176,7 +176,7 @@ export default function DeliveryPartnersModal({ isOpen, onClose, onPartnersChang
                   <input
                     type="tel"
                     required
-                    placeholder="e.g. 9398414231"
+                    placeholder="Enter 10-digit mobile"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full pl-8 pr-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-emerald-500 font-mono"

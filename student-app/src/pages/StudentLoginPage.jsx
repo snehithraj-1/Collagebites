@@ -122,7 +122,7 @@ export default function StudentLoginPage() {
                 <input
                   type="email"
                   required
-                  placeholder="e.g. snehithraj007@gmail.com or name@srmap.edu.in"
+                  placeholder="Add your email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white"
@@ -145,7 +145,7 @@ export default function StudentLoginPage() {
                 <input
                   type="tel"
                   required
-                  placeholder="Enter 10digit  mobile number"
+                  placeholder="Enter 10-digit mobile number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white"
