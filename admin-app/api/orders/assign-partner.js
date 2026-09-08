@@ -14,33 +14,44 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const orderId = req.query.id || req.body?.orderId;
+  // Parse body if string
+  let body = req.body || {};
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch (e) {}
+  }
+
+  // Extract orderId from query, body, or URL
+  const urlMatch = (req.url || '').match(/\/api\/orders\/([^\/\?]+)/);
+  const orderId = req.query.id || body.orderId || (urlMatch ? urlMatch[1] : null);
+
   if (!orderId) {
     return res.status(400).json({ error: 'Order ID is required' });
   }
 
   try {
-    const { deliveryPartner, partnerId, partnerName, partnerPhone } = req.body || {};
+    const { deliveryPartner, partnerId, partner_id, partnerName, partner_name, partnerPhone, partner_phone, unassign } = body;
 
     let pId = null;
     let pName = null;
     let pPhone = null;
 
-    if (deliveryPartner) {
-      pId = deliveryPartner.id || null;
-      pName = deliveryPartner.name || null;
-      pPhone = deliveryPartner.phone || null;
-    } else if (partnerId) {
-      pId = partnerId;
-      pName = partnerName || null;
-      pPhone = partnerPhone || null;
-    }
+    if (!unassign) {
+      if (deliveryPartner) {
+        pId = deliveryPartner.id || null;
+        pName = deliveryPartner.name || null;
+        pPhone = deliveryPartner.phone || null;
+      } else if (partnerId || partner_id) {
+        pId = partnerId || partner_id;
+        pName = partnerName || partner_name || null;
+        pPhone = partnerPhone || partner_phone || null;
+      }
 
-    if (pId && (!pName || !pPhone)) {
-      const partners = await sql`SELECT * FROM delivery_partners WHERE id = ${pId} LIMIT 1;`;
-      if (partners && partners.length > 0) {
-        pName = partners[0].name;
-        pPhone = partners[0].phone;
+      if (pId && (!pName || !pPhone)) {
+        const partners = await sql`SELECT * FROM delivery_partners WHERE id = ${pId} LIMIT 1;`;
+        if (partners && partners.length > 0) {
+          pName = partners[0].name;
+          pPhone = partners[0].phone;
+        }
       }
     }
 
