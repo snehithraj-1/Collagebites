@@ -300,10 +300,16 @@ export default function OrderDetailsModal({
                       return (
                         <div
                           key={p.id}
-                          className={`p-2 rounded-xl flex items-center justify-between gap-2 border transition-all ${
+                          onClick={() => {
+                            if (onAssignPartner) {
+                              onAssignPartner(order.id, p);
+                            }
+                            setShowPartnerPicker(false);
+                          }}
+                          className={`p-2 rounded-xl flex items-center justify-between gap-2 border transition-all cursor-pointer ${
                             isAssigned
                               ? 'bg-cyan-500/20 border-cyan-500/50'
-                              : 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60'
+                              : 'bg-slate-800/60 hover:bg-slate-800 border-slate-700/60 hover:border-cyan-500/40'
                           }`}
                         >
                           <div>
@@ -317,13 +323,7 @@ export default function OrderDetailsModal({
 
                           <button
                             type="button"
-                            onClick={() => {
-                              if (onAssignPartner) {
-                                onAssignPartner(order.id, p);
-                              }
-                              setShowPartnerPicker(false);
-                            }}
-                            className="py-1 px-2.5 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[11px] cursor-pointer border-none shadow-xs transition-all active:scale-95"
+                            className="py-1 px-2.5 rounded-lg bg-cyan-400 text-slate-950 font-black text-[11px] cursor-pointer border-none shadow-xs transition-all pointer-events-none"
                           >
                             {isAssigned ? 'Selected' : 'Assign ➔'}
                           </button>

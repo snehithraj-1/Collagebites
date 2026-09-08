@@ -195,48 +195,51 @@ export default function OrdersTable({
                 <div className="text-[11px] text-slate-300 flex items-center gap-1.5 bg-slate-800/40 p-2 rounded-xl">
                   <MapPin size={12} className="text-[#FF5722] shrink-0" />
                   <span className="truncate">{order.delivery_location || 'SRM University - Gate 3'}</span>
-                </div>
-
-                {/* Delivery Partner Assigned / Quick Assign */}
+                           {/* Delivery Partner Assigned / Quick Assign Dropdown */}
                 <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/80 flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-sm">🛵</span>
-                    {order.delivery_partner_name ? (
-                      <div className="truncate">
-                        <span className="text-[10px] text-slate-400 block leading-tight">Partner:</span>
-                        <span className="font-extrabold text-white text-xs">{order.delivery_partner_name}</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-400 italic">No partner</span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {order.delivery_partner_phone && (
-                      <a
-                        href={`tel:${order.delivery_partner_phone}`}
-                        className="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-mono font-bold flex items-center gap-1"
-                        title="Call Delivery Partner"
-                      >
-                        <Phone size={11} />
-                        <span>Call</span>
-                      </a>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setOrderToAssignPartner(order)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-black flex items-center gap-1 transition-all cursor-pointer border ${
+                  <div className="relative flex-1 min-w-0">
+                    <select
+                      value={order.delivery_partner_id || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) {
+                          if (onUnassignPartner) onUnassignPartner(order.id);
+                        } else {
+                          const p = deliveryPartners.find((dp) => dp.id === val);
+                          if (p && onAssignPartner) onAssignPartner(order.id, p);
+                        }
+                      }}
+                      className={`w-full py-1.5 px-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all border outline-none appearance-none pr-7 ${
                         order.delivery_partner_id
-                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
-                          : 'bg-cyan-500/20 hover:bg-cyan-500 text-cyan-300 hover:text-slate-950 border-cyan-500/40 shadow-sm'
+                          ? 'bg-cyan-950/50 text-cyan-300 border-cyan-500/50'
+                          : 'bg-slate-900 text-slate-300 border-slate-700'
                       }`}
                     >
-                      <span>🛵</span>
-                      <span>{order.delivery_partner_id ? 'Change' : 'Assign'}</span>
-                    </button>
+                      <option value="" className="bg-slate-900 text-slate-400">
+                        {order.delivery_partner_id ? '✕ Clear / Unassign Courier' : '🛵 Select Delivery Partner...'}
+                      </option>
+                      {deliveryPartners.map((p) => (
+                        <option key={p.id} value={p.id} className="bg-slate-900 text-white font-medium">
+                          🛵 {p.name} ({p.phone})
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">
+                      ▼
+                    </div>
                   </div>
-                </div>
+
+                  {order.delivery_partner_phone && (
+                    <a
+                      href={`tel:${order.delivery_partner_phone}`}
+                      className="px-2 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-mono font-bold flex items-center gap-1 shrink-0"
+                      title="Call Courier"
+                    >
+                      <Phone size={11} />
+                      <span>Call</span>
+                    </a>
+                  )}
+                </div>             </div>
 
                 {/* Dishes Summary & Total */}
                 <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/80">
@@ -403,45 +406,55 @@ export default function OrdersTable({
                         </span>
                       </td>
 
-                      {/* Delivery Partner */}
-                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[170px]">
-                        {order.delivery_partner_name ? (
-                          <div className="space-y-1">
-                            <div className="font-extrabold text-white text-xs flex items-center gap-1.5">
-                              <span className="text-sm">🛵</span>
-                              <span className="text-cyan-300 font-bold">{order.delivery_partner_name}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {order.delivery_partner_phone && (
-                                <a
-                                  href={`tel:${order.delivery_partner_phone}`}
-                                  className="text-[11px] text-emerald-400 hover:underline font-mono font-bold flex items-center gap-1"
-                                  title="Call Delivery Partner"
+                      {/* Delivery Partner - Instant Inline 1-Click Assignment */}
+                      <td className="py-3.5 px-4 whitespace-nowrap min-w-[210px]">
+                        <div className="flex items-center gap-2">
+                          <div className="relative min-w-[170px]">
+                            <select
+                              value={order.delivery_partner_id || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (!val) {
+                                  if (onUnassignPartner) onUnassignPartner(order.id);
+                                } else {
+                                  const p = deliveryPartners.find((dp) => dp.id === val);
+                                  if (p && onAssignPartner) onAssignPartner(order.id, p);
+                                }
+                              }}
+                              className={`w-full py-1.5 px-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all border outline-none appearance-none pr-7 ${
+                                order.delivery_partner_id
+                                  ? 'bg-cyan-950/50 text-cyan-300 border-cyan-500/50 hover:bg-cyan-900/50 shadow-xs'
+                                  : 'bg-slate-800/90 hover:bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'
+                              }`}
+                            >
+                              <option value="" className="bg-slate-900 text-slate-400">
+                                {order.delivery_partner_id ? '✕ Clear / Unassign' : '🛵 + Assign Partner...'}
+                              </option>
+                              {deliveryPartners.map((partner) => (
+                                <option
+                                  key={partner.id}
+                                  value={partner.id}
+                                  className="bg-slate-900 text-white font-medium"
                                 >
-                                  <Phone size={10} />
-                                  <span>{order.delivery_partner_phone}</span>
-                                </a>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => setOrderToAssignPartner(order)}
-                                className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold border border-slate-700 transition-colors cursor-pointer"
-                              >
-                                Change
-                              </button>
+                                  🛵 {partner.name} ({partner.phone})
+                                </option>
+                              ))}
+                            </select>
+                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">
+                              ▼
                             </div>
                           </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setOrderToAssignPartner(order)}
-                            className="px-3 py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500 text-cyan-300 hover:text-slate-950 border border-cyan-500/40 text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 group"
-                            title="Click to assign a delivery partner"
-                          >
-                            <span>🛵</span>
-                            <span>Assign Partner</span>
-                          </button>
-                        )}
+
+                          {order.delivery_partner_phone && (
+                            <a
+                              href={`tel:${order.delivery_partner_phone}`}
+                              className="p-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 shrink-0 transition-colors"
+                              title={`Call ${order.delivery_partner_name || 'Courier'}`}
+                            >
+                              <Phone size={12} />
+                            </a>
+                          )}
+                        </div>
                       </td>
 
                       {/* Ordered Items */}
@@ -639,10 +652,16 @@ export default function OrdersTable({
                     return (
                       <div
                         key={partner.id}
-                        className={`p-3 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
+                        onClick={() => {
+                          if (onAssignPartner) {
+                            onAssignPartner(orderToAssignPartner.id, partner);
+                          }
+                          setOrderToAssignPartner(null);
+                        }}
+                        className={`p-3 rounded-2xl border flex items-center justify-between gap-3 transition-all cursor-pointer ${
                           isCurrent
                             ? 'bg-cyan-500/15 border-cyan-500/50 shadow-sm'
-                            : 'bg-slate-800/40 hover:bg-slate-800/80 border-slate-700/60'
+                            : 'bg-slate-800/40 hover:bg-slate-800/80 border-slate-700/60 hover:border-cyan-500/40'
                         }`}
                       >
                         <div className="min-w-0">
@@ -664,16 +683,10 @@ export default function OrdersTable({
 
                         <button
                           type="button"
-                          onClick={() => {
-                            if (onAssignPartner) {
-                              onAssignPartner(orderToAssignPartner.id, partner);
-                            }
-                            setOrderToAssignPartner(null);
-                          }}
-                          className={`py-2 px-3.5 rounded-xl font-black text-xs cursor-pointer border-none transition-all shadow-md active:scale-95 flex items-center gap-1 shrink-0 ${
+                          className={`py-2 px-3.5 rounded-xl font-black text-xs cursor-pointer border-none transition-all shadow-md active:scale-95 flex items-center gap-1 shrink-0 pointer-events-none ${
                             isCurrent
-                              ? 'bg-cyan-400 text-slate-950 hover:bg-cyan-300'
-                              : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950'
+                              ? 'bg-cyan-400 text-slate-950'
+                              : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950'
                           }`}
                         >
                           <span>{isCurrent ? 'Reassign' : 'Assign'}</span>
