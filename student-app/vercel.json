@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/auth/send-otp",
+      "destination": "/api/auth/send-otp"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://collagebites.onrender.com/api/:path*"
     },
