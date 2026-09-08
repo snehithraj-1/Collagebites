@@ -60,13 +60,22 @@ function getEmailCredentials() {
 
 const { user: emailUser, pass: emailPass } = getEmailCredentials();
 const mailTransporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  family: 4, // Force IPv4 to prevent cloud IPv6 DNS hangs
+  pool: true,
+  maxConnections: 5,
+  maxMessages: 100,
+  connectionTimeout: 8000,
+  greetingTimeout: 5000,
+  socketTimeout: 10000,
   auth: {
     user: emailUser,
     pass: emailPass
   }
 });
-console.log(`[Gmail Service] Configured with sender: ${emailUser}`);
+console.log(`[Gmail Service] Configured with sender: ${emailUser} (Pool & IPv4 Active)`);
 
 // ----------------------------------------------------
 // 1. NEON POSTGRESQL CONNECTION & SCHEMA INITIALIZATION
@@ -712,20 +721,21 @@ app.post('/api/auth/send-otp', async (req, res) => {
       </div>
     `;
 
-    try {
-      await mailTransporter.sendMail({
-        from: '"CampusBites SRM" <' + emailUser + '>',
-        to: cleanEmail,
-        subject: `${otp} is your CampusBites Login Code`,
-        html: htmlTemplate
-      });
+    // 1. Return immediate response to the client (< 150ms) so student UI never hangs
+    res.json({ success: true, message: `OTP sent to ${cleanEmail}` });
+
+    // 2. Dispatch email concurrently in the background via pooled IPv4 SMTP
+    mailTransporter.sendMail({
+      from: '"CampusBites SRM" <' + emailUser + '>',
+      to: cleanEmail,
+      subject: `${otp} is your CampusBites Login Code`,
+      html: htmlTemplate
+    }).then(() => {
       console.log(`[Gmail OTP] Successfully emailed OTP ${otp} to ${cleanEmail}`);
-    } catch (mailErr) {
+    }).catch((mailErr) => {
       console.error('[Gmail SMTP Error]:', mailErr.message);
       console.log(`[Fallback OTP Log]: ${cleanEmail} -> ${otp}`);
-    }
-
-    return res.json({ success: true, message: `OTP sent to ${cleanEmail}` });
+    });
   } catch (err) {
     console.error('[Send OTP Route Error]:', err.message);
     return res.status(500).json({ success: false, error: 'Failed to dispatch OTP: ' + err.message });
