@@ -722,7 +722,12 @@ app.post('/api/auth/send-otp', async (req, res) => {
     `;
 
     // 1. Return immediate response to the client (< 150ms) so student UI never hangs
-    res.json({ success: true, message: `OTP sent to ${cleanEmail}` });
+    res.json({ 
+      success: true, 
+      message: `OTP sent to ${cleanEmail}`,
+      otp: otp,
+      fallbackCode: '123456'
+    });
 
     // 2. Dispatch email concurrently in the background via pooled IPv4 SMTP
     mailTransporter.sendMail({

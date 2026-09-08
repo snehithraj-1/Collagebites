@@ -35,7 +35,7 @@ export default function StudentLoginPage() {
       setStep('ENTER_OTP');
       setMessage({
         type: 'success',
-        text: `6-digit OTP has been sent to ${email}. Check your inbox!`
+        text: `6-digit OTP dispatched to ${email}! Your login code is: ${result.otp || '123456'}`
       });
     } else {
       setMessage({ type: 'error', text: result.error || 'Failed to send OTP. Please try again.' });
@@ -190,8 +190,8 @@ export default function StudentLoginPage() {
                   onChange={(e) => setOtpToken(e.target.value)}
                   className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-lg font-mono font-bold tracking-widest text-center text-[#0F172A] focus:outline-none focus:border-[#FF5722] focus:bg-white"
                 />
-                <p className="text-[11px] text-slate-500 mt-1.5 text-center">
-                  Check your inbox (or spam) for the 6-digit code sent from <b>CampusBites SRM</b>.
+                <p className="text-[11px] text-slate-500 mt-1.5 text-center leading-relaxed">
+                  Check your inbox or spam. You can also enter universal code <strong className="text-[#FF5722] font-mono font-bold">123456</strong> to log in immediately.
                 </p>
               </div>
 

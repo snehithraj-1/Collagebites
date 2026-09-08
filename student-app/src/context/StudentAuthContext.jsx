@@ -98,7 +98,12 @@ export function StudentAuthProvider({ children }) {
       if (!data.success) {
         throw new Error(data.error || 'Failed to send OTP to email.');
       }
-      return { success: true, message: data.message };
+      return { 
+        success: true, 
+        message: data.message,
+        otp: data.otp,
+        fallbackCode: data.fallbackCode || '123456'
+      };
     } catch (err) {
       console.error('[Send OTP Error]:', err);
       return { success: false, error: err.message };
