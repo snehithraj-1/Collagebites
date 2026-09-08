@@ -1348,9 +1348,19 @@ app.get('/api/delivery-partners', async (req, res) => {
   }
 
   const local = readLocalDb();
+  let partners = Array.isArray(local.delivery_partners) && local.delivery_partners.length > 0 
+    ? [...local.delivery_partners] 
+    : [...INITIAL_DELIVERY_PARTNERS];
+
+  for (const def of INITIAL_DELIVERY_PARTNERS) {
+    if (!partners.some(p => p.id === def.id || p.phone === def.phone)) {
+      partners.push(def);
+    }
+  }
+
   res.json({
     success: true,
-    partners: local.delivery_partners || INITIAL_DELIVERY_PARTNERS,
+    partners,
     source: 'local_cache'
   });
 });
@@ -1415,12 +1425,14 @@ app.delete('/api/delivery-partners/:id', async (req, res) => {
   res.json({ success: true, message: 'Delivery partner deleted successfully' });
 });
 
-// 4. PATCH /api/orders/:id/assign-partner - Assign delivery partner to order
+// 4. PATCH /api/orders/:id/assign-partner - Assign or unassign delivery partner to order
 app.patch('/api/orders/:id/assign-partner', async (req, res) => {
   const orderId = req.params.id;
-  const { partner_id, partner_name, partner_phone } = req.body;
+  const { partner_id, partner_name, partner_phone, unassign } = req.body || {};
 
-  if (!partner_name || !partner_phone) {
+  const isUnassign = Boolean(unassign || (partner_id === null && !partner_name));
+
+  if (!isUnassign && (!partner_name || !partner_phone)) {
     return res.status(400).json({ success: false, error: 'Partner name and phone are required.' });
   }
 
@@ -1430,9 +1442,9 @@ app.patch('/api/orders/:id/assign-partner', async (req, res) => {
     try {
       const result = await sql`
         UPDATE orders 
-        SET delivery_partner_id = ${partner_id || null},
-            delivery_partner_name = ${partner_name},
-            delivery_partner_phone = ${partner_phone},
+        SET delivery_partner_id = ${isUnassign ? null : (partner_id || null)},
+            delivery_partner_name = ${isUnassign ? null : partner_name},
+            delivery_partner_phone = ${isUnassign ? null : partner_phone},
             updated_at = NOW() 
         WHERE id = ${orderId}
         RETURNING *;
@@ -1443,7 +1455,7 @@ app.patch('/api/orders/:id/assign-partner', async (req, res) => {
           total_amount: Number(result[0].total_amount),
           items: typeof result[0].items === 'string' ? JSON.parse(result[0].items) : result[0].items
         };
-        console.log(`[Neon DB] Assigned delivery partner ${partner_name} to Order #${orderId}`);
+        console.log(`[Neon DB] ${isUnassign ? 'Unassigned' : 'Assigned ' + partner_name} delivery partner for Order #${orderId}`);
       }
     } catch (err) {
       console.warn('[Neon DB Partner Assign Error]:', err.message);
@@ -1453,9 +1465,9 @@ app.patch('/api/orders/:id/assign-partner', async (req, res) => {
   const local = readLocalDb();
   const orderIndex = (local.orders || []).findIndex((o) => o.id === orderId);
   if (orderIndex !== -1) {
-    local.orders[orderIndex].delivery_partner_id = partner_id || null;
-    local.orders[orderIndex].delivery_partner_name = partner_name;
-    local.orders[orderIndex].delivery_partner_phone = partner_phone;
+    local.orders[orderIndex].delivery_partner_id = isUnassign ? null : (partner_id || null);
+    local.orders[orderIndex].delivery_partner_name = isUnassign ? null : partner_name;
+    local.orders[orderIndex].delivery_partner_phone = isUnassign ? null : partner_phone;
     local.orders[orderIndex].updated_at = new Date().toISOString();
     writeLocalDb(local);
     if (!updatedOrder) updatedOrder = local.orders[orderIndex];
@@ -1469,7 +1481,7 @@ app.patch('/api/orders/:id/assign-partner', async (req, res) => {
 
   res.json({
     success: true,
-    message: `Assigned delivery partner ${partner_name} to Order #${orderId}`,
+    message: isUnassign ? `Unassigned delivery partner from Order #${orderId}` : `Assigned delivery partner ${partner_name} to Order #${orderId}`,
     order: updatedOrder
   });
 });

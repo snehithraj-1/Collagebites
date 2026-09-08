@@ -333,6 +333,17 @@ export default function AdminDashboardPage() {
         : prev
     );
 
+    // Sync localStorage fallback
+    try {
+      const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
+      const updated = stored.map((o) =>
+        o.id === orderId
+          ? { ...o, delivery_partner_id: partner.id, delivery_partner_name: partner.name, delivery_partner_phone: partner.phone }
+          : o
+      );
+      localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
+    } catch {}
+
     // 1. Update in Shared Backend API
     try {
       await fetch(`/api/orders/${orderId}/assign-partner`, {
@@ -346,6 +357,57 @@ export default function AdminDashboardPage() {
       });
     } catch (e) {
       console.warn('[Assign Partner Error]:', e.message);
+    }
+  };
+
+  // Action: Unassign Delivery Partner from an Order
+  const handleUnassignPartner = async (orderId) => {
+    if (!orderId) return;
+
+    // Optimistic UI update
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              delivery_partner_id: null,
+              delivery_partner_name: null,
+              delivery_partner_phone: null
+            }
+          : o
+      )
+    );
+    setInspectingOrder((prev) =>
+      prev && prev.id === orderId
+        ? {
+            ...prev,
+            delivery_partner_id: null,
+            delivery_partner_name: null,
+            delivery_partner_phone: null
+          }
+        : prev
+    );
+
+    // Sync localStorage fallback
+    try {
+      const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
+      const updated = stored.map((o) =>
+        o.id === orderId
+          ? { ...o, delivery_partner_id: null, delivery_partner_name: null, delivery_partner_phone: null }
+          : o
+      );
+      localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
+    } catch {}
+
+    // 1. Update in Shared Backend API
+    try {
+      await fetch(`/api/orders/${orderId}/assign-partner`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unassign: true })
+      });
+    } catch (e) {
+      console.warn('[Unassign Partner Error]:', e.message);
     }
   };
 
@@ -504,6 +566,7 @@ export default function AdminDashboardPage() {
           orders={orders}
           deliveryPartners={deliveryPartners}
           onAssignPartner={handleAssignPartner}
+          onUnassignPartner={handleUnassignPartner}
           onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
           onInspectOrder={(order) => setInspectingOrder(order)}
           onUpdateStatus={handleUpdateStatus}
@@ -518,6 +581,7 @@ export default function AdminDashboardPage() {
         order={inspectingOrder}
         deliveryPartners={deliveryPartners}
         onAssignPartner={handleAssignPartner}
+        onUnassignPartner={handleUnassignPartner}
         onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
         onClose={() => setInspectingOrder(null)}
         onUpdateStatus={handleUpdateStatus}

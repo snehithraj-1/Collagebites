@@ -5,6 +5,7 @@ export default function OrderDetailsModal({
   order,
   deliveryPartners = [],
   onAssignPartner,
+  onUnassignPartner,
   onOpenDeliveryPartners,
   onClose,
   onUpdateStatus,
@@ -234,6 +235,19 @@ export default function OrderDetailsModal({
                   >
                     <span>🔄 Switch Partner</span>
                   </button>
+
+                  {onUnassignPartner && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUnassignPartner(order.id);
+                        setShowPartnerPicker(false);
+                      }}
+                      className="py-1.5 px-3 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-xs flex items-center gap-1.5 border border-rose-500/40 transition-colors cursor-pointer"
+                    >
+                      <span>✕ Unassign</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (

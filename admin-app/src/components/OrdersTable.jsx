@@ -5,6 +5,7 @@ export default function OrdersTable({
   orders,
   deliveryPartners = [],
   onAssignPartner,
+  onUnassignPartner,
   onOpenDeliveryPartners,
   onInspectOrder,
   onUpdateStatus,
@@ -574,9 +575,23 @@ export default function OrdersTable({
                 <span className="text-emerald-400 font-bold">{orderToAssignPartner.delivery_location || 'SRM University - Gate 3'}</span>
               </div>
               {orderToAssignPartner.delivery_partner_name && (
-                <div className="flex justify-between pt-1 border-t border-slate-700/60">
-                  <span className="text-slate-400">Currently Assigned:</span>
-                  <span className="text-cyan-300 font-bold">{orderToAssignPartner.delivery_partner_name} ({orderToAssignPartner.delivery_partner_phone})</span>
+                <div className="flex justify-between items-center pt-2 border-t border-slate-700/60">
+                  <div>
+                    <span className="text-slate-400 text-[10px] block">Currently Assigned:</span>
+                    <span className="text-cyan-300 font-bold">{orderToAssignPartner.delivery_partner_name} ({orderToAssignPartner.delivery_partner_phone})</span>
+                  </div>
+                  {onUnassignPartner && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUnassignPartner(orderToAssignPartner.id);
+                        setOrderToAssignPartner(null);
+                      }}
+                      className="py-1 px-2.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-[10px] font-bold cursor-pointer transition-all active:scale-95 flex items-center gap-1"
+                    >
+                      <span>✕ Unassign</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
