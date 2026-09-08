@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/api/orders/:id/assign-partner",
+      "destination": "/api/orders/assign-partner?id=:id"
+    },
+    {
+      "source": "/api/orders/:id/status",
+      "destination": "/api/orders/status?id=:id"
+    },
+    {
+      "source": "/api/orders/:id",
+      "destination": "/api/orders/delete?id=:id"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
