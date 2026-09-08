@@ -95,10 +95,9 @@ export default async function handler(req, res) {
         from: '"CampusBites SRM" <rajsrmap2@gmail.com>',
         to: cleanEmail,
         replyTo: 'rajsrmap2@gmail.com',
-        subject: `Your CampusBites Verification Code: ${otp}`,
-        text: `CampusBites Dining - SRM University-AP\n\nYour 6-digit login verification code is: ${otp}\n\nThis code is valid for 10 minutes. Please enter it in the portal to continue.\n\nGate 3 Delivery Support: 9989955833`,
-        html: htmlTemplate,
-        priority: 'high'
+        subject: `CampusBites login code: ${otp}`,
+        text: `Your CampusBites verification code is: ${otp}\n\nThis code is valid for 10 minutes.\n\nSRM University-AP Campus Dining\nDelivery Support: 9989955833`,
+        html: htmlTemplate
       });
       emailSent = true;
       smtpResponse = info.response;

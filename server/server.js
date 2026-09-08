@@ -1939,11 +1939,17 @@ app.delete('/api/menu/:id', async (req, res) => {
   res.json({ success: true, message: `Dish #${itemId} permanently deleted.` });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log('====================================================');
-  console.log(`  CampusBites Backend with Neon PostgreSQL Live!   `);
-  console.log(`  🌐 Port: http://localhost:${PORT}                 `);
-  console.log(`  🐘 Neon DB: Connected                            `);
-  console.log('====================================================');
-});
+// Export app for Vercel Serverless Function deployment
+export default app;
+
+// Start server locally when not on Vercel
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log('====================================================');
+    console.log(`  CampusBites Backend with Neon PostgreSQL Live!   `);
+    console.log(`  🌐 Port: http://localhost:${PORT}                 `);
+    console.log(`  🐘 Neon DB: Connected                            `);
+    console.log('====================================================');
+  });
+}
+

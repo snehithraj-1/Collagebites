@@ -122,14 +122,19 @@ export default function StudentLoginPage() {
                 <input
                   type="email"
                   required
-                  placeholder="Enter your email"
+                  placeholder="e.g. snehithraj007@gmail.com or name@srmap.edu.in"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white"
                 />
-                <p className="text-[11px] text-[#64748B] mt-1">
-                  We will send a one-time login OTP to this email.
-                </p>
+                <div className="text-[11px] text-[#64748B] mt-1 space-y-1">
+                  <p>We will send your 6-digit login verification OTP to this email.</p>
+                  {email.toLowerCase().includes('srmap.edu.in') && (
+                    <p className="text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                      ⚠️ <strong>SRM AP Email Note:</strong> University mail (Outlook) frequently routes new external senders to your <strong>Junk Email</strong> folder. You can also use your personal Gmail for instant delivery!
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div>

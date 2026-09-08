@@ -1,6 +1,33 @@
 {
   "orders": [
     {
+      "id": "CB-280497",
+      "user_id": "demo-student-3eett4m",
+      "student_name": "snehithraj",
+      "student_email": "snehithraj007@gmail.com",
+      "student_id": null,
+      "student_phone": "7778458984",
+      "delivery_location": "SRM University - Gate 3",
+      "restaurant_id": "clg-bites-biryani-nation",
+      "restaurant_name": "Clg Bites Biryani Nation",
+      "total_amount": 285,
+      "status": "ACCEPTED",
+      "instructions": null,
+      "created_at": "2026-09-08T11:00:38.488Z",
+      "confirmed_at": "2026-09-08T11:00:38.496Z",
+      "updated_at": "2026-09-08T11:02:03.615Z",
+      "items": [
+        {
+          "id": "CB-280497-item-1",
+          "order_id": "CB-280497",
+          "menu_item_id": "cbn-chk-mix-f",
+          "name": "All Mix Chicken Biryani (Full)",
+          "quantity": 1,
+          "price": 280
+        }
+      ]
+    },
+    {
       "id": "CB-AUDIT-9516",
       "user_id": "srm-test_student",
       "student_name": "Gaddam Snehithraj",
