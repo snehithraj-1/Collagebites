@@ -1,30 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/api/orders/:id/assign-partner",
-      "destination": "/api/orders/assign-partner"
-    },
-    {
-      "source": "/api/orders/:id/status",
-      "destination": "/api/orders/status"
-    },
-    {
-      "source": "/api/orders/:id",
-      "destination": "/api/orders/delete"
-    },
-    {
-      "source": "/api/restaurants/:id",
-      "destination": "/api/restaurants/[id]"
-    },
-    {
-      "source": "/api/menu/:id",
-      "destination": "/api/menu/[id]"
-    },
-    {
-      "source": "/api/delivery-partners/:id",
-      "destination": "/api/delivery-partners/[id]"
-    },
-    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
