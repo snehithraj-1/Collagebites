@@ -1,10 +1,18 @@
 import React from 'react';
 import { X, User, MapPin, Phone, Mail, Clock, Receipt, ShoppingBag } from 'lucide-react';
 
-export default function OrderDetailsModal({ order, onClose, onCancelOrder, onDeleteOrder }) {
+export default function OrderDetailsModal({ order, onClose, onUpdateStatus, onCancelOrder, onDeleteOrder }) {
   if (!order) return null;
 
   const orderItems = order.order_items || order.items || [];
+
+  const statuses = [
+    { key: 'CONFIRMED', label: 'CONFIRMED', color: 'bg-blue-600' },
+    { key: 'PREPARING', label: '🍳 PREPARING', color: 'bg-amber-500 text-slate-950 font-black' },
+    { key: 'READY', label: '📦 READY', color: 'bg-purple-600 text-white font-black' },
+    { key: 'OUT_FOR_DELIVERY', label: '🚀 OUT_FOR_DELIVERY', color: 'bg-cyan-500 text-slate-950 font-black' },
+    { key: 'DELIVERED', label: '✅ DELIVERED', color: 'bg-emerald-500 text-slate-950 font-black' }
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
@@ -117,6 +125,30 @@ export default function OrderDetailsModal({ order, onClose, onCancelOrder, onDel
           </div>
         </div>
 
+        {/* Update Status Pipeline Controller */}
+        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5">
+          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            <span>Update Order Progress</span>
+            <span className="text-blue-400 font-mono text-[10px]">Active: {order.status}</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+            {statuses.map((st) => (
+              <button
+                key={st.key}
+                onClick={() => onUpdateStatus && onUpdateStatus(order.id, st.key)}
+                className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  order.status === st.key
+                    ? `${st.color} border-white/40 shadow-md ring-2 ring-blue-500/50 scale-[1.02]`
+                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                }`}
+              >
+                {st.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Footer Actions */}
         <div className="grid grid-cols-2 gap-3 pt-2">
           <button
@@ -124,8 +156,8 @@ export default function OrderDetailsModal({ order, onClose, onCancelOrder, onDel
               onCancelOrder(order);
               onClose();
             }}
-            disabled={order.status === 'CANCELLED'}
-            className="py-3 px-4 rounded-xl bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 border border-amber-800/60 font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={order.status === 'CANCELLED' || order.status === 'DELIVERED'}
+            className="py-3 px-4 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             [ CANCEL ORDER ]
           </button>
@@ -135,7 +167,7 @@ export default function OrderDetailsModal({ order, onClose, onCancelOrder, onDel
               onDeleteOrder(order);
               onClose();
             }}
-            className="py-3 px-4 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800 font-bold transition-colors cursor-pointer"
+            className="py-3 px-4 rounded-xl bg-slate-800 hover:bg-rose-900/80 text-slate-300 hover:text-rose-200 border border-slate-700 hover:border-rose-700 font-bold transition-colors cursor-pointer"
           >
             [ DELETE ORDER ]
           </button>

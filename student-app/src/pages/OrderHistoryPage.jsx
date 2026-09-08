@@ -13,38 +13,53 @@ export default function OrderHistoryPage({ onBackToRestaurants }) {
     if (!silent) setIsLoading(true);
     else setIsRefreshing(true);
 
-    if (!isSupabaseConfigured() || !supabase) {
-      // Fallback local persistence
-      try {
-        const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-        // Filter strictly to current student's orders
-        const filtered = stored.filter(
-          (o) => !o.user_id || o.user_id === profile?.id || o.student_email === profile?.email
-        );
-        setOrders(filtered);
-      } catch {
-        setOrders([]);
+    try {
+      // 1. Try to fetch from Shared Central API
+      const res = await fetch(`/api/orders/student/${encodeURIComponent(profile?.email || profile?.id || '')}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.orders) && json.orders.length > 0) {
+          setOrders(json.orders);
+          setIsLoading(false);
+          setIsRefreshing(false);
+          return;
+        }
       }
-      setIsLoading(false);
-      setIsRefreshing(false);
-      return;
+    } catch (apiErr) {
+      // Continue to Supabase / local
     }
 
-    try {
-      // Query Supabase: RLS also strictly guarantees only own orders are returned
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (*)
-        `)
-        .eq('user_id', profile?.id)
-        .order('created_at', { ascending: false });
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (*)
+          `)
+          .eq('user_id', profile?.id)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setOrders(data || []);
-    } catch (err) {
-      console.warn('[Supabase Orders History]:', err.message);
+        if (!error && data && data.length > 0) {
+          setOrders(data);
+          setIsLoading(false);
+          setIsRefreshing(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('[Supabase Orders History]:', err.message);
+      }
+    }
+
+    // Fallback local persistence
+    try {
+      const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
+      const filtered = stored.filter(
+        (o) => !o.user_id || o.user_id === profile?.id || o.student_email === profile?.email
+      );
+      setOrders(filtered);
+    } catch {
+      setOrders([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -52,10 +67,15 @@ export default function OrderHistoryPage({ onBackToRestaurants }) {
   };
 
   useEffect(() => {
-    if (profile?.id) {
+    if (profile?.id || profile?.email) {
       fetchOrders();
 
-      // Realtime updates for live status changes on student's orders
+      // Poll shared backend every 2.5s for live status updates from Admin
+      const interval = setInterval(() => {
+        fetchOrders(true);
+      }, 2500);
+
+      // Realtime updates for live status changes on student's orders via Supabase
       if (isSupabaseConfigured() && supabase) {
         const channel = supabase
           .channel(`student-orders-${profile.id}`)
@@ -74,11 +94,14 @@ export default function OrderHistoryPage({ onBackToRestaurants }) {
           .subscribe();
 
         return () => {
+          clearInterval(interval);
           supabase.removeChannel(channel);
         };
       }
+
+      return () => clearInterval(interval);
     }
-  }, [profile?.id]);
+  }, [profile?.id, profile?.email]);
 
   const getStatusBadge = (status) => {
     switch (status) {

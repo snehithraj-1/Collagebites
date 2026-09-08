@@ -1,0 +1,51 @@
+{
+  "orders": [
+    {
+      "id": "CB-LIVE-999",
+      "user_id": "student-aryan-01",
+      "student_name": "Aryan Sharma",
+      "student_email": "aryan.srm@example.com",
+      "student_id": null,
+      "student_phone": "+91 98765 43210",
+      "delivery_location": "Hostel 2, Room 314",
+      "restaurant_id": "local-home-kitchen",
+      "restaurant_name": "Local Home Kitchen",
+      "total_amount": 285,
+      "status": "DELIVERED",
+      "instructions": null,
+      "created_at": "2026-09-08T03:34:21.876Z",
+      "confirmed_at": "2026-09-08T03:34:21.876Z",
+      "updated_at": "2026-09-08T03:34:21.941Z",
+      "items": [
+        {
+          "price": 220,
+          "quantity": 1,
+          "name": "Dum Biryani"
+        },
+        {
+          "price": 30,
+          "quantity": 2,
+          "name": "Butter Roti"
+        }
+      ],
+      "delivered_at": "2026-09-08T03:34:21.941Z"
+    }
+  ],
+  "settings": {
+    "ordering_enabled": true
+  },
+  "restaurants": [
+    {
+      "id": "local-home-kitchen",
+      "name": "Local Home Kitchen",
+      "description": "Homestyle North & South Indian meals, fragrant biryanis and freshly rolled rotis.",
+      "is_open": true
+    },
+    {
+      "id": "campus-delight",
+      "name": "Campus Delight Kitchen",
+      "description": "Quick bites, fried rice, crispy chicken rolls, pizzas, shakes and fast food snacks.",
+      "is_open": true
+    }
+  ]
+}

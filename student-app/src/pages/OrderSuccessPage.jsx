@@ -1,8 +1,42 @@
-import React from 'react';
-import { CheckCircle2, Clock, MapPin, Receipt, ArrowRight, Home } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle2, Clock, MapPin, Receipt, ArrowRight, Home, ChefHat, PackageCheck, Bike, CheckCheck } from 'lucide-react';
 
-export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
-  if (!order) return null;
+export default function OrderSuccessPage({ order: initialOrder, onGoHome, onViewHistory }) {
+  const [currentOrder, setCurrentOrder] = useState(initialOrder);
+
+  // Poll shared backend every 2s for live status progression by Admin
+  useEffect(() => {
+    if (!initialOrder?.id) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/orders');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.orders)) {
+            const found = data.orders.find((o) => o.id === initialOrder.id);
+            if (found) setCurrentOrder(found);
+          }
+        }
+      } catch (e) {}
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [initialOrder?.id]);
+
+  if (!currentOrder) return null;
+
+  // Stages definition
+  const STAGES = [
+    { key: 'CONFIRMED', label: 'Confirmed', icon: CheckCircle2 },
+    { key: 'PREPARING', label: 'Cooking 🍳', icon: ChefHat },
+    { key: 'READY', label: 'Ready 📦', icon: PackageCheck },
+    { key: 'OUT_FOR_DELIVERY', label: 'Out for Delivery 🚀', icon: Bike },
+    { key: 'DELIVERED', label: 'Delivered ✅', icon: CheckCheck }
+  ];
+
+  const currentIdx = STAGES.findIndex((s) => s.key === currentOrder.status);
+  const activeIdx = currentIdx === -1 ? 0 : currentIdx;
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-6 animate-fade-in">
@@ -10,19 +44,70 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
       {/* Top Success Badge */}
       <div className="card-elevated p-8 text-center space-y-4 border-emerald-500/30">
         <div className="w-20 h-20 rounded-3xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center text-4xl mx-auto shadow-md shadow-emerald-500/10 animate-bounce">
-          🎉
+          {currentOrder.status === 'DELIVERED' ? '✅' : currentOrder.status === 'OUT_FOR_DELIVERY' ? '🛵' : '🎉'}
         </div>
 
         <div>
           <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-black uppercase tracking-wider">
-            Order Confirmed Successfully
+            {currentOrder.status === 'DELIVERED' ? 'Order Delivered!' : 'Live Order Tracking'}
           </span>
           <h2 className="text-2xl sm:text-3xl font-black text-[#0F172A] font-['Outfit'] mt-2">
-            Your Meal is Cooking!
+            {currentOrder.status === 'PREPARING'
+              ? 'Chef is Preparing Your Food 🍳'
+              : currentOrder.status === 'READY'
+              ? 'Food is Packed & Ready for Pickup 📦'
+              : currentOrder.status === 'OUT_FOR_DELIVERY'
+              ? 'Delivery Partner is on the Way! 🚀'
+              : currentOrder.status === 'DELIVERED'
+              ? 'Meal Successfully Delivered to Your Room! 🎉'
+              : currentOrder.status === 'CANCELLED'
+              ? 'Order Has Been Cancelled'
+              : 'Your Meal is Confirmed!'}
           </h2>
           <p className="text-xs sm:text-sm text-[#64748B] mt-1 max-w-md mx-auto">
-            The kitchen has received your order and started preparation. It will be delivered directly to your hostel room.
+            {currentOrder.status === 'OUT_FOR_DELIVERY'
+              ? `Heading towards ${currentOrder.delivery_location}`
+              : 'The kitchen and admin are processing your order in real time.'}
           </p>
+        </div>
+
+        {/* Live Stage Stepper Bar */}
+        <div className="py-4 px-2 bg-[#FAF8F5] rounded-2xl border border-[#F1EAE4] my-2">
+          <div className="flex items-center justify-between relative">
+            {/* Connecting Bar */}
+            <div className="absolute top-1/2 left-4 right-4 -translate-y-1/2 h-1 bg-slate-200 -z-0" />
+            <div
+              className="absolute top-1/2 left-4 -translate-y-1/2 h-1 bg-[#FF5722] transition-all duration-700 -z-0"
+              style={{ width: `${(activeIdx / (STAGES.length - 1)) * 90}%` }}
+            />
+
+            {STAGES.map((stage, idx) => {
+              const isPassed = idx <= activeIdx;
+              const isCurrent = idx === activeIdx;
+              const Icon = stage.icon;
+
+              return (
+                <div key={stage.key} className="flex flex-col items-center relative z-10">
+                  <div
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-500 ${
+                      isCurrent
+                        ? 'bg-[#FF5722] text-white ring-4 ring-[#FFE1D6] scale-110'
+                        : isPassed
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-white text-slate-400 border-2 border-slate-300'
+                    }`}
+                  >
+                    <Icon size={16} />
+                  </div>
+                  <span className={`text-[10px] font-bold mt-1.5 hidden sm:block ${
+                    isCurrent ? 'text-[#FF5722] font-black' : isPassed ? 'text-slate-700' : 'text-slate-400'
+                  }`}>
+                    {stage.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Order ID & Estimated Time */}
@@ -30,14 +115,14 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
           <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#F1EAE4]">
             <div className="text-[10px] uppercase font-bold text-[#64748B]">Order Reference ID</div>
             <div className="text-sm sm:text-base font-black font-mono text-[#FF5722] mt-0.5">
-              #{order.id}
+              #{currentOrder.id}
             </div>
           </div>
 
           <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#F1EAE4]">
-            <div className="text-[10px] uppercase font-bold text-[#64748B]">Estimated Arrival</div>
-            <div className="text-sm sm:text-base font-black text-emerald-600 mt-0.5">
-              20 - 30 Minutes
+            <div className="text-[10px] uppercase font-bold text-[#64748B]">Current Status</div>
+            <div className="text-sm sm:text-base font-black text-emerald-600 mt-0.5 uppercase tracking-wide">
+              {currentOrder.status}
             </div>
           </div>
         </div>

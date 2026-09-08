@@ -115,34 +115,49 @@ export default function OrderConfirmationModal({
     }));
 
     try {
+      // 1. Post to Shared Central Backend API (bridges port 5173 and 5174 immediately)
+      try {
+        await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...orderPayload,
+            items: orderItemsPayload
+          })
+        });
+      } catch (apiErr) {
+        console.warn('[Shared Backend Post Warning]:', apiErr.message);
+      }
+
+      // 2. Also insert into Supabase if configured
       if (isSupabaseConfigured() && supabase) {
-        // 1. Insert into orders table
-        const { error: orderError } = await supabase
-          .from('orders')
-          .insert([orderPayload]);
-
-        if (orderError) throw orderError;
-
-        // 2. Insert into order_items table
-        if (orderItemsPayload.length > 0) {
-          const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItemsPayload);
-
-          if (itemsError) console.warn('Order items insert warning:', itemsError);
-        }
-      } else {
-        // Fallback local persistence for instant demo testing
         try {
-          const existingOrders = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-          localStorage.setItem('cb_shared_orders', JSON.stringify([
-            { ...orderPayload, items: orderItemsPayload },
-            ...existingOrders
-          ]));
-        } catch (err) {
-          console.warn(err);
+          const { error: orderError } = await supabase
+            .from('orders')
+            .insert([orderPayload]);
+
+          if (orderError) console.warn('Supabase order insert warning:', orderError);
+
+          if (orderItemsPayload.length > 0) {
+            const { error: itemsError } = await supabase
+              .from('order_items')
+              .insert(orderItemsPayload);
+
+            if (itemsError) console.warn('Supabase order items insert warning:', itemsError);
+          }
+        } catch (sbErr) {
+          console.warn('[Supabase Insert Error]:', sbErr);
         }
       }
+
+      // 3. Fallback local persistence for offline storage
+      try {
+        const existingOrders = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
+        localStorage.setItem('cb_shared_orders', JSON.stringify([
+          { ...orderPayload, items: orderItemsPayload },
+          ...existingOrders
+        ]));
+      } catch (err) {}
 
       // Celebrate with confetti
       try {

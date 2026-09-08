@@ -73,51 +73,72 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // 3. Load All Orders
+  // 3. Load All Orders (from Shared API, Supabase, or local storage)
   const loadOrders = useCallback(async (silent = false) => {
     if (!silent) setIsRefreshing(true);
 
-    if (!isSupabaseConfigured() || !supabase) {
-      try {
-        const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-        setOrders(stored);
-      } catch {
-        setOrders([]);
+    try {
+      // 1. Try Shared Backend API first (bridges both frontends immediately)
+      const res = await fetch('/api/orders');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.orders)) {
+          setOrders(json.orders);
+          setIsRefreshing(false);
+          return;
+        }
       }
-      setIsRefreshing(false);
-      return;
+    } catch (apiErr) {
+      // API offline, fallback to Supabase / local
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (*)
-        `)
-        .order('created_at', { ascending: false });
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (*)
+          `)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setOrders(data || []);
-    } catch (err) {
-      console.warn('[Supabase Admin Orders Fetch]:', err.message);
+        if (!error && data) {
+          setOrders(data);
+          setIsRefreshing(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('[Supabase Admin Orders Fetch]:', err.message);
+      }
+    }
+
+    // Local fallback
+    try {
+      const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
+      setOrders(stored);
+    } catch {
+      setOrders([]);
     } finally {
       setIsRefreshing(false);
     }
   }, []);
 
-  // Initial Load & Realtime Subscriptions
+  // Initial Load & Realtime Subscriptions & Polling
   useEffect(() => {
     loadSystemSettings();
     loadRestaurants();
     loadOrders();
+
+    // Live Polling every 2s ensures instant order updates across ports
+    const pollInterval = setInterval(() => {
+      loadOrders(true);
+    }, 2000);
 
     if (isSupabaseConfigured() && supabase) {
       // Realtime listener for incoming student orders
       const ordersChannel = supabase
         .channel('admin-realtime-orders')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-          console.log('[Realtime Order Event]:', payload.eventType);
           loadOrders(true);
         })
         .subscribe();
@@ -141,84 +162,96 @@ export default function AdminDashboardPage() {
         .subscribe();
 
       return () => {
+        clearInterval(pollInterval);
         supabase.removeChannel(ordersChannel);
         supabase.removeChannel(restChannel);
         supabase.removeChannel(settingsChannel);
       };
-    } else {
-      // Local fallback interval
-      const interval = setInterval(() => {
-        loadOrders(true);
-        loadRestaurants();
-        loadSystemSettings();
-      }, 3000);
-      return () => clearInterval(interval);
     }
+
+    return () => clearInterval(pollInterval);
   }, [loadSystemSettings, loadRestaurants, loadOrders]);
+
+  // Action: Update Order Status (PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED, CANCELLED)
+  const handleUpdateStatus = async (orderId, nextStatus) => {
+    if (!orderId || !nextStatus) return;
+
+    // Optimistic UI update
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
+    );
+    setInspectingOrder((prev) =>
+      prev && prev.id === orderId ? { ...prev, status: nextStatus } : prev
+    );
+
+    // 1. Update in Shared Central Backend API
+    try {
+      await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus })
+      });
+    } catch (e) {
+      console.warn('[Shared Backend Status Error]:', e.message);
+    }
+
+    // 2. Update in Supabase if configured
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase
+          .from('orders')
+          .update({ status: nextStatus })
+          .eq('id', orderId);
+      } catch (err) {
+        console.warn('[Supabase Status Update Error]:', err.message);
+      }
+    }
+
+    // 3. Update localStorage fallback
+    try {
+      const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
+      const updated = stored.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o));
+      localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
+    } catch {}
+  };
 
   // Action: Cancel Order
   const handleCancelOrder = async (order) => {
     if (!order) return;
-
-    if (!isSupabaseConfigured() || !supabase) {
-      // Local fallback
-      setOrders((prev) =>
-        prev.map((o) => (o.id === order.id ? { ...o, status: 'CANCELLED' } : o))
-      );
-      try {
-        const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-        const updated = stored.map((o) => (o.id === order.id ? { ...o, status: 'CANCELLED' } : o));
-        localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
-      } catch {}
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'CANCELLED' })
-        .eq('id', order.id);
-
-      if (error) throw error;
-      loadOrders(true);
-    } catch (err) {
-      console.error('Cancel order error:', err);
-      alert('Failed to cancel order: ' + err.message);
-    }
+    await handleUpdateStatus(order.id, 'CANCELLED');
   };
 
   // Action: Permanently Delete Order (after confirmation)
   const handleConfirmDelete = async (orderId) => {
     setIsDeleting(true);
 
-    if (!isSupabaseConfigured() || !supabase) {
-      // Local fallback
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
-      try {
-        const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-        const updated = stored.filter((o) => o.id !== orderId);
-        localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
-      } catch {}
-      setIsDeleting(false);
-      setOrderToDelete(null);
-      return;
-    }
+    // Optimistic remove
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    if (inspectingOrder?.id === orderId) setInspectingOrder(null);
 
+    // 1. Delete from Shared Backend API
     try {
-      const { error } = await supabase
-        .from('orders')
-        .delete()
-        .eq('id', orderId);
+      await fetch(`/api/orders/${orderId}`, { method: 'DELETE' });
+    } catch (e) {}
 
-      if (error) throw error;
-      setOrderToDelete(null);
-      loadOrders(true);
-    } catch (err) {
-      console.error('Delete order error:', err);
-      alert('Failed to delete order: ' + err.message);
-    } finally {
-      setIsDeleting(false);
+    // 2. Delete from Supabase
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from('orders').delete().eq('id', orderId);
+      } catch (err) {
+        console.warn('Delete order error:', err);
+      }
     }
+
+    // 3. Fallback local delete
+    try {
+      const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
+      const updated = stored.filter((o) => o.id !== orderId);
+      localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
+    } catch {}
+
+    setIsDeleting(false);
+    setOrderToDelete(null);
   };
 
   return (
@@ -314,6 +347,7 @@ export default function AdminDashboardPage() {
         <OrdersTable
           orders={orders}
           onInspectOrder={(order) => setInspectingOrder(order)}
+          onUpdateStatus={handleUpdateStatus}
           onCancelOrder={handleCancelOrder}
           onPromptDeleteOrder={(order) => setOrderToDelete(order)}
         />
@@ -324,6 +358,7 @@ export default function AdminDashboardPage() {
       <OrderDetailsModal
         order={inspectingOrder}
         onClose={() => setInspectingOrder(null)}
+        onUpdateStatus={handleUpdateStatus}
         onCancelOrder={handleCancelOrder}
         onDeleteOrder={(order) => setOrderToDelete(order)}
       />

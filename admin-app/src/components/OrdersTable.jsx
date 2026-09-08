@@ -4,6 +4,7 @@ import { Eye, Ban, Trash2, MapPin, Clock, Search, Filter } from 'lucide-react';
 export default function OrdersTable({
   orders,
   onInspectOrder,
+  onUpdateStatus,
   onCancelOrder,
   onPromptDeleteOrder
 }) {
@@ -38,6 +39,21 @@ export default function OrdersTable({
         return 'bg-slate-700/40 text-slate-400 border-slate-600';
       default:
         return 'bg-slate-800 text-slate-300 border-slate-700';
+    }
+  };
+
+  const getNextStageInfo = (currentStatus) => {
+    switch (currentStatus) {
+      case 'CONFIRMED':
+        return { nextStatus: 'PREPARING', label: '🍳 Start Cooking', color: 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black' };
+      case 'PREPARING':
+        return { nextStatus: 'READY', label: '📦 Mark Ready', color: 'bg-purple-600 hover:bg-purple-500 text-white font-black' };
+      case 'READY':
+        return { nextStatus: 'OUT_FOR_DELIVERY', label: '🚀 Out for Delivery', color: 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black' };
+      case 'OUT_FOR_DELIVERY':
+        return { nextStatus: 'DELIVERED', label: '✅ Mark Delivered', color: 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black' };
+      default:
+        return null;
     }
   };
 
@@ -173,17 +189,58 @@ export default function OrdersTable({
                         ₹{order.total_amount}
                       </td>
 
-                      {/* Status */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${getStatusBadge(order.status)}`}>
-                          {order.status}
-                        </span>
+                      {/* Status & Status Dropdown Selector */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <div className="flex flex-col items-center gap-1.5">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${getStatusBadge(order.status)}`}>
+                            {order.status}
+                          </span>
+
+                          {/* Fast Status Change Select */}
+                          <select
+                            value={order.status}
+                            onChange={(e) => onUpdateStatus && onUpdateStatus(order.id, e.target.value)}
+                            className="text-[10px] bg-slate-900 border border-slate-700 text-slate-300 rounded-lg px-2 py-0.5 focus:outline-none focus:border-blue-500 font-bold cursor-pointer"
+                            title="Directly Change Status"
+                          >
+                            <option value="CONFIRMED">CONFIRMED</option>
+                            <option value="PREPARING">🍳 PREPARING</option>
+                            <option value="READY">📦 READY</option>
+                            <option value="OUT_FOR_DELIVERY">🚀 OUT_FOR_DELIVERY</option>
+                            <option value="DELIVERED">✅ DELIVERED</option>
+                            <option value="CANCELLED">❌ CANCELLED</option>
+                          </select>
+                        </div>
                       </td>
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           
+                          {/* 1-Click Quick Progression Button */}
+                          {(() => {
+                            const nextInfo = getNextStageInfo(order.status);
+                            if (nextInfo) {
+                              return (
+                                <button
+                                  onClick={() => onUpdateStatus && onUpdateStatus(order.id, nextInfo.nextStatus)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-black shadow-md transition-all cursor-pointer border-none ${nextInfo.color}`}
+                                  title={`Advance status to ${nextInfo.nextStatus}`}
+                                >
+                                  {nextInfo.label}
+                                </button>
+                              );
+                            }
+                            if (order.status === 'DELIVERED') {
+                              return (
+                                <span className="px-2.5 py-1 rounded-xl bg-emerald-950/40 text-emerald-400 border border-emerald-800 text-[10px] font-extrabold">
+                                  Completed ✅
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+
                           {/* View Details */}
                           <button
                             onClick={() => onInspectOrder(order)}
@@ -196,8 +253,8 @@ export default function OrdersTable({
                           {/* Cancel Order */}
                           <button
                             onClick={() => onCancelOrder(order)}
-                            disabled={order.status === 'CANCELLED'}
-                            className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            disabled={order.status === 'CANCELLED' || order.status === 'DELIVERED'}
+                            className="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                             title="Cancel Order"
                           >
                             Cancel
@@ -206,7 +263,7 @@ export default function OrdersTable({
                           {/* Delete Order */}
                           <button
                             onClick={() => onPromptDeleteOrder(order)}
-                            className="p-2 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition-colors cursor-pointer"
+                            className="p-2 rounded-lg bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-700 transition-colors cursor-pointer"
                             title="Permanently Delete Order"
                           >
                             <Trash2 size={14} />
