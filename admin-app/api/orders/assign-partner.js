@@ -20,9 +20,10 @@ export default async function handler(req, res) {
     try { body = JSON.parse(body); } catch (e) {}
   }
 
-  // Extract orderId from query, body, or URL
+  // Extract orderId from body, query, or URL
   const urlMatch = (req.url || '').match(/\/api\/orders\/([^\/\?]+)/);
-  const orderId = req.query.id || body.orderId || (urlMatch ? urlMatch[1] : null);
+  const urlId = urlMatch && !['assign-partner', 'status', 'delete'].includes(urlMatch[1]) ? urlMatch[1] : null;
+  const orderId = body.orderId || body.order_id || req.query.id || urlId;
 
   if (!orderId) {
     return res.status(400).json({ error: 'Order ID is required' });

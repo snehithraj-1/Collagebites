@@ -20,7 +20,8 @@ export default async function handler(req, res) {
   }
 
   const urlMatch = (req.url || '').match(/\/api\/orders\/([^\/\?]+)/);
-  const orderId = req.query.id || body.orderId || (urlMatch ? urlMatch[1] : null);
+  const urlId = urlMatch && !['assign-partner', 'status', 'delete'].includes(urlMatch[1]) ? urlMatch[1] : null;
+  const orderId = body.orderId || body.order_id || req.query.id || urlId;
 
   if (!orderId) {
     return res.status(400).json({ error: 'Order ID is required' });
