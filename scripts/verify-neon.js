@@ -14,22 +14,31 @@ if (!match) {
   process.exit(1);
 }
 const url = match[1].trim();
-console.log('Connecting to Neon PostgreSQL:', url.replace(/:[^:@]+@/, ':****@'));
 
 try {
   const sql = neon(url);
-  const health = await sql`SELECT NOW() as now, current_database() as db;`;
-  const orders = await sql`SELECT count(*) as count FROM orders;`;
-  const students = await sql`SELECT count(*) as count FROM students;`;
 
-  console.log('\n========================================');
-  console.log('✅ NEON POSTGRESQL CONNECTED & HEALTHY!');
-  console.log('========================================');
-  console.log('Database Name: ', health[0].db);
-  console.log('Server Time:   ', health[0].now);
-  console.log('Total Orders:  ', orders[0].count);
-  console.log('Total Students:', students[0].count);
-  console.log('========================================\n');
+  console.log('Connecting to URL:', url.replace(/:[^:@]+@/, ':****@'));
+  const dbInfo = await sql`SELECT current_database(), current_user, inet_server_addr();`;
+  console.log('Database Info:', dbInfo[0]);
+
+  console.log('\n--- ORDERS IN NEON DB ---');
+  const orders = await sql`
+    SELECT id, student_name, student_email, student_phone, total_amount, status, created_at, updated_at 
+    FROM orders 
+    ORDER BY created_at DESC 
+    LIMIT 10;
+  `;
+  console.table(orders);
+
+  console.log('\n--- STUDENTS IN NEON DB ---');
+  const students = await sql`
+    SELECT id, name, email, student_id, phone, hostel_block, room_number, total_orders, updated_at 
+    FROM students 
+    ORDER BY updated_at DESC;
+  `;
+  console.table(students);
+
 } catch (err) {
-  console.error('❌ Connection Failed:', err.message);
+  console.error('❌ Query Failed:', err.message);
 }

@@ -94,7 +94,9 @@ export default function OrderConfirmationModal({
       student_name: profile?.name || 'Student',
       student_email: profile?.email || 'student@srmap.edu.in',
       student_id: profile?.student_id || null,
-      student_phone: deliveryDetails.phone || profile?.phone || '',
+      student_phone: deliveryDetails.phone || profile?.phone || '9999999999',
+      hostel_block: deliveryDetails.hostelBlock || 'Hostel',
+      room_number: deliveryDetails.roomNumber || 'Room',
       delivery_location: `${deliveryDetails.hostelBlock}, Room ${deliveryDetails.roomNumber}`,
       restaurant_id: restaurant?.id || 'local-home-kitchen',
       restaurant_name: restaurant?.name || 'Campus Kitchen',
@@ -115,9 +117,9 @@ export default function OrderConfirmationModal({
     }));
 
     try {
-      // 1. Post to Shared Central Backend API (bridges port 5173 and 5174 immediately)
+      // 1. Post to Shared Central Backend API (bridges port 5173 and 5174 and writes to Neon DB)
       try {
-        await fetch('/api/orders', {
+        const apiRes = await fetch('/api/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -125,6 +127,8 @@ export default function OrderConfirmationModal({
             items: orderItemsPayload
           })
         });
+        const apiJson = await apiRes.json();
+        console.log('[Backend API / Neon DB Result]:', apiJson);
       } catch (apiErr) {
         console.warn('[Shared Backend Post Warning]:', apiErr.message);
       }
