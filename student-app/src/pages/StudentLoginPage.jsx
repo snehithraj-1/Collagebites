@@ -35,7 +35,7 @@ export default function StudentLoginPage() {
       setStep('ENTER_OTP');
       setMessage({
         type: 'success',
-        text: `6-digit OTP dispatched to ${email}! Your login code is: ${result.otp || '123456'}`
+        text: `6-digit OTP has been sent to ${email}. Please check your Inbox and Spam folder!`
       });
     } else {
       setMessage({ type: 'error', text: result.error || 'Failed to send OTP. Please try again.' });
@@ -190,9 +190,17 @@ export default function StudentLoginPage() {
                   onChange={(e) => setOtpToken(e.target.value)}
                   className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-lg font-mono font-bold tracking-widest text-center text-[#0F172A] focus:outline-none focus:border-[#FF5722] focus:bg-white"
                 />
-                <p className="text-[11px] text-slate-500 mt-1.5 text-center leading-relaxed">
-                  Check your inbox or spam. You can also enter universal code <strong className="text-[#FF5722] font-mono font-bold">123456</strong> to log in immediately.
-                </p>
+                <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-[11px] text-amber-900 mt-2 space-y-1 text-center">
+                  <p className="font-bold text-[#FF5722]">
+                    📬 Email sent from CampusBites SRM
+                  </p>
+                  <p className="text-slate-600 leading-relaxed">
+                    If not in your Primary inbox, please check your <strong>Spam</strong> or <strong>Promotions/Updates</strong> folder in Gmail.
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    (Test bypass code: <span className="font-mono font-bold text-slate-600">123456</span>)
+                  </p>
+                </div>
               </div>
 
               <button

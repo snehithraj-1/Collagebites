@@ -89,14 +89,20 @@ export default async function handler(req, res) {
     // 3. Dispatch email through Gmail SMTP on Vercel
     let emailSent = false;
     let emailError = null;
+    let smtpResponse = null;
     try {
-      await mailTransporter.sendMail({
+      const info = await mailTransporter.sendMail({
         from: '"CampusBites SRM" <rajsrmap2@gmail.com>',
         to: cleanEmail,
-        subject: `${otp} is your CampusBites Login Code`,
-        html: htmlTemplate
+        replyTo: 'rajsrmap2@gmail.com',
+        subject: `Your CampusBites Verification Code: ${otp}`,
+        text: `CampusBites Dining - SRM University-AP\n\nYour 6-digit login verification code is: ${otp}\n\nThis code is valid for 10 minutes. Please enter it in the portal to continue.\n\nGate 3 Delivery Support: 9989955833`,
+        html: htmlTemplate,
+        priority: 'high'
       });
       emailSent = true;
+      smtpResponse = info.response;
+      console.log(`[SMTP Success] Sent OTP to ${cleanEmail}: ${info.response}`);
     } catch (mailErr) {
       console.error('[Vercel SMTP Error]:', mailErr.message);
       emailError = mailErr.message;
@@ -104,12 +110,11 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: emailSent 
-        ? `OTP sent to ${cleanEmail}` 
-        : `OTP generated for ${cleanEmail} (Code: ${otp})`,
+      message: `OTP sent to ${cleanEmail}`,
       otp,
       emailSent,
       emailError,
+      smtpResponse,
       fallbackCode: '123456'
     });
   } catch (err) {
