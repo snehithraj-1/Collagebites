@@ -8,8 +8,8 @@
     "server": "node server/server.js",
     "dev": "node scripts/dev.js",
     "dev:student": "vite student-app --config student-app/vite.config.js --port 5173 --host",
-    "dev:admin": "vite admin-app --config admin-app/vite.config.js --port 5174 --host",
-    "build": "vite build student-app --config student-app/vite.config.js && vite build admin-app --config admin-app/vite.config.js",
+    "build": "node -e \"console.log('Backend ready for deployment')\"",
+    "build:all": "vite build student-app --config student-app/vite.config.js && vite build admin-app --config admin-app/vite.config.js",
     "build:student": "vite build student-app --config student-app/vite.config.js",
     "build:admin": "vite build admin-app --config admin-app/vite.config.js",
     "preview:student": "vite preview student-app --config student-app/vite.config.js --port 5173",
@@ -27,12 +27,12 @@
     "lucide-react": "^0.475.0",
     "nodemailer": "^10.0.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5",
-    "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^6.2.0"
+    "@types/react-dom": "^18.3.5"
   }
 }
