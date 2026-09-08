@@ -274,12 +274,12 @@ export default function AdminDashboardPage() {
     // Always close inspecting modal so admin immediately goes back to the orders dashboard
     setInspectingOrder(null);
 
-    // 1. Update in Shared Central Backend API
+    // 1. Update in Shared Central Backend API (Vercel Serverless Function)
     try {
-      await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PATCH',
+      await fetch('/api/orders/status', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus })
+        body: JSON.stringify({ orderId, status: nextStatus })
       });
     } catch (e) {
       console.warn('[Shared Backend Status Error]:', e.message);
@@ -346,13 +346,18 @@ export default function AdminDashboardPage() {
 
     // 1. Update in Shared Backend API
     try {
-      await fetch(`/api/orders/${orderId}/assign-partner`, {
-        method: 'PATCH',
+      await fetch('/api/orders/assign-partner', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          orderId,
+          partnerId: partner.id,
           partner_id: partner.id,
+          partnerName: partner.name,
           partner_name: partner.name,
-          partner_phone: partner.phone
+          partnerPhone: partner.phone,
+          partner_phone: partner.phone,
+          deliveryPartner: partner
         })
       });
     } catch (e) {
@@ -401,10 +406,10 @@ export default function AdminDashboardPage() {
 
     // 1. Update in Shared Backend API
     try {
-      await fetch(`/api/orders/${orderId}/assign-partner`, {
-        method: 'PATCH',
+      await fetch('/api/orders/assign-partner', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ unassign: true })
+        body: JSON.stringify({ orderId, unassign: true })
       });
     } catch (e) {
       console.warn('[Unassign Partner Error]:', e.message);
@@ -427,8 +432,14 @@ export default function AdminDashboardPage() {
 
     // 1. Delete from Shared Backend API
     try {
-      await fetch(`/api/orders/${orderId}`, { method: 'DELETE' });
-    } catch (e) {}
+      await fetch('/api/orders/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId })
+      });
+    } catch (e) {
+      console.warn('[Delete Order Error]:', e.message);
+    }
 
     // 2. Delete from Supabase
     if (isSupabaseConfigured() && supabase) {
