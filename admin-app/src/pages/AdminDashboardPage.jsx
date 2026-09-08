@@ -9,6 +9,7 @@ import RestaurantToggles from '../components/RestaurantToggles';
 import OrdersTable from '../components/OrdersTable';
 import OrderDetailsModal from '../components/OrderDetailsModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import StudentsModal from '../components/StudentsModal';
 
 export default function AdminDashboardPage() {
   const { profile, logout } = useAdminAuth();
@@ -22,6 +23,7 @@ export default function AdminDashboardPage() {
   const [inspectingOrder, setInspectingOrder] = useState(null);
   const [orderToDelete, setOrderToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isStudentsModalOpen, setIsStudentsModalOpen] = useState(false);
 
   // 1. Load System Settings
   const loadSystemSettings = useCallback(async () => {
@@ -275,14 +277,23 @@ export default function AdminDashboardPage() {
                   Admin
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">
-                Shared Supabase Database Management
-              </p>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Neon PostgreSQL: <strong className="text-emerald-400">Connected</strong></span>
+              </div>
             </div>
           </div>
 
           {/* Right Header Controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setIsStudentsModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+              title="View Student Database Records"
+            >
+              <span>👥 Students DB</span>
+            </button>
+
             <button
               onClick={() => {
                 loadOrders(false);
@@ -370,6 +381,12 @@ export default function AdminDashboardPage() {
         onClose={() => setOrderToDelete(null)}
         onConfirmDelete={handleConfirmDelete}
         isDeleting={isDeleting}
+      />
+
+      {/* Student Database Records Modal */}
+      <StudentsModal
+        isOpen={isStudentsModalOpen}
+        onClose={() => setIsStudentsModalOpen(false)}
       />
 
     </div>

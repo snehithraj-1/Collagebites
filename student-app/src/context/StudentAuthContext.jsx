@@ -129,6 +129,16 @@ export function StudentAuthProvider({ children }) {
       };
       setProfile(mockProfile);
       setUser({ id: mockProfile.id, email: mockProfile.email });
+
+      // Save to Neon DB
+      try {
+        fetch('/api/students', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(mockProfile)
+        }).catch(() => {});
+      } catch (e) {}
+
       return { success: true, profile: mockProfile };
     }
 
@@ -152,6 +162,15 @@ export function StudentAuthProvider({ children }) {
 
         // Upsert profile in Supabase
         await supabase.from('profiles').upsert(studentProfile);
+
+        // Save to Neon DB
+        try {
+          fetch('/api/students', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(studentProfile)
+          }).catch(() => {});
+        } catch (e) {}
 
         setUser(data.user);
         setProfile(studentProfile);
@@ -177,6 +196,15 @@ export function StudentAuthProvider({ children }) {
     };
     setProfile(demoProfile);
     setUser({ id: demoProfile.id, email: demoProfile.email });
+
+    // Save student details to Neon DB
+    try {
+      fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(demoProfile)
+      }).catch(() => {});
+    } catch (e) {}
   };
 
   // Sign out
