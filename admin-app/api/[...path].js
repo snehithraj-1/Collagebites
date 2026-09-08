@@ -15,8 +15,12 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { path = [] } = req.query;
-  const segments = Array.isArray(path) ? path : [path];
+  // Robust path segment parsing from both query and URL
+  const urlPath = (req.url || '').split('?')[0].replace(/^\/api\/?/, '');
+  const urlSegments = urlPath.split('/').filter(Boolean);
+  const querySegments = Array.isArray(req.query?.path) ? req.query.path : (req.query?.path ? [req.query.path] : []);
+  const segments = querySegments.length > 0 ? querySegments : urlSegments;
+
   const root = segments[0] || '';
   const sub1 = segments[1] || '';
   const sub2 = segments[2] || '';
@@ -44,7 +48,7 @@ export default async function handler(req, res) {
           items: typeof r.items === 'string' ? JSON.parse(r.items) : (r.items || []),
           totalAmount: Number(r.total_amount),
           status: r.status,
-          paymentMethod: r.payment_method,
+          paymentMethod: r.payment_method || 'cod',
           deliveryPartner: r.delivery_partner_id ? {
             id: r.delivery_partner_id,
             name: r.delivery_partner_name,
@@ -53,7 +57,7 @@ export default async function handler(req, res) {
           createdAt: r.created_at,
           updatedAt: r.updated_at
         }));
-        return res.status(200).json(formatted);
+        return res.status(200).json({ success: true, orders: formatted });
       }
 
       // PATCH /api/orders/:id/assign-partner
@@ -75,7 +79,7 @@ export default async function handler(req, res) {
           pPhone = partnerPhone || null;
         }
 
-        // If assigning, get courier name/phone from DB if missing
+        // If assigning, fetch courier name/phone from DB if missing
         if (pId && (!pName || !pPhone)) {
           const partners = await sql`SELECT * FROM delivery_partners WHERE id = ${pId} LIMIT 1;`;
           if (partners && partners.length > 0) {
@@ -158,7 +162,7 @@ export default async function handler(req, res) {
           FROM delivery_partners 
           ORDER BY name ASC;
         `;
-        return res.status(200).json(rows);
+        return res.status(200).json({ success: true, partners: rows });
       }
 
       // POST /api/delivery-partners
