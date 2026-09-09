@@ -14,6 +14,24 @@ export default defineConfig({
     }
   },
   build: {
-    chunkSizeWarningLimit: 1600
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('lucide-react')) {
+              return 'icons';
+            }
+            if (id.includes('@supabase') || id.includes('@neondatabase')) {
+              return 'db';
+            }
+            if (id.includes('react') || id.includes('scheduler')) {
+              return 'vendor';
+            }
+            return 'libs';
+          }
+        }
+      }
+    }
   }
 });
