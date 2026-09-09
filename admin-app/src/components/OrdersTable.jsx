@@ -87,11 +87,15 @@ export default function OrdersTable({
   const getStatusBadge = (status) => {
     switch (status) {
       case 'CONFIRMED':
+        return 'bg-amber-500/15 text-amber-300 border-amber-500/40 font-bold';
+      case 'OUT_FOR_DELIVERY':
+        return 'bg-blue-500/15 text-blue-300 border-blue-500/40 font-bold';
+      case 'DELIVERED':
         return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 font-bold';
       case 'CANCELLED':
         return 'bg-rose-500/15 text-rose-300 border-rose-500/40 font-bold';
       default:
-        return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 font-bold';
+        return 'bg-slate-500/15 text-slate-300 border-slate-500/40 font-bold';
     }
   };
 
@@ -159,6 +163,8 @@ export default function OrdersTable({
           >
             <option value="ALL">All Statuses</option>
             <option value="CONFIRMED">CONFIRMED</option>
+            <option value="OUT_FOR_DELIVERY">OUT FOR DELIVERY</option>
+            <option value="DELIVERED">DELIVERED</option>
             <option value="CANCELLED">CANCELLED</option>
           </select>
 

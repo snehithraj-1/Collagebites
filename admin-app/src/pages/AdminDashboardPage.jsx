@@ -282,8 +282,10 @@ export default function AdminDashboardPage() {
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
     );
-    // Always close inspecting modal so admin immediately goes back to the orders dashboard
-    setInspectingOrder(null);
+    // Keep inspecting modal synced with updated status
+    setInspectingOrder((prev) =>
+      prev && prev.id === orderId ? { ...prev, status: nextStatus } : prev
+    );
 
     // 1. Update in Shared Central Backend API (Vercel Serverless Function)
     try {
