@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Lock, ShieldAlert, KeyRound, ArrowRight, Sparkles, Mail, ShieldCheck } from 'lucide-react';
+import { Lock, ShieldAlert, KeyRound, User, ShieldCheck } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 
 export default function AdminLoginPage() {
   const { loginAdmin, unauthorizedError } = useAdminAuth();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [identifier, setIdentifier] = useState('rajsrmap2@gmail.com');
+  const [password, setPassword] = useState('Snehith@007');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -15,42 +15,47 @@ export default function AdminLoginPage() {
     setError('');
 
     setIsLoading(true);
-    const result = await loginAdmin(email, password);
+    const result = await loginAdmin(identifier, password);
     setIsLoading(false);
 
     if (!result.success) {
-      setError(result.error || 'Invalid administrator credentials.');
+      setError(result.error || 'Invalid Super Administrator credentials.');
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0B1120] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 text-white">
+    <div className="min-h-screen bg-[#080E1A] flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 text-white">
       
-      {/* Header */}
+      {/* Brand Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-600 mx-auto flex items-center justify-center shadow-xl shadow-blue-500/20 mb-4 border border-blue-400/30">
-          <Lock size={30} className="text-white" />
+        <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#FF5722] to-amber-600 mx-auto flex items-center justify-center shadow-xl shadow-orange-500/20 mb-3 border border-orange-400/30">
+          <Lock size={28} className="text-white" />
         </div>
 
-        <h1 className="text-3xl font-black font-['Outfit'] tracking-tight">
-          Admin Portal
+        <h1 className="text-2xl sm:text-3xl font-black font-['Outfit'] tracking-tight">
+          CampusBites Super Admin
         </h1>
-        <p className="mt-1 text-sm text-slate-400 font-medium">
-          CampusBites Central Operations & Management Dashboard
+        <p className="mt-1 text-xs text-slate-400 font-medium">
+          Executive Platform Management Console (SRM University AP)
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-[#111827] py-8 px-6 sm:px-10 rounded-3xl shadow-2xl border border-slate-700/80 space-y-5">
+      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-slate-900/90 py-7 px-6 sm:px-8 rounded-3xl shadow-2xl border border-slate-800 space-y-5">
           
-          {/* Unauthorized Alert if student tried to enter */}
+          {/* Super Admin Notice */}
+          <div className="p-3.5 rounded-2xl bg-orange-950/40 border border-orange-800/60 text-xs text-orange-200 flex items-start gap-2.5">
+            <ShieldCheck size={18} className="text-[#FF5722] shrink-0 mt-0.5" />
+            <div className="text-[11px] leading-relaxed">
+              <strong>Master Control Portal:</strong> Manages overall campus food platform availability, restaurant states, universal order audit, and database records.
+            </div>
+          </div>
+
+          {/* Unauthorized Alert */}
           {unauthorizedError && (
-            <div className="p-4 rounded-2xl bg-rose-950/80 border border-rose-800 text-rose-300 text-xs font-bold flex items-start gap-2.5 animate-shake">
-              <ShieldAlert size={18} className="text-rose-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <strong>Access Denied: </strong>
-                <span>{unauthorizedError}</span>
-              </div>
+            <div className="p-3.5 rounded-xl bg-rose-950/80 border border-rose-800 text-rose-300 text-xs font-bold flex items-start gap-2">
+              <ShieldAlert size={16} className="text-rose-400 shrink-0 mt-0.5" />
+              <span>{unauthorizedError}</span>
             </div>
           )}
 
@@ -61,56 +66,49 @@ export default function AdminLoginPage() {
             </div>
           )}
 
-          <div className="p-3.5 rounded-2xl bg-blue-950/40 border border-blue-900/40 flex items-start gap-3">
-            <ShieldCheck size={18} className="text-blue-400 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-slate-300 leading-relaxed">
-              <strong>Restricted Administrative Access.</strong><br />
-              Authorized exclusively for Campus Management, Master Toggles, and Order Records.
-            </div>
-          </div>
-
+          {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <Mail size={13} className="text-blue-400" />
-                <span>Admin Email</span>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <User size={12} className="text-[#FF5722]" />
+                <span>Super Admin Email</span>
               </label>
               <input
                 type="email"
                 required
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="rajsrmap2@gmail.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-3 rounded-xl border border-slate-700 bg-slate-900/90 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FF5722]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <KeyRound size={13} className="text-blue-400" />
-                <span>Admin Password</span>
+              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                <KeyRound size={12} className="text-[#FF5722]" />
+                <span>Password</span>
               </label>
               <input
                 type="password"
                 required
-                placeholder="Enter admin password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3.5 py-3 rounded-xl border border-slate-700 bg-slate-900/90 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                placeholder="Enter password"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FF5722]"
               />
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 mt-2 rounded-2xl text-sm font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-500/25 transition-all cursor-pointer border-none flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3 mt-1 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-[#FF5722] to-amber-600 hover:from-[#F4511E] hover:to-amber-500 text-white shadow-md shadow-orange-600/30 transition-all cursor-pointer border-none flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isLoading ? (
-                <span>Verifying Access...</span>
+                <span>Authenticating Super Admin...</span>
               ) : (
                 <>
-                  <Lock size={16} />
-                  <span>Unlock Admin Dashboard</span>
+                  <Lock size={14} />
+                  <span>Unlock Super Admin Console</span>
                 </>
               )}
             </button>
@@ -118,8 +116,8 @@ export default function AdminLoginPage() {
 
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-500">
-          Role-Based Access Control enforced at database level with Supabase RLS.
+        <p className="mt-4 text-center text-[11px] text-slate-500">
+          Enforced by Neon PostgreSQL & Supabase Database Authorization
         </p>
       </div>
 

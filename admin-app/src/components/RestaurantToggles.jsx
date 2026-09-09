@@ -2,8 +2,12 @@ import React, { useState } from 'react';
 import { Store, CheckCircle2, XCircle, MapPin, Power } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-export default function RestaurantToggles({ restaurants, orderingEnabled, onRestaurantUpdate }) {
+export default function RestaurantToggles({ restaurants, orderingEnabled, onRestaurantUpdate, assignedRestaurantId = null }) {
   const [updatingId, setUpdatingId] = useState(null);
+
+  const visibleRestaurants = assignedRestaurantId
+    ? restaurants.filter((r) => r.id === assignedRestaurantId)
+    : restaurants;
 
   const handleToggle = async (restaurant) => {
     const nextState = !(restaurant.is_open !== false);
@@ -11,8 +15,8 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
 
     try {
       // 1. Update Neon PostgreSQL shared backend
-      await fetch(`/api/restaurants/${restaurant.id}`, {
-        method: 'PATCH',
+      await fetch(`/api/restaurants/${restaurant.id}/toggle`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_open: nextState })
       });
@@ -48,15 +52,15 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
       <div className="flex items-center justify-between">
         <h3 className="text-base font-extrabold text-white font-['Outfit'] flex items-center gap-2">
           <Store size={18} className="text-blue-400" />
-          <span>Individual Restaurant Controls</span>
+          <span>{assignedRestaurantId ? 'Kitchen Availability & Acceptance' : 'Individual Restaurant Controls'}</span>
         </h3>
         <span className="text-xs text-slate-400">
           Syncs instantly to Student Portal
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {restaurants.map((restaurant) => {
+      <div className={`grid grid-cols-1 ${assignedRestaurantId ? 'md:grid-cols-1 max-w-xl' : 'md:grid-cols-2'} gap-4`}>
+        {visibleRestaurants.map((restaurant) => {
           const isMasterOpen = orderingEnabled !== false;
           const isOpen = isMasterOpen && (restaurant.is_open !== false);
           const isBusy = updatingId === restaurant.id;

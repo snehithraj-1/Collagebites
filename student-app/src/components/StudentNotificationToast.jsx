@@ -1,45 +1,89 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChefHat, PackageCheck, Bike, CheckCheck, X, ArrowRight, Bell, Sparkles, CheckCircle2, Phone } from 'lucide-react';
-import { playStudentChime, sendStudentNotification, requestStudentNotificationPermission } from '../lib/notificationSound';
+import { playStudentChime, sendStudentNotification, requestStudentNotificationPermission, unlockStudentAudio } from '../lib/notificationSound';
 import { useStudentAuth } from '../context/StudentAuthContext';
 
 const STATUS_DETAILS = {
   CONFIRMED: {
-    title: 'Order Confirmed!',
-    desc: 'Your food order has been confirmed and received by the kitchen.',
+    title: 'Order Confirmed! 👨‍🍳',
+    desc: 'The restaurant has confirmed your order and started cooking.',
     icon: CheckCircle2,
-    bg: 'bg-emerald-50 border-emerald-200 text-emerald-900',
+    bg: 'bg-white border-2 border-emerald-400 text-emerald-950 shadow-emerald-500/20',
+    badge: 'bg-emerald-100 text-emerald-800'
+  },
+  PREPARING: {
+    title: 'Cooking in Progress! 🍳',
+    desc: 'The kitchen chefs are preparing your fresh campus meal.',
+    icon: ChefHat,
+    bg: 'bg-white border-2 border-amber-400 text-amber-950 shadow-amber-500/20',
+    badge: 'bg-amber-100 text-amber-800'
+  },
+  READY: {
+    title: 'Order Ready for Pickup! 📦',
+    desc: 'Your food parcel is packed and waiting for delivery dispatch.',
+    icon: PackageCheck,
+    bg: 'bg-white border-2 border-cyan-400 text-cyan-950 shadow-cyan-500/20',
+    badge: 'bg-cyan-100 text-cyan-800'
+  },
+  OUT_FOR_DELIVERY: {
+    title: 'Out for Delivery! 🚀',
+    desc: 'Your food parcel is on its way to SRM University Gate 3!',
+    icon: Bike,
+    bg: 'bg-white border-2 border-blue-500 text-blue-950 shadow-blue-500/30',
+    badge: 'bg-blue-100 text-blue-800'
+  },
+  DELIVERED: {
+    title: 'Food Delivered! 🎉',
+    desc: 'Your parcel has arrived at SRM University Gate 3. Enjoy your meal!',
+    icon: CheckCheck,
+    bg: 'bg-white border-2 border-emerald-500 text-emerald-950 shadow-emerald-500/30',
     badge: 'bg-emerald-100 text-emerald-800'
   },
   CANCELLED: {
     title: 'Order Cancelled',
     desc: 'Your order has been cancelled.',
     icon: X,
-    bg: 'bg-rose-50 border-rose-200 text-rose-900',
+    bg: 'bg-white border-2 border-rose-300 text-rose-950 shadow-rose-500/20',
     badge: 'bg-rose-100 text-rose-800'
   }
 };
 
-export default function StudentNotificationToast({ onTrackOrder }) {
+function getNotifiedStages() {
+  try {
+    return JSON.parse(sessionStorage.getItem('cb_student_notified_stages') || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveNotifiedStage(orderId, stage) {
+  try {
+    const current = getNotifiedStages();
+    if (!current[orderId]) current[orderId] = [];
+    if (!current[orderId].includes(stage)) {
+      current[orderId].push(stage);
+    }
+    sessionStorage.setItem('cb_student_notified_stages', JSON.stringify(current));
+  } catch {}
+}
+
+export default function StudentNotificationToast({ onTrackOrder, activeOrderId }) {
   const { profile } = useStudentAuth();
   const [activeToast, setActiveToast] = useState(null);
-  
-  // Track previous statuses: map of orderId -> status
-  const orderStatusesRef = useRef(new Map());
-  const orderPartnersRef = useRef(new Map());
-  const isFirstCheckRef = useRef(true);
+  const isFirstPollRef = useRef(true);
 
-  // Request browser notification permission on first user interaction
+  // Request browser notification permission and unlock audio context on interaction
   useEffect(() => {
-    const handleFirstClick = () => {
+    const handleUnlock = () => {
+      unlockStudentAudio();
       requestStudentNotificationPermission();
-      window.removeEventListener('click', handleFirstClick);
     };
-    window.addEventListener('click', handleFirstClick);
-    return () => window.removeEventListener('click', handleFirstClick);
+    ['click', 'pointerdown', 'touchstart', 'keydown'].forEach((evt) => {
+      window.addEventListener(evt, handleUnlock, { passive: true, once: true });
+    });
   }, []);
 
-  // Poll orders every 2.5s for status changes
+  // Poll orders every 2 seconds for status changes
   useEffect(() => {
     let isMounted = true;
 
@@ -47,106 +91,176 @@ export default function StudentNotificationToast({ onTrackOrder }) {
       try {
         const localOrders = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
         const localIds = new Set(localOrders.map((o) => o.id));
-        const identifier = profile?.email || profile?.id || '';
+        if (activeOrderId) localIds.add(activeOrderId);
 
-        let orders = [];
+        const identifier = profile?.email || profile?.phone || profile?.id || '';
+        const ordersMap = new Map();
+
+        // 1. Fetch student orders by identifier if profile exists
         if (identifier) {
-          const res = await fetch(`/api/orders/student/${encodeURIComponent(identifier)}`);
-          if (res.ok) {
-            const data = await res.json();
-            orders = data.orders || [];
-          }
-        }
-
-        // Merge with any matching local orders from global orders feed
-        if (localIds.size > 0) {
           try {
-            const allRes = await fetch('/api/orders');
-            if (allRes.ok) {
-              const allData = await allRes.json();
-              const relevant = (allData.orders || []).filter((o) => localIds.has(o.id));
-              const map = new Map();
-              orders.forEach((o) => map.set(o.id, o));
-              relevant.forEach((o) => map.set(o.id, o));
-              orders = Array.from(map.values());
+            const res = await fetch(`/api/orders/student/${encodeURIComponent(identifier)}`);
+            if (res.ok) {
+              const data = await res.json();
+              (data.orders || []).forEach((o) => ordersMap.set(o.id, o));
             }
           } catch {}
         }
 
-        if (isFirstCheckRef.current) {
-          // Initialize map without firing alerts on initial page load
-          orders.forEach((o) => {
-            orderStatusesRef.current.set(o.id, o.status);
-            orderPartnersRef.current.set(o.id, o.delivery_partner_name || '');
-          });
-          isFirstCheckRef.current = false;
-          return;
+        // 2. Also fetch recent orders from live API to ensure any local order is tracked
+        try {
+          const allRes = await fetch('/api/orders');
+          if (allRes.ok) {
+            const allData = await allRes.json();
+            (allData.orders || []).forEach((o) => {
+              const isLocalMatch = localIds.has(o.id) || localOrders.some((lo) => lo.id === o.id || (lo.id && o.id && (lo.id.includes(o.id) || o.id.includes(lo.id))));
+              const isEmailMatch = profile?.email && o.student_email && o.student_email.toLowerCase() === profile.email.toLowerCase();
+              const isPhoneMatch = profile?.phone && o.student_phone && o.student_phone.replace(/\D/g, '').slice(-10) === profile.phone.replace(/\D/g, '').slice(-10);
+              
+              if (isLocalMatch || isEmailMatch || isPhoneMatch) {
+                ordersMap.set(o.id, o);
+              }
+            });
+          }
+        } catch {}
+
+        // 3. Specifically poll activeOrderId if provided
+        if (activeOrderId && !ordersMap.has(activeOrderId)) {
+          try {
+            const singleRes = await fetch(`/api/orders/${encodeURIComponent(activeOrderId)}`);
+            if (singleRes.ok) {
+              const singleData = await singleRes.json();
+              if (singleData.success && singleData.order) {
+                ordersMap.set(singleData.order.id, singleData.order);
+              }
+            }
+          } catch {}
         }
 
-        // Check for changes
-        for (const order of orders) {
-          const prevStatus = orderStatusesRef.current.get(order.id);
-          const newStatus = order.status;
-          const prevPartner = orderPartnersRef.current.get(order.id);
-          const currentPartner = order.delivery_partner_name || '';
+        const orders = Array.from(ordersMap.values());
+        const notifiedStages = getNotifiedStages();
 
-          // Check if partner was just assigned
-          if (!prevPartner && currentPartner) {
-            orderPartnersRef.current.set(order.id, currentPartner);
-            if (isMounted) {
+        // On initial component mount, seed older completed orders so we don't alert on yesterday's orders
+        if (isFirstPollRef.current) {
+          orders.forEach((o) => {
+            const ageMs = Date.now() - new Date(o.created_at || Date.now()).getTime();
+            // If order was completed over 30 mins ago, treat as already notified
+            if (o.status === 'DELIVERED' && ageMs > 30 * 60 * 1000) {
+              saveNotifiedStage(o.id, 'DELIVERED');
+              saveNotifiedStage(o.id, 'OUT_FOR_DELIVERY');
+              saveNotifiedStage(o.id, 'PARTNER_ASSIGNED');
+            }
+          });
+          isFirstPollRef.current = false;
+        }
+
+        // Process each order for real-time status transitions
+        for (const order of orders) {
+          const alreadyNotified = notifiedStages[order.id] || [];
+          const status = order.status;
+          const partnerName = order.delivery_partner_name || '';
+
+          // 1. Rider assigned notification (if not notified yet)
+          if (partnerName && !alreadyNotified.includes('PARTNER_ASSIGNED')) {
+            saveNotifiedStage(order.id, 'PARTNER_ASSIGNED');
+            if (isMounted && status !== 'DELIVERED') {
               setActiveToast({
                 order,
                 status: 'PARTNER_ASSIGNED',
                 title: '🛵 Delivery Partner Assigned!',
-                desc: `${currentPartner} (${order.delivery_partner_phone || 'Courier'}) will deliver your food to SRM University Gate 3!`,
+                desc: `${partnerName} (${order.delivery_partner_phone || 'Courier'}) is assigned to deliver your food to SRM University Gate 3!`,
                 icon: Bike,
-                bg: 'from-cyan-500/10 to-emerald-500/10 border-cyan-500/30 text-cyan-900',
+                bg: 'bg-white border-2 border-cyan-400 text-cyan-950 shadow-cyan-500/20',
                 badge: 'bg-cyan-100 text-cyan-800'
               });
               playStudentChime('OUT_FOR_DELIVERY');
               sendStudentNotification(
                 '🛵 Delivery Partner Assigned!',
-                `${currentPartner} is assigned to deliver #${order.id} to SRM Gate 3`
+                `${partnerName} is delivering #${order.id} to SRM Gate 3`
               );
             }
-            break;
-          } else {
-            orderPartnersRef.current.set(order.id, currentPartner);
           }
 
-          // If status changed to a new pipeline stage
-          if (prevStatus && prevStatus !== newStatus && STATUS_DETAILS[newStatus]) {
-            orderStatusesRef.current.set(order.id, newStatus);
+          // 2. Out for Delivery transition
+          if (status === 'OUT_FOR_DELIVERY' && !alreadyNotified.includes('OUT_FOR_DELIVERY')) {
+            saveNotifiedStage(order.id, 'OUT_FOR_DELIVERY');
 
-            // Sync updated status to localStorage
+            // Sync updated status & partner details to localStorage
             try {
               const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
               const updated = stored.map((o) =>
-                o.id === order.id ? { ...o, status: newStatus } : o
+                o.id === order.id ? { 
+                  ...o, 
+                  status: 'OUT_FOR_DELIVERY',
+                  delivery_partner_name: order.delivery_partner_name || o.delivery_partner_name,
+                  delivery_partner_phone: order.delivery_partner_phone || o.delivery_partner_phone
+                } : o
               );
               localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
             } catch {}
 
-            const details = STATUS_DETAILS[newStatus];
             if (isMounted) {
+              const desc = partnerName
+                ? `Rider ${partnerName} has picked up your food and is heading to SRM Gate 3!`
+                : `Your food parcel has been picked up and is on its way to SRM Gate 3!`;
+
               setActiveToast({
                 order,
-                status: newStatus,
-                ...details
+                status: 'OUT_FOR_DELIVERY',
+                title: 'Out for Delivery! 🚀',
+                desc,
+                icon: Bike,
+                bg: 'bg-white border-2 border-blue-500 text-blue-950 shadow-blue-500/30',
+                badge: 'bg-blue-100 text-blue-800'
               });
 
-              // Play audio chime
-              playStudentChime(newStatus);
-
-              // Send system browser notification
+              playStudentChime('OUT_FOR_DELIVERY');
               sendStudentNotification(
-                details.title,
-                `Order #${order.id}: ${details.desc}`
+                'Out for Delivery! 🚀',
+                `Order #${order.id}: ${desc}`
               );
             }
-            break;
-          } else {
-            orderStatusesRef.current.set(order.id, newStatus);
+            break; // Show this toast first
+          }
+
+          // 3. Delivered transition
+          if (status === 'DELIVERED' && !alreadyNotified.includes('DELIVERED')) {
+            saveNotifiedStage(order.id, 'DELIVERED');
+
+            // Sync updated status & partner details to localStorage
+            try {
+              const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
+              const updated = stored.map((o) =>
+                o.id === order.id ? { 
+                  ...o, 
+                  status: 'DELIVERED',
+                  delivery_partner_name: order.delivery_partner_name || o.delivery_partner_name,
+                  delivery_partner_phone: order.delivery_partner_phone || o.delivery_partner_phone
+                } : o
+              );
+              localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
+            } catch {}
+
+            if (isMounted) {
+              const desc = `Your food parcel from ${order.restaurant_name || 'Kitchen'} has arrived at SRM University Gate 3. Please collect your food!`;
+
+              setActiveToast({
+                order,
+                status: 'DELIVERED',
+                title: 'Food Delivered! 🎉',
+                desc,
+                icon: CheckCheck,
+                bg: 'bg-white border-2 border-emerald-500 text-emerald-950 shadow-emerald-500/30',
+                badge: 'bg-emerald-100 text-emerald-800'
+              });
+
+              playStudentChime('DELIVERED');
+              sendStudentNotification(
+                'Food Delivered! 🎉',
+                `Order #${order.id}: ${desc}`
+              );
+            }
+            break; // Show this toast first
           }
         }
       } catch (err) {
@@ -155,20 +269,20 @@ export default function StudentNotificationToast({ onTrackOrder }) {
     }
 
     checkOrderStatusChanges();
-    const interval = setInterval(checkOrderStatusChanges, 2500);
+    const interval = setInterval(checkOrderStatusChanges, 2000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [profile?.email, profile?.id]);
+  }, [profile?.email, profile?.phone, profile?.id, activeOrderId]);
 
-  // Auto-dismiss toast after 7 seconds
+  // Auto-dismiss toast after 8 seconds
   useEffect(() => {
     if (!activeToast) return;
     const timer = setTimeout(() => {
       setActiveToast(null);
-    }, 7000);
+    }, 8000);
     return () => clearTimeout(timer);
   }, [activeToast]);
 
@@ -178,30 +292,42 @@ export default function StudentNotificationToast({ onTrackOrder }) {
 
   return (
     <div className="fixed top-20 right-4 sm:right-6 z-50 max-w-sm w-full animate-slide-down">
-      <div className={`p-4 rounded-2xl bg-white border shadow-2xl shadow-slate-900/10 flex flex-col gap-3 relative overflow-hidden ${activeToast.bg}`}>
+      <div className={`p-4 rounded-2xl bg-white border shadow-2xl flex flex-col gap-3 relative overflow-hidden ${activeToast.bg}`}>
         
         {/* Animated Accent Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#FF5722] to-emerald-500 animate-pulse" />
+        <div className={`absolute top-0 left-0 right-0 h-1.5 animate-pulse ${
+          activeToast.status === 'DELIVERED'
+            ? 'bg-gradient-to-r from-emerald-400 to-teal-500'
+            : activeToast.status === 'OUT_FOR_DELIVERY'
+            ? 'bg-gradient-to-r from-blue-500 to-cyan-500'
+            : 'bg-gradient-to-r from-[#FF5722] to-amber-500'
+        }`} />
 
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white shadow-sm border border-[#E2D9D0] flex items-center justify-center shrink-0 text-xl">
-              <Icon size={20} className="text-[#FF5722]" />
+            <div className={`w-10 h-10 rounded-xl shadow-xs border flex items-center justify-center shrink-0 text-xl ${
+              activeToast.status === 'DELIVERED'
+                ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                : activeToast.status === 'OUT_FOR_DELIVERY'
+                ? 'bg-blue-50 text-blue-600 border-blue-200'
+                : 'bg-amber-50 text-amber-600 border-amber-200'
+            }`}>
+              <Icon size={22} className={activeToast.status === 'OUT_FOR_DELIVERY' ? 'animate-bounce' : ''} />
             </div>
 
             <div>
               <div className="flex items-center gap-1.5">
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${activeToast.badge}`}>
-                  {activeToast.status}
+                  {activeToast.status.replace(/_/g, ' ')}
                 </span>
                 <span className="font-mono text-xs font-bold text-slate-400">
-                  #{activeToast.order.id}
+                  #{activeToast.order?.id?.slice(-8) || activeToast.order?.id}
                 </span>
               </div>
-              <h4 className="font-black text-sm text-[#0F172A] font-['Outfit'] mt-0.5">
+              <h4 className="font-black text-sm font-['Outfit'] mt-1 text-[#0F172A] leading-snug">
                 {activeToast.title}
               </h4>
-              <p className="text-xs text-[#64748B] mt-1 leading-snug">
+              <p className="text-xs text-slate-600 font-medium mt-0.5 leading-relaxed">
                 {activeToast.desc}
               </p>
             </div>
@@ -209,38 +335,43 @@ export default function StudentNotificationToast({ onTrackOrder }) {
 
           <button
             onClick={() => setActiveToast(null)}
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-black/5 transition-colors cursor-pointer border-none bg-transparent"
+            className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors border-none bg-transparent cursor-pointer"
           >
             <X size={16} />
           </button>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 gap-2">
-          {activeToast.order?.delivery_partner_phone ? (
-            <a
-              href={`tel:${activeToast.order.delivery_partner_phone}`}
-              className="px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
-            >
-              <Phone size={12} />
-              <span>Call Partner</span>
-            </a>
-          ) : (
-            <span className="text-[10px] font-bold text-slate-400">
-              Destination: SRM Gate 3
-            </span>
-          )}
+        {/* Delivery Partner Contact & Drop Point */}
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5 text-slate-500 text-[11px] font-semibold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            <span>Drop: SRM AP Gate 3</span>
+          </div>
 
-          <button
-            onClick={() => {
-              if (onTrackOrder) onTrackOrder(activeToast.order);
-              setActiveToast(null);
-            }}
-            className="px-3 py-1.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-sm"
-          >
-            <span>Track Order</span>
-            <ArrowRight size={13} />
-          </button>
+          <div className="flex items-center gap-2">
+            {activeToast.order?.delivery_partner_phone && (
+              <a
+                href={`tel:${activeToast.order.delivery_partner_phone}`}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200 no-underline"
+              >
+                <Phone size={11} />
+                <span>Call Rider</span>
+              </a>
+            )}
+            
+            {onTrackOrder && (
+              <button
+                onClick={() => {
+                  onTrackOrder(activeToast.order);
+                  setActiveToast(null);
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-black text-[#FF5722] hover:text-[#E64A19] border-none bg-transparent cursor-pointer"
+              >
+                <span>Track Order</span>
+                <ArrowRight size={12} />
+              </button>
+            )}
+          </div>
         </div>
 
       </div>

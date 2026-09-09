@@ -10,7 +10,7 @@ export function AdminAuthProvider({ children }) {
       const saved = localStorage.getItem('cb_admin_profile');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.role === 'admin' && parsed.email?.toLowerCase() === 'rajsrmap2@gmail.com') {
+        if (parsed && parsed.role === 'super_admin') {
           return parsed;
         }
       }
@@ -25,7 +25,7 @@ export function AdminAuthProvider({ children }) {
   // Persist admin session
   useEffect(() => {
     try {
-      if (profile && profile.role === 'admin' && profile.email?.toLowerCase() === 'rajsrmap2@gmail.com') {
+      if (profile && profile.role === 'super_admin') {
         localStorage.setItem('cb_admin_profile', JSON.stringify(profile));
       } else {
         localStorage.removeItem('cb_admin_profile');
@@ -71,7 +71,6 @@ export function AdminAuthProvider({ children }) {
     };
   }, []);
 
-  // Strict verification: User MUST have role = 'admin' in profiles table
   const verifyAndSetAdmin = async (authUser) => {
     if (!supabase) return false;
 
@@ -86,19 +85,19 @@ export function AdminAuthProvider({ children }) {
         await supabase.auth.signOut();
         setUser(null);
         setProfile(null);
-        setUnauthorizedError('Unauthorized access. Only registered Campus Administrators can access this portal.');
+        setUnauthorizedError('Unauthorized access. Only authorized administrators can access this portal.');
         return false;
       }
 
-      if (userProfile.role !== 'admin' || userProfile.email?.toLowerCase() !== 'rajsrmap2@gmail.com') {
+      const validRoles = ['admin', 'super_admin', 'restaurant_admin'];
+      if (!validRoles.includes(userProfile.role)) {
         await supabase.auth.signOut();
         setUser(null);
         setProfile(null);
-        setUnauthorizedError('Unauthorized access. Access restricted to authorized administrator account.');
+        setUnauthorizedError('Unauthorized access. Access restricted to authorized administrative staff.');
         return false;
       }
 
-      // Valid Admin
       setUser(authUser);
       setProfile(userProfile);
       setUnauthorizedError('');
@@ -109,15 +108,15 @@ export function AdminAuthProvider({ children }) {
     }
   };
 
-  // Strict Admin Login (rajsrmap2@gmail.com & Snehith@007)
-  const loginAdmin = async (email, password) => {
+  // Multi-Role Admin Login: Supports Super Admin, Local Home Kitchen, CLG Bites
+  const loginAdmin = async (identifier, password) => {
     setUnauthorizedError('');
 
-    const cleanEmail = email ? email.trim().toLowerCase() : '';
+    const cleanInput = identifier ? identifier.trim() : '';
     const cleanPassword = password ? password.trim() : '';
 
-    if (!cleanEmail || !cleanPassword) {
-      return { success: false, error: 'Please enter both admin email and password.' };
+    if (!cleanInput || !cleanPassword) {
+      return { success: false, error: 'Please enter username/email and password.' };
     }
 
     // 1. Authenticate via Backend API
@@ -125,45 +124,83 @@ export function AdminAuthProvider({ children }) {
       const res = await fetch('/api/auth/admin-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
+        body: JSON.stringify({ username: cleanInput, email: cleanInput, password: cleanPassword })
       });
       const data = await res.json();
       if (data.success && data.user) {
+        if (data.user.role !== 'super_admin') {
+          return {
+            success: false,
+            error: 'Access Denied: This portal is strictly for Super Administrators. Please log in at your dedicated kitchen portal.'
+          };
+        }
         setProfile(data.user);
-        setUser({ id: data.user.id, email: data.user.email });
+        setUser({ id: data.user.id, email: data.user.email, role: data.user.role });
         setUnauthorizedError('');
         try {
           localStorage.setItem('cb_admin_profile', JSON.stringify(data.user));
         } catch {}
-        return { success: true };
+        return { success: true, user: data.user };
       } else {
         return {
           success: false,
-          error: data.error || 'Invalid administrator credentials. Access restricted to authorized campus admin.'
+          error: data.error || 'Invalid administrator credentials. Access restricted to authorized staff.'
         };
       }
     } catch (apiErr) {
       // Direct credential fallback check
-      if (cleanEmail === 'rajsrmap2@gmail.com' && cleanPassword === 'Snehith@007') {
-        const adminProfile = {
-          id: 'admin-snehith',
+      const lowerInput = cleanInput.toLowerCase();
+      if ((lowerInput === 'rajsrmap2@gmail.com' || lowerInput === 'superadmin') && cleanPassword === 'Snehith@007') {
+        const superProfile = {
+          id: 'admin-super',
+          username: 'rajsrmap2@gmail.com',
           name: 'Gaddam Snehithraj (Super Admin)',
           email: 'rajsrmap2@gmail.com',
-          role: 'admin',
+          role: 'super_admin',
+          restaurant_id: null,
           created_at: new Date().toISOString()
         };
-        setProfile(adminProfile);
-        setUser({ id: adminProfile.id, email: adminProfile.email });
-        setUnauthorizedError('');
-        try {
-          localStorage.setItem('cb_admin_profile', JSON.stringify(adminProfile));
-        } catch {}
-        return { success: true };
+        setProfile(superProfile);
+        setUser({ id: superProfile.id, email: superProfile.email });
+        try { localStorage.setItem('cb_admin_profile', JSON.stringify(superProfile)); } catch {}
+        return { success: true, user: superProfile };
+      }
+
+      if ((lowerInput === 'lhk_admin' || lowerInput === 'lhk@campusbites.com') && cleanPassword === 'LHK@Campus2026') {
+        const lhkProfile = {
+          id: 'admin-lhk',
+          username: 'lhk_admin',
+          name: 'Local Home Kitchen Staff',
+          email: 'lhk@campusbites.com',
+          role: 'restaurant_admin',
+          restaurant_id: 'local-home-kitchen',
+          created_at: new Date().toISOString()
+        };
+        setProfile(lhkProfile);
+        setUser({ id: lhkProfile.id, email: lhkProfile.email });
+        try { localStorage.setItem('cb_admin_profile', JSON.stringify(lhkProfile)); } catch {}
+        return { success: true, user: lhkProfile };
+      }
+
+      if ((lowerInput === 'clgbites_admin' || lowerInput === 'clg@campusbites.com') && cleanPassword === 'CLG@Campus2026') {
+        const clgProfile = {
+          id: 'admin-clg',
+          username: 'clgbites_admin',
+          name: 'CLG Bites Staff',
+          email: 'clg@campusbites.com',
+          role: 'restaurant_admin',
+          restaurant_id: 'clg-bites-biryani-nation',
+          created_at: new Date().toISOString()
+        };
+        setProfile(clgProfile);
+        setUser({ id: clgProfile.id, email: clgProfile.email });
+        try { localStorage.setItem('cb_admin_profile', JSON.stringify(clgProfile)); } catch {}
+        return { success: true, user: clgProfile };
       }
 
       return {
         success: false,
-        error: 'Invalid administrator credentials. Access restricted to authorized campus admin.'
+        error: 'Invalid administrator credentials. Access restricted to authorized campus staff.'
       };
     }
   };
@@ -183,13 +220,20 @@ export function AdminAuthProvider({ children }) {
     } catch {}
   };
 
+  const isSuperAdmin = Boolean(profile && (profile.role === 'super_admin' || profile.role === 'admin'));
+  const isRestaurantAdmin = Boolean(profile && profile.role === 'restaurant_admin');
+  const assignedRestaurantId = profile?.restaurant_id || null;
+
   return (
     <AdminAuthContext.Provider
       value={{
         user,
         profile,
         loading,
-        isAuthenticated: Boolean(profile && profile.role === 'admin' && profile.email?.toLowerCase() === 'rajsrmap2@gmail.com'),
+        isAuthenticated: Boolean(profile && (profile.role === 'super_admin' || profile.role === 'restaurant_admin' || profile.role === 'admin')),
+        isSuperAdmin,
+        isRestaurantAdmin,
+        assignedRestaurantId,
         unauthorizedError,
         setUnauthorizedError,
         loginAdmin,

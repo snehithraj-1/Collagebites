@@ -1,7 +1,8 @@
 import React from 'react';
-import { ShoppingBag, Clock, User, LogOut, Sparkles, MapPin } from 'lucide-react';
+import { ShoppingBag, Clock, User, LogOut, Sparkles, MapPin, Volume2 } from 'lucide-react';
 import { useStudentAuth } from '../context/StudentAuthContext';
 import { useCart } from '../context/CartContext';
+import { playStudentChime, unlockStudentAudio } from '../lib/notificationSound';
 
 export default function Navbar({ currentView, onNavigate }) {
   const { profile, logout } = useStudentAuth();
@@ -90,8 +91,21 @@ export default function Navbar({ currentView, onNavigate }) {
           </button>
         </nav>
 
-        {/* Right Actions: Student Profile & Sign Out */}
+        {/* Right Actions: Sound Test & Student Profile & Sign Out */}
         <div className="flex items-center gap-2 sm:gap-3">
+          
+          {/* Sound Chime Test / Unmute Button for Student */}
+          <button
+            onClick={() => {
+              unlockStudentAudio();
+              playStudentChime('test');
+            }}
+            className="px-2.5 py-1.5 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] hover:bg-[#FFF0EB] text-[#FF5722] text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+            title="Click to Test Student Order Alert Chime"
+          >
+            <Volume2 size={14} className="text-[#FF5722] animate-pulse" />
+            <span className="hidden sm:inline">Sound: ON (Test)</span>
+          </button>
 
           {/* Student Profile & Sign Out */}
           {profile && (

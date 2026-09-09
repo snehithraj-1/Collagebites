@@ -10,8 +10,8 @@ function AdminAppInner() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0B1120] flex flex-col items-center justify-center space-y-4 text-white">
-        <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
-        <p className="text-xs font-bold text-slate-400">Loading Admin Management Portal...</p>
+        <div className="w-12 h-12 rounded-full border-4 border-orange-500 border-t-transparent animate-spin" />
+        <p className="text-xs font-bold text-slate-400">Loading CampusBites Super Admin Console...</p>
       </div>
     );
   }
@@ -34,4 +34,3 @@ export default function App() {
     </AdminAuthProvider>
   );
 }
-

@@ -1,46 +1,31 @@
 # CampusBites — Multi-Portal Campus Food Ordering System
 
-CampusBites is structured as **TWO COMPLETELY SEPARATE FRONTEND WEBSITES** connected to **ONE shared Supabase backend & database**:
+CampusBites is structured as **5 DEDICATED FRONTEND WEBSITES** connected to **ONE central API & Neon PostgreSQL database**:
 
-1. **Student Dining Portal** (`student-app/`) → Deploy to `student-app.vercel.app`
-2. **Admin Operations Portal** (`admin-app/`) → Deploy to `admin-app.vercel.app`
-
-```
-STUDENT WEBSITE (student-app)
-        │
-        ▼
-   SUPABASE BACKEND & POSTGRESQL DATABASE
-        ▲
-        │
-ADMIN WEBSITE (admin-app)
-```
+1. **Student Dining Portal** (`student-app/`): `http://localhost:5173`
+2. **Main Super Admin Portal** (`admin-app/`): `http://localhost:5174`
+3. **Local Home Kitchen Portal** (`lhk-admin-app/`): `http://localhost:5175`
+4. **CLG Bites Staff Portal** (`clg-admin-app/`): `http://localhost:5176`
+5. **Delivery Partner Portal** (`rider-app/`): `http://localhost:5177`
+6. **Central Backend API**: `http://localhost:5000`
 
 ---
 
 ## 🚀 Quick Start (Local Development)
 
-### 1. Install Dependencies
+### 1. Run Everything Concurrently
 ```bash
-npm install
+npm run dev
 ```
+This single command spins up the backend API and all 5 web applications concurrently!
 
-### 2. Run the Portals
-You can run both portals simultaneously on separate ports:
-
-- **Run Student Portal** (runs on `http://localhost:5173`):
-  ```bash
-  npm run dev:student
-  ```
-
-- **Run Admin Portal** (runs on `http://localhost:5174`):
-  ```bash
-  npm run dev:admin
-  ```
-
-- **Build Both Applications for Production**:
-  ```bash
-  npm run build
-  ```
+### 2. Run Individual Applications
+- **Student Dining Portal**: `npm run dev:student` (`http://localhost:5173`)
+- **Main Super Admin Portal**: `npm run dev:admin` (`http://localhost:5174`)
+- **Local Home Kitchen Portal**: `npm run dev:lhk` (`http://localhost:5175`)
+- **CLG Bites Staff Portal**: `npm run dev:clg` (`http://localhost:5176`)
+- **Delivery Partner Portal**: `npm run dev:rider` (`http://localhost:5177`)
+- **Shared Backend API**: `npm run server` (`http://localhost:5000`)
 
 ---
 

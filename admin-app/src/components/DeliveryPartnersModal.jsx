@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { X, Bike, Phone, User, Plus, Trash2, RefreshCw, CheckCircle2, ShieldCheck } from 'lucide-react';
 
-export default function DeliveryPartnersModal({ isOpen, onClose, onPartnersChanged }) {
+export default function DeliveryPartnersModal({ isOpen, onClose, onPartnersChanged, assignedRestaurantId = null }) {
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [selectedRestaurant, setSelectedRestaurant] = useState(assignedRestaurantId || 'local-home-kitchen');
+  const [pin, setPin] = useState('1234');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -13,7 +15,10 @@ export default function DeliveryPartnersModal({ isOpen, onClose, onPartnersChang
   const fetchPartners = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/delivery-partners');
+      const url = assignedRestaurantId
+        ? `/api/delivery-partners?restaurant_id=${encodeURIComponent(assignedRestaurantId)}`
+        : '/api/delivery-partners';
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setPartners(data.partners || []);
@@ -27,11 +32,14 @@ export default function DeliveryPartnersModal({ isOpen, onClose, onPartnersChang
 
   useEffect(() => {
     if (isOpen) {
+      if (assignedRestaurantId) {
+        setSelectedRestaurant(assignedRestaurantId);
+      }
       fetchPartners();
       setErrorMsg('');
       setSuccessMsg('');
     }
-  }, [isOpen]);
+  }, [isOpen, assignedRestaurantId]);
 
   if (!isOpen) return null;
 
@@ -53,14 +61,20 @@ export default function DeliveryPartnersModal({ isOpen, onClose, onPartnersChang
 
     setIsSubmitting(true);
     try {
+      const targetRestaurantId = assignedRestaurantId || selectedRestaurant;
       const res = await fetch('/api/delivery-partners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), phone: cleanPhone })
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: cleanPhone,
+          restaurant_id: targetRestaurantId,
+          pin: pin.trim() || '1234'
+        })
       });
       const data = await res.json();
       if (data.success) {
-        setSuccessMsg(`✅ ${name} registered successfully as campus delivery partner!`);
+        setSuccessMsg(`✅ ${name} registered successfully as delivery partner for ${targetRestaurantId === 'clg-bites-biryani-nation' ? 'CLG Bites' : 'Local Home Kitchen'}! (PIN: ${pin.trim() || '1234'})`);
         setName('');
         setPhone('');
         fetchPartners();
@@ -92,6 +106,7 @@ export default function DeliveryPartnersModal({ isOpen, onClose, onPartnersChang
       console.warn('Error deleting delivery partner:', err);
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
@@ -183,6 +198,41 @@ export default function DeliveryPartnersModal({ isOpen, onClose, onPartnersChang
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-slate-400 text-[10px] font-bold uppercase mb-1">
+                  Associated Restaurant
+                </label>
+                {assignedRestaurantId ? (
+                  <div className="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-emerald-400 text-xs font-bold flex items-center gap-1.5">
+                    <ShieldCheck size={14} />
+                    <span>{assignedRestaurantId === 'clg-bites-biryani-nation' ? 'CLG Bites' : 'Local Home Kitchen'} (Locked)</span>
+                  </div>
+                ) : (
+                  <select
+                    value={selectedRestaurant}
+                    onChange={(e) => setSelectedRestaurant(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  >
+                    <option value="local-home-kitchen">Local Home Kitchen</option>
+                    <option value="clg-bites-biryani-nation">CLG Bites Biryani</option>
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-slate-400 text-[10px] font-bold uppercase mb-1">
+                  Rider Login PIN
+                </label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  placeholder="Default: 1234"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-emerald-500 font-mono"
+                />
+              </div>
             </div>
 
             {errorMsg && (
@@ -218,7 +268,7 @@ export default function DeliveryPartnersModal({ isOpen, onClose, onPartnersChang
 
             {partners.length === 0 ? (
               <div className="p-8 text-center text-slate-500 bg-slate-900/40 rounded-2xl border border-slate-800">
-                No delivery partners registered yet. Add one above.
+                No delivery partners registered yet for this kitchen. Add one above.
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -237,6 +287,9 @@ export default function DeliveryPartnersModal({ isOpen, onClose, onPartnersChang
                             {partner.name}
                           </h4>
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        </div>
+                        <div className="text-[10px] text-amber-400 font-semibold truncate">
+                          {partner.restaurant_id === 'clg-bites-biryani-nation' ? 'CLG Bites' : 'Local Home Kitchen'}
                         </div>
                         <a
                           href={`tel:${partner.phone}`}

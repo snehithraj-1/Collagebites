@@ -24,6 +24,7 @@ export default function AdminSideMenuDrawer({
   deliveryPartnersCount = 0,
   onOpenMenuManager,
   onOpenStudentsModal,
+  onOpenRiderPortal,
   onRefreshData,
   isRefreshing,
   onLogout
@@ -142,6 +143,32 @@ export default function AdminSideMenuDrawer({
               </div>
               <ChevronRight size={16} className="text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
             </button>
+
+            {/* Direct Switch to Delivery Partner (Rider) Console */}
+            {onOpenRiderPortal && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenRiderPortal();
+                }}
+                className="w-full p-3.5 rounded-2xl bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-800/60 hover:border-cyan-500 text-left transition-all cursor-pointer flex items-center justify-between group active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-lg border border-cyan-500/40 group-hover:scale-105 transition-transform">
+                    🛵
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-cyan-200 group-hover:text-white transition-colors block">
+                      Rider Portal ➔
+                    </span>
+                    <p className="text-xs text-cyan-400/80">
+                      Switch to delivery partner dispatch console
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-cyan-400 group-hover:translate-x-0.5 transition-all" />
+              </button>
+            )}
 
             {/* 2. Menu & Inventory */}
             <button

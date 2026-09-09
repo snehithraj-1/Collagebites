@@ -221,6 +221,7 @@ function StudentAppInner() {
 
       {/* Floating Real-Time Order Status Notifications (Cooking, Ready, Out for delivery to Gate 3) */}
       <StudentNotificationToast
+        activeOrderId={confirmedOrder?.id}
         onTrackOrder={(order) => {
           setConfirmedOrder(order);
           setCurrentView('success');

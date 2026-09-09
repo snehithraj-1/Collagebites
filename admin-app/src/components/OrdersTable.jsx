@@ -39,9 +39,11 @@ export default function OrdersTable({
   activeRestaurantTab = 'all',
   onSelectRestaurantTab,
   restaurantName = 'All Restaurants',
+  isRestaurantAdmin = false,
   onInspectOrder,
   onCancelOrder,
-  onPromptDeleteOrder
+  onPromptDeleteOrder,
+  onUpdateStatus
 }) {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,8 +107,18 @@ export default function OrdersTable({
       {/* Top Header: Restaurant Switcher Tabs & Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         
-        {/* Restaurant Tabs */}
-        {onSelectRestaurantTab && (
+        {/* Restaurant Tabs or Scoped Kitchen Badge */}
+        {isRestaurantAdmin ? (
+          <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-900 rounded-xl border border-slate-800">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-black text-white font-['Outfit']">
+              {restaurantName} Staff Portal
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold uppercase border border-emerald-500/30">
+              Isolated
+            </span>
+          </div>
+        ) : onSelectRestaurantTab ? (
           <div className="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800 overflow-x-auto scrollbar-none">
             <button
               onClick={() => onSelectRestaurantTab('local-home-kitchen')}
@@ -139,7 +151,7 @@ export default function OrdersTable({
               All Restaurants
             </button>
           </div>
-        )}
+        ) : null}
 
         {/* Search, Filter & Export Actions */}
         <div className="flex flex-wrap items-center gap-2">
@@ -294,6 +306,35 @@ export default function OrdersTable({
                           <Eye size={13} />
                         </button>
 
+                        {onUpdateStatus && order.status === 'CONFIRMED' && (
+                          <button
+                            onClick={() => onUpdateStatus(order.id, 'OUT_FOR_DELIVERY')}
+                            className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border-none shadow-xs"
+                            title="Mark Out for Delivery"
+                          >
+                            <Bike size={11} />
+                            <span>Dispatch</span>
+                          </button>
+                        )}
+
+                        {onUpdateStatus && order.status === 'OUT_FOR_DELIVERY' && (
+                          <button
+                            onClick={() => onUpdateStatus(order.id, 'DELIVERED')}
+                            className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border-none shadow-xs"
+                            title="Mark Order as Delivered"
+                          >
+                            <CheckCircle2 size={11} />
+                            <span>Deliver</span>
+                          </button>
+                        )}
+
+                        {order.status === 'DELIVERED' && (
+                          <span className="px-2 py-0.5 rounded-lg bg-emerald-950/60 border border-emerald-800/80 text-emerald-400 font-bold text-[10px] flex items-center gap-1">
+                            <CheckCircle2 size={10} />
+                            <span>Done</span>
+                          </span>
+                        )}
+
                         {order.status !== 'CANCELLED' && onCancelOrder && (
                           <button
                             onClick={() => onCancelOrder(order.id)}
@@ -405,6 +446,26 @@ export default function OrdersTable({
                     <Eye size={12} />
                     <span>View</span>
                   </button>
+
+                  {onUpdateStatus && order.status === 'CONFIRMED' && (
+                    <button
+                      onClick={() => onUpdateStatus(order.id, 'OUT_FOR_DELIVERY')}
+                      className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1 cursor-pointer border-none shadow-xs"
+                    >
+                      <Bike size={12} />
+                      <span>Dispatch</span>
+                    </button>
+                  )}
+
+                  {onUpdateStatus && order.status === 'OUT_FOR_DELIVERY' && (
+                    <button
+                      onClick={() => onUpdateStatus(order.id, 'DELIVERED')}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 cursor-pointer border-none shadow-xs"
+                    >
+                      <CheckCircle2 size={12} />
+                      <span>Deliver</span>
+                    </button>
+                  )}
 
                   {order.status !== 'CANCELLED' && onCancelOrder && (
                     <button

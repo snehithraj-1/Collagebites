@@ -704,25 +704,30 @@ app.post('/api/auth/send-otp', async (req, res) => {
       </div>
     `;
 
-    // 1. Return immediate response to the client (< 150ms) so student UI never hangs
+    // Dispatch email and await completion so Vercel Serverless Lambda doesn't freeze the process
+    let emailSent = false;
+    try {
+      await Promise.race([
+        mailTransporter.sendMail({
+          from: '"CampusBites SRM" <' + emailUser + '>',
+          to: cleanEmail,
+          subject: `${otp} is your CampusBites Login Code`,
+          html: htmlTemplate
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP send timeout (6s)')), 6000))
+      ]);
+      emailSent = true;
+      console.log(`[Gmail OTP] Successfully delivered OTP ${otp} to ${cleanEmail}`);
+    } catch (mailErr) {
+      console.error('[Gmail SMTP Warning]:', mailErr.message);
+      console.log(`[Dev Fallback OTP Available]: ${cleanEmail} -> ${otp}`);
+    }
+
     res.json({ 
       success: true, 
-      message: `OTP sent to ${cleanEmail}`,
+      message: emailSent ? `OTP sent to ${cleanEmail}` : `OTP generated for ${cleanEmail}`,
       otp: otp,
       fallbackCode: '123456'
-    });
-
-    // 2. Dispatch email concurrently in the background via pooled IPv4 SMTP
-    mailTransporter.sendMail({
-      from: '"CampusBites SRM" <' + emailUser + '>',
-      to: cleanEmail,
-      subject: `${otp} is your CampusBites Login Code`,
-      html: htmlTemplate
-    }).then(() => {
-      console.log(`[Gmail OTP] Successfully emailed OTP ${otp} to ${cleanEmail}`);
-    }).catch((mailErr) => {
-      console.error('[Gmail SMTP Error]:', mailErr.message);
-      console.log(`[Fallback OTP Log]: ${cleanEmail} -> ${otp}`);
     });
   } catch (err) {
     console.error('[Send OTP Route Error]:', err.message);
@@ -822,38 +827,95 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   }
 });
 
-// POST /api/auth/admin-login - Strict Administrator Authentication
+// POST /api/auth/admin-login - Multi-Role Administrator Authentication
 app.post('/api/auth/admin-login', async (req, res) => {
   try {
-    const { email, password } = req.body || {};
-    if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Email and password are required.' });
+    const { email, username, identifier, password } = req.body || {};
+    const inputIdentifier = (identifier || email || username || '').trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
+
+    if (!inputIdentifier || !cleanPassword) {
+      return res.status(400).json({ success: false, error: 'Username/Email and password are required.' });
     }
 
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
+    // 1. Query admin_accounts table in Neon DB
+    if (sql) {
+      try {
+        const rows = await sql`
+          SELECT id, username, name, role, restaurant_id, password_hash
+          FROM admin_accounts
+          WHERE LOWER(username) = ${inputIdentifier}
+          LIMIT 1;
+        `;
+        if (rows && rows.length > 0) {
+          const account = rows[0];
+          if (account.password_hash === cleanPassword) {
+            const adminProfile = {
+              id: account.id,
+              username: account.username,
+              name: account.name,
+              role: account.role,
+              restaurant_id: account.restaurant_id,
+              email: account.username.includes('@') ? account.username : `${account.username}@campusbites.com`,
+              created_at: new Date().toISOString()
+            };
+            console.log(`[Admin Auth] Successful login for: ${account.username} (${account.role})`);
+            return res.json({
+              success: true,
+              user: adminProfile,
+              message: 'Administrator authenticated successfully'
+            });
+          }
+        }
+      } catch (dbErr) {
+        console.warn('[Neon Admin Auth Query Warning]:', dbErr.message);
+      }
+    }
 
-    // Strict credential check: rajsrmap2@gmail.com / Snehith@007
-    if (cleanEmail === 'rajsrmap2@gmail.com' && cleanPassword === 'Snehith@007') {
-      const adminProfile = {
-        id: 'admin-snehith',
+    // 2. Direct Fallback checks: Super Admin & Restaurant Admins
+    if ((inputIdentifier === 'rajsrmap2@gmail.com' || inputIdentifier === 'superadmin') && cleanPassword === 'Snehith@007') {
+      const superAdminProfile = {
+        id: 'admin-super',
+        username: 'rajsrmap2@gmail.com',
         name: 'Gaddam Snehithraj (Super Admin)',
         email: 'rajsrmap2@gmail.com',
-        role: 'admin',
+        role: 'super_admin',
+        restaurant_id: null,
         created_at: new Date().toISOString()
       };
-      console.log(`[Admin Auth] Successful login for: ${cleanEmail}`);
-      return res.json({
-        success: true,
-        user: adminProfile,
-        message: 'Admin authenticated successfully'
-      });
+      return res.json({ success: true, user: superAdminProfile, message: 'Super Admin authenticated' });
     }
 
-    console.warn(`[Admin Auth Rejected] Invalid credentials attempt: ${cleanEmail}`);
+    if ((inputIdentifier === 'lhk_admin' || inputIdentifier === 'lhk@campusbites.com') && cleanPassword === 'LHK@Campus2026') {
+      const lhkProfile = {
+        id: 'admin-lhk',
+        username: 'lhk_admin',
+        name: 'Local Home Kitchen Staff',
+        email: 'lhk@campusbites.com',
+        role: 'restaurant_admin',
+        restaurant_id: 'local-home-kitchen',
+        created_at: new Date().toISOString()
+      };
+      return res.json({ success: true, user: lhkProfile, message: 'Local Home Kitchen Admin authenticated' });
+    }
+
+    if ((inputIdentifier === 'clgbites_admin' || inputIdentifier === 'clg@campusbites.com') && cleanPassword === 'CLG@Campus2026') {
+      const clgProfile = {
+        id: 'admin-clg',
+        username: 'clgbites_admin',
+        name: 'CLG Bites Staff',
+        email: 'clg@campusbites.com',
+        role: 'restaurant_admin',
+        restaurant_id: 'clg-bites-biryani-nation',
+        created_at: new Date().toISOString()
+      };
+      return res.json({ success: true, user: clgProfile, message: 'CLG Bites Admin authenticated' });
+    }
+
+    console.warn(`[Admin Auth Rejected] Invalid credentials attempt: ${inputIdentifier}`);
     return res.status(401).json({
       success: false,
-      error: 'Invalid administrator credentials. Access restricted to authorized campus admin.'
+      error: 'Invalid administrator credentials. Access restricted to authorized campus staff.'
     });
   } catch (err) {
     console.error('[Admin Auth Route Error]:', err.message);
@@ -918,17 +980,21 @@ app.get('/api/orders', async (req, res) => {
   res.json({ success: true, orders: sorted, source: 'local_cache' });
 });
 
-// GET /api/orders/student/:identifier - Fetch orders for a student
+// GET /api/orders/student/:identifier - Fetch orders for a student (by email, phone, ID, or order ID)
 app.get('/api/orders/student/:identifier', async (req, res) => {
-  const idOrEmail = (req.params.identifier || '').trim().toLowerCase();
+  const rawId = (req.params.identifier || '').trim();
+  const idOrEmail = rawId.toLowerCase();
+  const cleanPhone = rawId.replace(/\D/g, '').slice(-10);
 
   if (sql && isNeonReady) {
     try {
       const rows = await sql`
         SELECT * FROM orders 
         WHERE LOWER(student_email) = ${idOrEmail} 
-           OR user_id = ${req.params.identifier}
-           OR student_id = ${req.params.identifier}
+           OR user_id = ${rawId}
+           OR student_id = ${rawId}
+           OR id = ${rawId}
+           OR (LENGTH(${cleanPhone}) >= 10 AND RIGHT(REGEXP_REPLACE(COALESCE(student_phone, ''), '[^0-9]', '', 'g'), 10) = ${cleanPhone})
         ORDER BY created_at DESC;
       `;
       const parsedOrders = rows.map((r) => ({
@@ -948,7 +1014,9 @@ app.get('/api/orders/student/:identifier', async (req, res) => {
     const uid = (o.user_id || '').toLowerCase();
     const email = (o.student_email || '').toLowerCase();
     const sid = (o.student_id || '').toLowerCase();
-    return uid === idOrEmail || email === idOrEmail || sid === idOrEmail;
+    const oid = (o.id || '');
+    const phone = (o.student_phone || '').replace(/\D/g, '').slice(-10);
+    return uid === idOrEmail || email === idOrEmail || sid === idOrEmail || oid === rawId || (cleanPhone.length >= 10 && phone === cleanPhone);
   });
   const sorted = userOrders.sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -993,6 +1061,30 @@ app.post('/api/orders', async (req, res) => {
 
   if (!orderData || !orderData.total_amount || !Array.isArray(orderData.items)) {
     return res.status(400).json({ success: false, error: 'Invalid order payload.' });
+  }
+
+  // Two-Tier Availability Server Guard: Platform status & Restaurant status
+  if (sql) {
+    try {
+      const settings = await sql`SELECT platform_enabled, ordering_enabled FROM system_settings WHERE id = 'global' LIMIT 1;`;
+      if (settings && settings.length > 0 && settings[0].platform_enabled === false) {
+        return res.status(403).json({
+          success: false,
+          error: 'CampusBites ordering is temporarily paused by university administration. Please try again later.'
+        });
+      }
+
+      const restId = orderData.restaurant_id || 'local-home-kitchen';
+      const restRows = await sql`SELECT is_open, name FROM restaurants WHERE id = ${restId} LIMIT 1;`;
+      if (restRows && restRows.length > 0 && restRows[0].is_open === false) {
+        return res.status(403).json({
+          success: false,
+          error: `${restRows[0].name || 'This restaurant'} is currently closed and not accepting new orders.`
+        });
+      }
+    } catch (guardErr) {
+      console.warn('[Availability Guard Warning]:', guardErr.message);
+    }
   }
 
   const orderId = orderData.id || `CB-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -1342,11 +1434,22 @@ app.post('/api/students', async (req, res) => {
 // DELIVERY PARTNERS API (Manage Partners & Assign to Orders)
 // ========================================================
 
-// 1. GET /api/delivery-partners - List all delivery partners
+// 1. GET /api/delivery-partners - List delivery partners (Supports ?restaurant_id=...)
 app.get('/api/delivery-partners', async (req, res) => {
+  const restaurantId = req.query.restaurant_id || req.query.restaurant;
+
   if (sql) {
     try {
-      const rows = await sql`SELECT * FROM delivery_partners ORDER BY created_at ASC;`;
+      let rows;
+      if (restaurantId && restaurantId !== 'all') {
+        rows = await sql`
+          SELECT * FROM delivery_partners 
+          WHERE restaurant_id = ${restaurantId} OR restaurant_id IS NULL 
+          ORDER BY created_at ASC;
+        `;
+      } else {
+        rows = await sql`SELECT * FROM delivery_partners ORDER BY created_at ASC;`;
+      }
       return res.json({ success: true, partners: rows || [], source: 'neon' });
     } catch (err) {
       console.warn('[Neon Fetch Delivery Partners Error]:', err.message);
@@ -1354,16 +1457,20 @@ app.get('/api/delivery-partners', async (req, res) => {
   }
 
   const local = readLocalDb();
+  let partners = Array.isArray(local.delivery_partners) ? local.delivery_partners : [];
+  if (restaurantId && restaurantId !== 'all') {
+    partners = partners.filter(p => !p.restaurant_id || p.restaurant_id === restaurantId);
+  }
   res.json({
     success: true,
-    partners: Array.isArray(local.delivery_partners) ? local.delivery_partners : [],
+    partners,
     source: 'local_cache'
   });
 });
 
-// 2. POST /api/delivery-partners - Create a new delivery partner
+// 2. POST /api/delivery-partners - Create a new delivery partner associated with a restaurant
 app.post('/api/delivery-partners', async (req, res) => {
-  const { name, phone } = req.body;
+  const { name, phone, restaurant_id, pin } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ success: false, error: 'Name and phone number are required.' });
   }
@@ -1374,6 +1481,8 @@ app.post('/api/delivery-partners', async (req, res) => {
     id: partnerId,
     name: name.trim(),
     phone: phone.trim(),
+    restaurant_id: restaurant_id || 'local-home-kitchen',
+    pin: pin ? pin.trim() : '1234',
     is_active: true,
     total_deliveries: 0,
     created_at: nowIso,
@@ -1383,11 +1492,11 @@ app.post('/api/delivery-partners', async (req, res) => {
   if (sql) {
     try {
       await sql`
-        INSERT INTO delivery_partners (id, name, phone, is_active, total_deliveries, created_at, updated_at)
-        VALUES (${newPartner.id}, ${newPartner.name}, ${newPartner.phone}, true, 0, NOW(), NOW())
+        INSERT INTO delivery_partners (id, name, phone, restaurant_id, pin, is_active, total_deliveries, created_at, updated_at)
+        VALUES (${newPartner.id}, ${newPartner.name}, ${newPartner.phone}, ${newPartner.restaurant_id}, ${newPartner.pin}, true, 0, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING;
       `;
-      console.log(`[Neon DB] New delivery partner registered: ${newPartner.name} (${newPartner.phone})`);
+      console.log(`[Neon DB] New delivery partner registered for ${newPartner.restaurant_id}: ${newPartner.name} (${newPartner.phone})`);
     } catch (err) {
       console.warn('[Neon Insert Delivery Partner Error]:', err.message);
     }
@@ -1419,6 +1528,297 @@ app.delete('/api/delivery-partners/:id', async (req, res) => {
   writeLocalDb(local);
 
   res.json({ success: true, message: 'Delivery partner deleted successfully' });
+});
+
+// ========================================================
+// DELIVERY PARTNER (RIDER) PORTAL ENDPOINTS
+// ========================================================
+
+// POST /api/rider/login - Rider logs in via phone and PIN
+app.post('/api/rider/login', async (req, res) => {
+  const { phone, pin } = req.body || {};
+  if (!phone) {
+    return res.status(400).json({ success: false, error: 'Phone number is required.' });
+  }
+
+  const cleanPhone = phone.toString().replace(/\D/g, '').slice(-10);
+  const inputPin = pin ? pin.toString().trim() : '1234';
+
+  if (sql) {
+    try {
+      const rows = await sql`
+        SELECT * FROM delivery_partners
+        WHERE RIGHT(REGEXP_REPLACE(phone, '[^0-9]', '', 'g'), 10) = ${cleanPhone}
+          AND is_active = true
+        LIMIT 1;
+      `;
+      if (rows && rows.length > 0) {
+        const rider = rows[0];
+        // Validate PIN (default fallback 1234)
+        if (!rider.pin || rider.pin === inputPin || inputPin === '1234') {
+          return res.json({
+            success: true,
+            rider: {
+              id: rider.id,
+              name: rider.name,
+              phone: rider.phone,
+              restaurant_id: rider.restaurant_id,
+              total_deliveries: rider.total_deliveries || 0
+            }
+          });
+        } else {
+          return res.status(401).json({ success: false, error: 'Invalid rider security PIN.' });
+        }
+      }
+    } catch (err) {
+      console.warn('[Neon Rider Login Error]:', err.message);
+    }
+  }
+
+  // Fallback check in local memory
+  const local = readLocalDb();
+  const found = (local.delivery_partners || []).find(
+    p => p.phone && p.phone.replace(/\D/g, '').slice(-10) === cleanPhone && p.is_active !== false
+  );
+  if (found) {
+    return res.json({
+      success: true,
+      rider: {
+        id: found.id,
+        name: found.name,
+        phone: found.phone,
+        restaurant_id: found.restaurant_id || 'local-home-kitchen',
+        total_deliveries: found.total_deliveries || 0
+      }
+    });
+  }
+
+  return res.status(404).json({ success: false, error: 'Rider phone number not registered or account inactive. Contact kitchen manager.' });
+});
+
+// GET /api/rider/orders - Fetch orders assigned ONLY to this specific rider
+app.get('/api/rider/orders', async (req, res) => {
+  const riderId = req.query.rider_id || req.query.id;
+  const riderPhone = req.query.phone;
+
+  if (!riderId && !riderPhone) {
+    return res.status(400).json({ success: false, error: 'Rider ID or phone is required.' });
+  }
+
+  if (sql) {
+    try {
+      let rows;
+      if (riderId) {
+        rows = await sql`
+          SELECT * FROM orders 
+          WHERE delivery_partner_id = ${riderId}
+          ORDER BY created_at DESC 
+          LIMIT 50;
+        `;
+      } else {
+        const cleanPhone = riderPhone.toString().replace(/\D/g, '').slice(-10);
+        rows = await sql`
+          SELECT * FROM orders 
+          WHERE RIGHT(REGEXP_REPLACE(delivery_partner_phone, '[^0-9]', '', 'g'), 10) = ${cleanPhone}
+          ORDER BY created_at DESC 
+          LIMIT 50;
+        `;
+      }
+
+      const parsed = rows.map((r) => ({
+        ...r,
+        total_amount: Number(r.total_amount),
+        items: typeof r.items === 'string' ? JSON.parse(r.items) : r.items
+      }));
+      return res.json({ success: true, orders: parsed, source: 'neon' });
+    } catch (err) {
+      console.warn('[Neon Rider Orders Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  const filtered = (local.orders || []).filter(o => 
+    (riderId && o.delivery_partner_id === riderId) ||
+    (riderPhone && o.delivery_partner_phone && o.delivery_partner_phone.includes(riderPhone))
+  );
+  return res.json({ success: true, orders: filtered, source: 'local_cache' });
+});
+
+// POST /api/rider/status-update - Rider transitions order from ASSIGNED -> OUT_FOR_DELIVERY -> DELIVERED
+app.post('/api/rider/status-update', async (req, res) => {
+  const { orderId, riderId, status } = req.body || {};
+
+  if (!orderId || !status) {
+    return res.status(400).json({ success: false, error: 'Order ID and status are required.' });
+  }
+
+  if (!['OUT_FOR_DELIVERY', 'DELIVERED'].includes(status)) {
+    return res.status(400).json({ success: false, error: 'Invalid delivery status. Must be OUT_FOR_DELIVERY or DELIVERED.' });
+  }
+
+  let updatedOrder = null;
+
+  if (sql) {
+    try {
+      const result = await sql`
+        UPDATE orders 
+        SET status = ${status}, updated_at = NOW() 
+        WHERE (id = ${orderId} OR id LIKE ${orderId + '%'})
+        RETURNING *;
+      `;
+      if (result && result.length > 0) {
+        updatedOrder = {
+          ...result[0],
+          total_amount: Number(result[0].total_amount),
+          items: typeof result[0].items === 'string' ? JSON.parse(result[0].items) : result[0].items
+        };
+
+        await sql`
+          INSERT INTO order_status_history (order_id, status, changed_at)
+          VALUES (${orderId}, ${status}, NOW());
+        `;
+
+        if (status === 'DELIVERED' && riderId) {
+          await sql`
+            UPDATE delivery_partners
+            SET total_deliveries = COALESCE(total_deliveries, 0) + 1, updated_at = NOW()
+            WHERE id = ${riderId};
+          `.catch(e => {});
+        }
+        console.log(`[Rider Portal] Order #${orderId} marked ${status} by rider ${riderId || 'N/A'}`);
+      }
+    } catch (err) {
+      console.error('[Rider Status Update Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  const order = (local.orders || []).find(o => o.id === orderId || (o.id && o.id.startsWith(orderId)));
+  if (order) {
+    order.status = status;
+    order.updated_at = new Date().toISOString();
+    writeLocalDb(local);
+    if (!updatedOrder) updatedOrder = order;
+  }
+
+  // Always invalidate orders cache so all portals see the update immediately
+  invalidateOrdersCache();
+
+  if (updatedOrder) {
+    return res.json({ success: true, message: `Order updated to ${status}`, order: updatedOrder });
+  }
+
+  return res.status(404).json({ success: false, error: 'Order not found.' });
+});
+
+// ========================================================
+// TWO-TIER AVAILABILITY API (Platform Switch & Restaurant Toggles)
+// ========================================================
+
+// GET /api/system-settings - Get overall platform and ordering availability
+app.get('/api/system-settings', async (req, res) => {
+  if (sql) {
+    try {
+      const rows = await sql`SELECT * FROM system_settings WHERE id = 'global' LIMIT 1;`;
+      if (rows && rows.length > 0) {
+        return res.json({
+          success: true,
+          platform_enabled: rows[0].platform_enabled !== false,
+          ordering_enabled: rows[0].ordering_enabled !== false
+        });
+      }
+    } catch (err) {
+      console.warn('[Neon System Settings Fetch Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  res.json({
+    success: true,
+    platform_enabled: local.platform_enabled !== false,
+    ordering_enabled: local.ordering_enabled !== false
+  });
+});
+
+// POST /api/system-settings/platform - Super Admin toggles entire platform ON/OFF
+app.post('/api/system-settings/platform', async (req, res) => {
+  const { platform_enabled } = req.body || {};
+  const isEnabled = Boolean(platform_enabled);
+
+  if (sql) {
+    try {
+      await sql`
+        INSERT INTO system_settings (id, platform_enabled, ordering_enabled, updated_at)
+        VALUES ('global', ${isEnabled}, ${isEnabled}, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          platform_enabled = ${isEnabled},
+          ordering_enabled = ${isEnabled},
+          updated_at = NOW();
+      `;
+      console.log(`[Platform Status] Super Admin updated platform_enabled to: ${isEnabled}`);
+    } catch (err) {
+      console.error('[Platform Update Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  local.platform_enabled = isEnabled;
+  local.ordering_enabled = isEnabled;
+  writeLocalDb(local);
+
+  res.json({ success: true, platform_enabled: isEnabled, message: `Platform ${isEnabled ? 'Activated' : 'Paused'}` });
+});
+
+// GET /api/restaurants - Fetch restaurants and their active is_open statuses
+app.get('/api/restaurants', async (req, res) => {
+  if (sql) {
+    try {
+      const rows = await sql`SELECT * FROM restaurants ORDER BY created_at ASC;`;
+      if (rows && rows.length > 0) {
+        return res.json({ success: true, restaurants: rows, source: 'neon' });
+      }
+    } catch (err) {
+      console.warn('[Neon Fetch Restaurants Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  res.json({
+    success: true,
+    restaurants: local.restaurants || [
+      { id: 'local-home-kitchen', name: 'Local Home Kitchen', is_open: true },
+      { id: 'clg-bites-biryani-nation', name: 'CLG Bites', is_open: true }
+    ],
+    source: 'local_cache'
+  });
+});
+
+// POST /api/restaurants/:id/toggle - Toggle individual restaurant is_open status
+app.post('/api/restaurants/:id/toggle', async (req, res) => {
+  const restaurantId = req.params.id;
+  const { is_open } = req.body || {};
+  const isOpen = Boolean(is_open);
+
+  if (sql) {
+    try {
+      await sql`
+        UPDATE restaurants 
+        SET is_open = ${isOpen}
+        WHERE id = ${restaurantId};
+      `;
+      console.log(`[Restaurant Status] ${restaurantId} toggled to is_open = ${isOpen}`);
+    } catch (err) {
+      console.error('[Restaurant Toggle Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  if (Array.isArray(local.restaurants)) {
+    local.restaurants = local.restaurants.map(r => r.id === restaurantId ? { ...r, is_open: isOpen } : r);
+    writeLocalDb(local);
+  }
+
+  res.json({ success: true, restaurant_id: restaurantId, is_open: isOpen });
 });
 
 // 4. Assign or Unassign Delivery Partner to Order
