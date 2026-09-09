@@ -872,27 +872,34 @@ function invalidateOrdersCache() {
   ordersCacheTime = 0;
 }
 
-// GET /api/orders - Fetch all orders for Admin
+// GET /api/orders - Fetch orders (supports ?restaurant_id=...)
 app.get('/api/orders', async (req, res) => {
+  const restaurantId = req.query.restaurant_id || req.query.restaurant;
+  const cacheKey = restaurantId || 'all';
   const now = Date.now();
-  if (ordersCache && (now - ordersCacheTime < CACHE_TTL_MS)) {
-    return res.json({ success: true, orders: ordersCache, source: 'cache_fast' });
-  }
 
   if (sql && isNeonReady) {
     try {
-      const rows = await sql`
-        SELECT * FROM orders 
-        ORDER BY created_at DESC 
-        LIMIT 200;
-      `;
+      let rows;
+      if (restaurantId) {
+        rows = await sql`
+          SELECT * FROM orders 
+          WHERE restaurant_id = ${restaurantId}
+          ORDER BY created_at DESC 
+          LIMIT 200;
+        `;
+      } else {
+        rows = await sql`
+          SELECT * FROM orders 
+          ORDER BY created_at DESC 
+          LIMIT 200;
+        `;
+      }
       const parsedOrders = rows.map((r) => ({
         ...r,
         total_amount: Number(r.total_amount),
         items: typeof r.items === 'string' ? JSON.parse(r.items) : r.items
       }));
-      ordersCache = parsedOrders;
-      ordersCacheTime = Date.now();
       return res.json({ success: true, orders: parsedOrders, source: 'neon' });
     } catch (err) {
       console.warn('[Neon Fetch Orders Error]:', err.message);
@@ -901,7 +908,11 @@ app.get('/api/orders', async (req, res) => {
 
   // Fallback to local cache
   const local = readLocalDb();
-  const sorted = [...(local.orders || [])].sort(
+  let sorted = [...(local.orders || [])];
+  if (restaurantId) {
+    sorted = sorted.filter(o => o.restaurant_id === restaurantId);
+  }
+  sorted.sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
   res.json({ success: true, orders: sorted, source: 'local_cache' });

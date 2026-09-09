@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useStudentAuth } from '../context/StudentAuthContext';
 import { useCart } from '../context/CartContext';
+import { showPushNotification, requestPushPermission } from '../lib/pushNotifications';
 
 export default function OrderConfirmationModal({
   isOpen,
@@ -169,6 +170,17 @@ export default function OrderConfirmationModal({
           spread: 70,
           origin: { y: 0.6 }
         });
+      } catch (e) {}
+
+      // Native Web Push Notification
+      try {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+          requestPushPermission();
+        }
+        showPushNotification(
+          'CampusBites — Order Confirmed!',
+          `Your order #${orderId} for ${restaurant?.name || 'Campus Kitchen'} (₹${totalAmount}) has been confirmed!`
+        );
       } catch (e) {}
 
       setStatusMessage('Order Confirmed Successfully.');

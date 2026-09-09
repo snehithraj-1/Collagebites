@@ -18,14 +18,29 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const studentEmail = req.query.studentEmail || req.query.email;
+      const restaurantId = req.query.restaurantId || req.query.restaurant_id;
       let rows = [];
 
-      if (studentEmail) {
+      if (studentEmail && restaurantId) {
+        const cleanEmail = studentEmail.trim().toLowerCase();
+        rows = await sql`
+          SELECT * FROM orders 
+          WHERE LOWER(student_email) = ${cleanEmail} AND restaurant_id = ${restaurantId}
+          ORDER BY created_at DESC;
+        `;
+      } else if (studentEmail) {
         const cleanEmail = studentEmail.trim().toLowerCase();
         rows = await sql`
           SELECT * FROM orders 
           WHERE LOWER(student_email) = ${cleanEmail} 
           ORDER BY created_at DESC;
+        `;
+      } else if (restaurantId) {
+        rows = await sql`
+          SELECT * FROM orders 
+          WHERE restaurant_id = ${restaurantId}
+          ORDER BY created_at DESC 
+          LIMIT 100;
         `;
       } else {
         rows = await sql`
@@ -94,8 +109,8 @@ export default async function handler(req, res) {
           created_at, updated_at
         ) VALUES (
           ${orderId}, ${studentName}, ${cleanEmail}, ${studentPhone || '9989955833'},
-          ${deliveryLocation || 'SRM University - Gate 3'}, ${restaurantId || 'maggi-hotspot'}, ${restaurantName || 'Campus Diner'},
-          ${itemsJson}::jsonb, ${totalAmount}, 'placed', ${paymentMethod || 'cod'},
+          ${deliveryLocation || 'SRM University - Gate 3'}, ${restaurantId || 'local-home-kitchen'}, ${restaurantName || 'Campus Kitchen'},
+          ${itemsJson}::jsonb, ${totalAmount}, 'CONFIRMED', ${paymentMethod || 'cod'},
           NOW(), NOW()
         );
       `;
@@ -110,7 +125,7 @@ export default async function handler(req, res) {
         restaurantName,
         items,
         totalAmount,
-        status: 'placed',
+        status: 'CONFIRMED',
         paymentMethod: paymentMethod || 'cod',
         deliveryPartner: null,
         createdAt: new Date().toISOString()

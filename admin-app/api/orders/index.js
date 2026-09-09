@@ -16,11 +16,22 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const rows = await sql`
-        SELECT * FROM orders 
-        ORDER BY created_at DESC 
-        LIMIT 200;
-      `;
+      const restaurantId = req.query.restaurant_id || req.query.restaurant;
+      let rows;
+      if (restaurantId) {
+        rows = await sql`
+          SELECT * FROM orders 
+          WHERE restaurant_id = ${restaurantId}
+          ORDER BY created_at DESC 
+          LIMIT 200;
+        `;
+      } else {
+        rows = await sql`
+          SELECT * FROM orders 
+          ORDER BY created_at DESC 
+          LIMIT 200;
+        `;
+      }
       const formatted = rows.map(r => ({
         id: r.id,
         studentName: r.student_name,

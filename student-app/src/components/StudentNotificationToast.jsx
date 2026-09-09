@@ -4,40 +4,19 @@ import { playStudentChime, sendStudentNotification, requestStudentNotificationPe
 import { useStudentAuth } from '../context/StudentAuthContext';
 
 const STATUS_DETAILS = {
-  ACCEPTED: {
-    title: '✅ Order Accepted by Kitchen!',
-    desc: 'The kitchen has accepted your order and will start cooking shortly.',
+  CONFIRMED: {
+    title: 'Order Confirmed!',
+    desc: 'Your food order has been confirmed and received by the kitchen.',
     icon: CheckCircle2,
-    bg: 'from-blue-500/10 to-emerald-500/10 border-blue-500/30 text-blue-900',
-    badge: 'bg-blue-100 text-blue-800'
-  },
-  PREPARING: {
-    title: '🍳 Cooking Started!',
-    desc: 'Chef has fired up the kitchen and is preparing your meal.',
-    icon: ChefHat,
-    bg: 'from-amber-500/10 to-orange-500/10 border-amber-500/30 text-amber-900',
-    badge: 'bg-amber-100 text-amber-800'
-  },
-  READY: {
-    title: '📦 Order Packed & Ready!',
-    desc: 'Your food is fresh, hot, and ready at the dispatch counter.',
-    icon: PackageCheck,
-    bg: 'from-blue-500/10 to-indigo-500/10 border-blue-500/30 text-blue-900',
-    badge: 'bg-blue-100 text-blue-800'
-  },
-  OUT_FOR_DELIVERY: {
-    title: '🛵 Out for Delivery!',
-    desc: 'Courier is heading directly to SRM University Gate 3!',
-    icon: Bike,
-    bg: 'from-orange-500/10 to-emerald-500/10 border-orange-500/30 text-orange-900',
-    badge: 'bg-orange-100 text-orange-800'
-  },
-  DELIVERED: {
-    title: '🎉 Arrived at Gate 3!',
-    desc: 'Your order has been delivered to SRM University Gate 3. Enjoy your meal!',
-    icon: CheckCheck,
-    bg: 'from-emerald-500/10 to-green-500/10 border-emerald-500/30 text-emerald-900',
+    bg: 'bg-emerald-50 border-emerald-200 text-emerald-900',
     badge: 'bg-emerald-100 text-emerald-800'
+  },
+  CANCELLED: {
+    title: 'Order Cancelled',
+    desc: 'Your order has been cancelled.',
+    icon: X,
+    bg: 'bg-rose-50 border-rose-200 text-rose-900',
+    badge: 'bg-rose-100 text-rose-800'
   }
 };
 

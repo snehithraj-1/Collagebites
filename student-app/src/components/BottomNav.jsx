@@ -12,7 +12,7 @@ export default function BottomNav({ currentView, onNavigate }) {
   const isProfileActive = currentView === 'profile';
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#F1EAE4] shadow-xl shadow-slate-950/10 transition-all pb-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#E2D9D0] shadow-sm transition-all pb-safe">
       <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-around relative">
         
         {/* 1. Home Tab */}

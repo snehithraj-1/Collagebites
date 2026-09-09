@@ -3,7 +3,7 @@ import { ShoppingBag, CheckCircle2, XCircle, Store, Power } from 'lucide-react';
 
 export default function MetricsOverview({ orders, restaurants, orderingEnabled }) {
   const totalOrders = orders.length;
-  const confirmedOrders = orders.filter((o) => ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(o.status)).length;
+  const confirmedOrders = orders.filter((o) => o.status === 'CONFIRMED' || !['CANCELLED', 'EXPIRED'].includes(o.status)).length;
   const cancelledOrders = orders.filter((o) => ['CANCELLED', 'EXPIRED'].includes(o.status)).length;
   const activeRestaurants = restaurants.filter((r) => r.is_open !== false).length;
 

@@ -1,6 +1,9 @@
 /* CampusBites Student Portal — Ultra-Smooth Fluid Theme & 60/120fps Animation Engine */
 
 :root {
+  --bottom-nav-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --floating-cart-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
   --primary: #FF5722;
   --primary-hover: #F4511E;
   --primary-light: #FFF0EB;
@@ -11,6 +14,14 @@
   --text-muted: #64748B;
   --border-color: #F1EAE4;
   --spring-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.bottom-safe-cart {
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
 }
 
 html {

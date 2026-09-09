@@ -1,41 +1,72 @@
-import React, { useState } from 'react';
-import { Mail, KeyRound, ArrowRight, ShieldCheck, Sparkles, User, Phone, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mail, KeyRound, ArrowRight, ShieldCheck, User, Phone, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useStudentAuth } from '../context/StudentAuthContext';
 
 export default function StudentLoginPage() {
-  const { sendEmailOtp, verifyEmailOtp, isConfigured } = useStudentAuth();
+  const { sendEmailOtp, verifyEmailOtp } = useStudentAuth();
 
   const [step, setStep] = useState('ENTER_EMAIL'); // 'ENTER_EMAIL' | 'ENTER_OTP'
-  const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [otpToken, setOtpToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
-  // 1. Submit Email -> Request OTP
+  // Pre-fill existing student data if previously saved
+  useEffect(() => {
+    try {
+      const savedProfile = localStorage.getItem('cb_student_profile');
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        if (parsed.name) setName(parsed.name);
+        if (parsed.email) setEmail(parsed.email);
+        if (parsed.phone) setPhone(parsed.phone);
+      }
+      const savedDelivery = localStorage.getItem('cb_delivery_details');
+      if (savedDelivery) {
+        const parsed = JSON.parse(savedDelivery);
+        if (parsed.phone && !phone) setPhone(parsed.phone);
+      }
+    } catch {}
+  }, []);
+
+  // 1. Submit Details -> Request OTP
   const handleSendOtp = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !email.includes('@')) {
+    if (isLoading) return;
+
+    const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.trim().replace(/\D/g, '');
+
+    if (!cleanName || cleanName.length < 2) {
+      setMessage({ type: 'error', text: 'Please enter your full name.' });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
       setMessage({ type: 'error', text: 'Please enter a valid student email address.' });
       return;
     }
-    if (!phone.trim() || phone.trim().length < 10) {
-      setMessage({ type: 'error', text: 'Please enter your 10-digit mobile number.' });
+
+    if (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone)) {
+      setMessage({ type: 'error', text: 'Please enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).' });
       return;
     }
 
     setIsLoading(true);
     setMessage(null);
 
-    const result = await sendEmailOtp(email, name, phone);
+    const result = await sendEmailOtp(cleanEmail, cleanName, cleanPhone);
     setIsLoading(false);
 
     if (result.success) {
       setStep('ENTER_OTP');
       setMessage({
         type: 'success',
-        text: `6-digit OTP has been sent to ${email}. Please check your Inbox and Spam folder!`
+        text: `A 6-digit OTP code has been sent to ${cleanEmail}. Please check your Inbox (and Spam/Junk folder if delayed).`
       });
     } else {
       setMessage({ type: 'error', text: result.error || 'Failed to send OTP. Please try again.' });
@@ -45,15 +76,22 @@ export default function StudentLoginPage() {
   // 2. Submit OTP -> Verify & Sign in
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
-    if (!otpToken.trim() || otpToken.trim().length < 4) {
-      setMessage({ type: 'error', text: 'Please enter the 6-digit OTP sent to your email.' });
+    if (isLoading) return;
+
+    const cleanOtp = otpToken.trim();
+    if (!cleanOtp || cleanOtp.length < 4) {
+      setMessage({ type: 'error', text: 'Please enter the 6-digit OTP code sent to your email.' });
       return;
     }
 
     setIsLoading(true);
     setMessage(null);
 
-    const result = await verifyEmailOtp(email, otpToken, name, phone);
+    const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.trim().replace(/\D/g, '');
+
+    const result = await verifyEmailOtp(cleanEmail, cleanOtp, cleanName, cleanPhone);
     setIsLoading(false);
 
     if (!result.success) {
@@ -62,47 +100,46 @@ export default function StudentLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 bg-[#FAF8F5]">
+    <div className="min-h-screen flex flex-col justify-center py-10 px-4 sm:px-6 lg:px-8 bg-[#FAF8F5]">
+      
+      {/* Brand Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        
-        {/* Brand Icon */}
-        <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#FF5722] to-[#FF8A65] mx-auto flex items-center justify-center text-white text-3xl shadow-xl shadow-[#FF5722]/25 mb-4">
-          🍔
+        <div className="w-14 h-14 rounded-2xl bg-[#FF5722] text-white mx-auto flex items-center justify-center text-2xl font-black shadow-md shadow-[#FF5722]/20 mb-3">
+          CB
         </div>
-
-        <h1 className="text-3xl font-black text-[#0F172A] tracking-tight font-['Outfit']">
-          CampusBites Dining
+        <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight font-['Outfit']">
+          CampusBites
         </h1>
-        <p className="mt-1 text-sm text-[#64748B] font-medium">
-          SRM-AP Student Food Ordering & Hostel Delivery Portal
+        <p className="mt-1 text-xs sm:text-sm text-[#64748B] font-medium">
+          SRM-AP Student Food Ordering & Hostel Delivery
         </p>
-
-        <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
-          <Sparkles size={13} className="text-emerald-600" />
-          <span>Real Gmail OTP Verification Active</span>
-        </div>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-6 sm:px-10 rounded-3xl shadow-xl border border-[#F1EAE4] space-y-5">
+      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-7 px-6 sm:px-8 rounded-2xl shadow-sm border border-[#E2D9D0] space-y-5">
           
           {/* Status Message */}
           {message && (
-            <div className={`p-3.5 rounded-2xl text-xs font-bold leading-relaxed ${
+            <div className={`p-3.5 rounded-xl text-xs font-bold leading-relaxed flex items-start gap-2 ${
               message.type === 'error'
                 ? 'bg-rose-50 text-rose-800 border border-rose-200'
                 : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
             }`}>
-              {message.text}
+              {message.type === 'error' ? (
+                <AlertCircle size={16} className="shrink-0 text-rose-600 mt-0.5" />
+              ) : (
+                <CheckCircle2 size={16} className="shrink-0 text-emerald-600 mt-0.5" />
+              )}
+              <span>{message.text}</span>
             </div>
           )}
 
           {step === 'ENTER_EMAIL' ? (
             <form onSubmit={handleSendOtp} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <label className="block text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-1 flex items-center gap-1.5">
                   <User size={13} className="text-[#FF5722]" />
-                  <span>Full Name *</span>
+                  <span>Student Name *</span>
                 </label>
                 <input
                   type="text"
@@ -110,12 +147,33 @@ export default function StudentLoginPage() {
                   placeholder="Enter your full name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white"
+                  disabled={isLoading}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white transition-colors disabled:opacity-60"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <label className="block text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <Phone size={13} className="text-[#FF5722]" />
+                  <span>Mobile Phone Number *</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  maxLength={10}
+                  placeholder="10-digit phone number (e.g. 9989955833)"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  disabled={isLoading}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white transition-colors font-mono disabled:opacity-60"
+                />
+                <p className="text-[11px] text-[#64748B] mt-1">
+                  Couriers call this number when arriving at Gate 3.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-1 flex items-center gap-1.5">
                   <Mail size={13} className="text-[#FF5722]" />
                   <span>Student Email Address *</span>
                 </label>
@@ -125,40 +183,21 @@ export default function StudentLoginPage() {
                   placeholder="Add your email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white"
+                  disabled={isLoading}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white transition-colors disabled:opacity-60"
                 />
-                <div className="text-[11px] text-[#64748B] mt-1 space-y-1">
-                  <p>We will send your 6-digit login verification OTP to this email.</p>
-                  {email.toLowerCase().includes('srmap.edu.in') && (
-                    <p className="text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                      ⚠️ <strong>SRM AP Email Note:</strong> University mail (Outlook) frequently routes new external senders to your <strong>Junk Email</strong> folder. You can also use your personal Gmail for instant delivery!
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <Phone size={13} className="text-[#FF5722]" />
-                  <span>Mobile Phone Number *</span>
-                </label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="Enter 10-digit mobile number"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white"
-                />
+                <p className="text-[11px] text-[#64748B] mt-1">
+                  We will send a 6-digit one-time passcode (OTP) to this email.
+                </p>
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="btn-primary w-full py-3.5 mt-2 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer border-none disabled:opacity-50"
+                className="w-full py-3 mt-2 rounded-xl text-sm font-black bg-[#FF5722] hover:bg-[#F4511E] text-white flex items-center justify-center gap-2 cursor-pointer border-none shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
-                  <span>Sending OTP...</span>
+                  <span>Sending Verification Code...</span>
                 ) : (
                   <>
                     <span>Send Verification OTP</span>
@@ -169,56 +208,53 @@ export default function StudentLoginPage() {
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="p-3 rounded-2xl bg-[#FFF0EB] border border-[#FFD3C4] text-xs text-[#FF5722] flex items-center justify-between">
-                <span>Sending to: <strong>{email}</strong></span>
+              <div className="p-3 rounded-xl bg-[#FFF0EB] border border-[#FFD3C4] text-xs text-[#FF5722] flex items-center justify-between">
+                <span>Code sent to: <strong>{email}</strong></span>
                 <button
                   type="button"
                   onClick={() => setStep('ENTER_EMAIL')}
-                  className="text-xs font-black underline cursor-pointer border-none bg-transparent"
+                  disabled={isLoading}
+                  className="text-xs font-black underline cursor-pointer border-none bg-transparent text-[#FF5722]"
                 >
                   Change
                 </button>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <label className="block text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-1 flex items-center gap-1.5">
                   <KeyRound size={13} className="text-[#FF5722]" />
-                  <span>Enter 6-Digit Email OTP *</span>
+                  <span>Enter 6-Digit Code *</span>
                 </label>
                 <input
                   type="text"
                   required
                   autoFocus
                   maxLength={8}
-                  placeholder="e.g. 123456"
+                  placeholder="123456"
                   value={otpToken}
                   onChange={(e) => setOtpToken(e.target.value)}
-                  className="w-full px-3.5 py-3 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-lg font-mono font-bold tracking-widest text-center text-[#0F172A] focus:outline-none focus:border-[#FF5722] focus:bg-white"
+                  disabled={isLoading}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E2D9D0] bg-[#FAF8F5] text-xl font-mono font-black tracking-widest text-center text-[#0F172A] focus:outline-none focus:border-[#FF5722] focus:bg-white transition-colors disabled:opacity-60"
                 />
-                <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-[11px] text-amber-900 mt-2 space-y-1 text-center">
-                  <p className="font-bold text-[#FF5722]">
-                    📬 Email sent from CampusBites SRM
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-[#64748B] mt-2 space-y-1">
+                  <p className="font-semibold text-[#0F172A]">
+                    📬 Please check your Inbox and Spam/Junk folder.
                   </p>
-                  <p className="text-slate-600 leading-relaxed">
-                    If not in your Primary inbox, please check your <strong>Spam</strong> or <strong>Promotions/Updates</strong> folder in Gmail.
-                  </p>
-                  <p className="text-[10px] text-slate-400">
-                    (Test bypass code: <span className="font-mono font-bold text-slate-600">123456</span>)
-                  </p>
+                  <p>The OTP is valid for 10 minutes.</p>
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="btn-primary w-full py-3.5 mt-2 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer border-none disabled:opacity-50"
+                className="w-full py-3 mt-2 rounded-xl text-sm font-black bg-[#FF5722] hover:bg-[#F4511E] text-white flex items-center justify-center gap-2 cursor-pointer border-none shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
-                  <span>Verifying OTP...</span>
+                  <span>Verifying Code...</span>
                 ) : (
                   <>
                     <CheckCircle2 size={16} />
-                    <span>Verify & Enter Dining</span>
+                    <span>Verify & Continue</span>
                   </>
                 )}
               </button>
@@ -230,7 +266,7 @@ export default function StudentLoginPage() {
                   disabled={isLoading}
                   className="text-xs font-bold text-[#FF5722] hover:underline cursor-pointer border-none bg-transparent"
                 >
-                  Didn't receive email? Resend OTP
+                  Resend OTP
                 </button>
               </div>
             </form>
@@ -238,10 +274,10 @@ export default function StudentLoginPage() {
 
         </div>
 
-        {/* Security & Access Notice */}
-        <p className="mt-6 text-center text-xs text-[#64748B] flex items-center justify-center gap-1.5">
+        {/* Security badge */}
+        <p className="mt-5 text-center text-xs text-[#64748B] flex items-center justify-center gap-1.5">
           <ShieldCheck size={14} className="text-emerald-600" />
-          <span>Student Portal Access Protected via Supabase Row Level Security</span>
+          <span>Secure Campus Dining Authentication</span>
         </p>
       </div>
     </div>

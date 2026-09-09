@@ -20,6 +20,7 @@ export default function AdminDashboardPage() {
 
   const [orders, setOrders] = useState([]);
   const [restaurants, setRestaurants] = useState(DEFAULT_RESTAURANTS);
+  const [activeRestaurantTab, setActiveRestaurantTab] = useState('local-home-kitchen');
   const [orderingEnabled, setOrderingEnabled] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -138,13 +139,15 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  // 3. Load All Orders (from Shared API, Supabase, or local storage)
-  const loadOrders = useCallback(async (silent = false) => {
+  // 3. Load Orders (scoped to active restaurant)
+  const loadOrders = useCallback(async (silent = false, restaurantId = activeRestaurantTab) => {
     if (!silent) setIsRefreshing(true);
 
     try {
-      // 1. Try Shared Backend API first (bridges both frontends immediately)
-      const res = await fetch('/api/orders');
+      const url = restaurantId && restaurantId !== 'all'
+        ? `/api/orders?restaurant_id=${encodeURIComponent(restaurantId)}`
+        : '/api/orders';
+      const res = await fetch(url);
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.orders)) {
@@ -183,7 +186,7 @@ export default function AdminDashboardPage() {
 
     if (isSupabaseConfigured() && supabase) {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('orders')
           .select(`
             *,
@@ -191,8 +194,12 @@ export default function AdminDashboardPage() {
           `)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        if (data && data.length > 0) {
+        if (restaurantId && restaurantId !== 'all') {
+          query = query.eq('restaurant_id', restaurantId);
+        }
+
+        const { data, error } = await query;
+        if (!error && data && data.length > 0) {
           setOrders(data);
           setIsRefreshing(false);
           return;
@@ -205,13 +212,16 @@ export default function AdminDashboardPage() {
     // Local fallback
     try {
       const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-      setOrders(stored);
+      const filtered = restaurantId && restaurantId !== 'all'
+        ? stored.filter((o) => o.restaurant_id === restaurantId)
+        : stored;
+      setOrders(filtered);
     } catch {
       setOrders([]);
     } finally {
       setIsRefreshing(false);
     }
-  }, []);
+  }, [activeRestaurantTab]);
 
   // Initial Load & Realtime Subscriptions & Polling
   useEffect(() => {
@@ -575,12 +585,19 @@ export default function AdminDashboardPage() {
         {/* 4. Real-time Student Orders Table */}
         <OrdersTable
           orders={orders}
-          deliveryPartners={deliveryPartners}
-          onAssignPartner={handleAssignPartner}
-          onUnassignPartner={handleUnassignPartner}
-          onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
+          activeRestaurantTab={activeRestaurantTab}
+          onSelectRestaurantTab={(tab) => {
+            setActiveRestaurantTab(tab);
+            loadOrders(false, tab);
+          }}
+          restaurantName={
+            activeRestaurantTab === 'local-home-kitchen'
+              ? 'Local Home Kitchen'
+              : activeRestaurantTab === 'clg-bites-biryani-nation'
+              ? 'CLG Bites Biryani Nation'
+              : 'All Restaurants'
+          }
           onInspectOrder={(order) => setInspectingOrder(order)}
-          onUpdateStatus={handleUpdateStatus}
           onCancelOrder={handleCancelOrder}
           onPromptDeleteOrder={(order) => setOrderToDelete(order)}
         />
