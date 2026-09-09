@@ -1,3 +1,4 @@
+// CampusBites Super Admin Portal - Production Build v1.0.1
 import React from 'react';
 import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
