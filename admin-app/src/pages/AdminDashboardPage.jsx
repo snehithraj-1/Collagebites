@@ -14,6 +14,7 @@ import StudentsModal from '../components/StudentsModal';
 import MenuManagerModal from '../components/MenuManagerModal';
 import DeliveryPartnersModal from '../components/DeliveryPartnersModal';
 import AdminSideMenuDrawer from '../components/AdminSideMenuDrawer';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function AdminDashboardPage() {
   const { profile, logout } = useAdminAuth();
@@ -605,17 +606,19 @@ export default function AdminDashboardPage() {
       </main>
 
       {/* Inspect Order Details Modal */}
-      <OrderDetailsModal
-        order={inspectingOrder}
-        deliveryPartners={deliveryPartners}
-        onAssignPartner={handleAssignPartner}
-        onUnassignPartner={handleUnassignPartner}
-        onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
-        onClose={() => setInspectingOrder(null)}
-        onUpdateStatus={handleUpdateStatus}
-        onCancelOrder={handleCancelOrder}
-        onDeleteOrder={(order) => setOrderToDelete(order)}
-      />
+      <ErrorBoundary onReset={() => setInspectingOrder(null)}>
+        <OrderDetailsModal
+          order={inspectingOrder}
+          deliveryPartners={deliveryPartners}
+          onAssignPartner={handleAssignPartner}
+          onUnassignPartner={handleUnassignPartner}
+          onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
+          onClose={() => setInspectingOrder(null)}
+          onUpdateStatus={handleUpdateStatus}
+          onCancelOrder={handleCancelOrder}
+          onDeleteOrder={(order) => setOrderToDelete(order)}
+        />
+      </ErrorBoundary>
 
       {/* Permanent Deletion Confirmation Modal */}
       <DeleteConfirmModal

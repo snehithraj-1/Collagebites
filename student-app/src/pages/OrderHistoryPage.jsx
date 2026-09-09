@@ -169,13 +169,26 @@ export default function OrderHistoryPage({ onBackToRestaurants, onTrackOrder }) 
         <div className="space-y-4">
           {orders.map((order) => {
             const badge = getStatusBadge(order.status);
-            const dateFormatted = new Date(order.created_at).toLocaleDateString('en-IN', {
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
-            const orderItems = order.order_items || order.items || [];
+            let dateFormatted = 'Just now';
+            try {
+              const d = new Date(order.created_at);
+              if (!isNaN(d.getTime())) {
+                dateFormatted = d.toLocaleDateString('en-IN', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+              }
+            } catch {}
+
+            let orderItems = [];
+            const rawItems = order.order_items || order.items || [];
+            if (typeof rawItems === 'string') {
+              try { orderItems = JSON.parse(rawItems); } catch { orderItems = []; }
+            } else if (Array.isArray(rawItems)) {
+              orderItems = rawItems;
+            }
 
             return (
               <div key={order.id} className="card-elevated p-5 sm:p-6 space-y-3">
@@ -211,7 +224,7 @@ export default function OrderHistoryPage({ onBackToRestaurants, onTrackOrder }) 
                       {orderItems.length > 0
                         ? orderItems.map((item, idx) => (
                             <span key={idx}>
-                              {item.name} <strong className="font-mono text-[#FF5722]">x{item.quantity}</strong>
+                              {item.name || item.item_name || 'Food Item'} <strong className="font-mono text-[#FF5722]">x{item.quantity || item.qty || 1}</strong>
                               {idx < orderItems.length - 1 ? ', ' : ''}
                             </span>
                           ))

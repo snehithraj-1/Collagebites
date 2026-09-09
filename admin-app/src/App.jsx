@@ -2,6 +2,7 @@ import React from 'react';
 import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function AdminAppInner() {
   const { isAuthenticated, loading } = useAdminAuth();
@@ -19,7 +20,11 @@ function AdminAppInner() {
     return <AdminLoginPage />;
   }
 
-  return <AdminDashboardPage />;
+  return (
+    <ErrorBoundary>
+      <AdminDashboardPage />
+    </ErrorBoundary>
+  );
 }
 
 export default function App() {
@@ -29,3 +34,4 @@ export default function App() {
     </AdminAuthProvider>
   );
 }
+

@@ -1,6 +1,38 @@
 import React, { useState } from 'react';
-import { Eye, Ban, Trash2, Search, Download, Calendar, MapPin, Phone, Mail, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Eye, Ban, Trash2, Search, Download, Calendar, MapPin, Phone, Mail, Clock, CheckCircle2, XCircle, Bike } from 'lucide-react';
 import { exportOrdersToExcel } from '../lib/excelExport';
+
+function safeFormatDateTime(rawDate) {
+  if (!rawDate) return { date: 'Today', time: 'Just now' };
+  try {
+    const d = new Date(rawDate);
+    if (isNaN(d.getTime())) return { date: 'Today', time: 'Just now' };
+    const date = d.toLocaleDateString('en-IN', { month: 'short', day: '2-digit' });
+    const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return { date, time };
+  } catch {
+    return { date: 'Today', time: 'Just now' };
+  }
+}
+
+function safeExtractItems(order) {
+  if (!order) return [];
+  const raw = order.items || order.order_items || [];
+  let list = [];
+  if (typeof raw === 'string') {
+    try { list = JSON.parse(raw); } catch { list = []; }
+  } else if (Array.isArray(raw)) {
+    list = raw;
+  } else if (typeof raw === 'object' && raw !== null) {
+    list = Object.values(raw);
+  }
+
+  return list.map((item, idx) => ({
+    name: item.name || item.item_name || item.title || `Item ${idx + 1}`,
+    quantity: Number(item.quantity ?? item.qty ?? 1),
+    price: Number(item.price ?? item.unit_price ?? 0)
+  }));
+}
 
 export default function OrdersTable({
   orders = [],
@@ -176,17 +208,8 @@ export default function OrdersTable({
               </tr>
             ) : (
               filteredOrders.map((order) => {
-                const rawItems = order.items || order.order_items || [];
-                let itemsArr = [];
-                if (typeof rawItems === 'string') {
-                  try { itemsArr = JSON.parse(rawItems); } catch { itemsArr = []; }
-                } else if (Array.isArray(rawItems)) {
-                  itemsArr = rawItems;
-                }
-
-                const d = order.created_at ? new Date(order.created_at) : new Date();
-                const dateFormatted = d.toLocaleDateString('en-IN', { month: 'short', day: '2-digit' });
-                const timeFormatted = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+                const itemsArr = safeExtractItems(order);
+                const { date: dateFormatted, time: timeFormatted } = safeFormatDateTime(order.created_at);
 
                 return (
                   <tr key={order.id} className="hover:bg-slate-800/30 transition-colors">
@@ -203,7 +226,7 @@ export default function OrdersTable({
 
                     {/* Student Info */}
                     <td className="py-3 px-4">
-                      <div className="font-bold text-white text-xs">{order.student_name}</div>
+                      <div className="font-bold text-white text-xs">{order.student_name || 'Student'}</div>
                       <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
                         <Phone size={10} className="text-[#FF5722]" />
                         <span>{order.student_phone || '—'}</span>
@@ -218,17 +241,27 @@ export default function OrdersTable({
                       <div className="font-semibold text-white text-xs truncate max-w-[140px]">
                         {order.restaurant_name || restaurantName}
                       </div>
+                      {order.delivery_partner_name && (
+                        <div className="text-[10px] text-cyan-400 flex items-center gap-1 mt-0.5 font-medium">
+                          <Bike size={10} />
+                          <span className="truncate max-w-[120px]">{order.delivery_partner_name}</span>
+                        </div>
+                      )}
                     </td>
 
                     {/* Items & Qty */}
                     <td className="py-3 px-4">
                       <div className="text-xs text-slate-300 max-w-[220px] line-clamp-2">
-                        {itemsArr.map((i, idx) => (
-                          <span key={idx} className="inline-block mr-1.5">
-                            {i.name} <strong className="text-slate-100">x{i.quantity || 1}</strong>
-                            {idx < itemsArr.length - 1 ? ',' : ''}
-                          </span>
-                        ))}
+                        {itemsArr.length === 0 ? (
+                          <span className="text-slate-500 text-[11px]">No items breakdown</span>
+                        ) : (
+                          itemsArr.map((i, idx) => (
+                            <span key={idx} className="inline-block mr-1.5">
+                              {i.name} <strong className="text-slate-100">x{i.quantity || 1}</strong>
+                              {idx < itemsArr.length - 1 ? ',' : ''}
+                            </span>
+                          ))
+                        )}
                       </div>
                     </td>
 
@@ -294,16 +327,8 @@ export default function OrdersTable({
           </div>
         ) : (
           filteredOrders.map((order) => {
-            const rawItems = order.items || order.order_items || [];
-            let itemsArr = [];
-            if (typeof rawItems === 'string') {
-              try { itemsArr = JSON.parse(rawItems); } catch { itemsArr = []; }
-            } else if (Array.isArray(rawItems)) {
-              itemsArr = rawItems;
-            }
-
-            const d = order.created_at ? new Date(order.created_at) : new Date();
-            const timeFormatted = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const itemsArr = safeExtractItems(order);
+            const { time: timeFormatted } = safeFormatDateTime(order.created_at);
 
             return (
               <div
@@ -329,14 +354,20 @@ export default function OrdersTable({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-slate-500 text-[10px] block">Student:</span>
-                    <span className="font-bold text-white text-xs block truncate">{order.student_name}</span>
-                    <span className="text-slate-400 text-[11px] font-mono block">{order.student_phone}</span>
+                    <span className="font-bold text-white text-xs block truncate">{order.student_name || 'Student'}</span>
+                    <span className="text-slate-400 text-[11px] font-mono block">{order.student_phone || '—'}</span>
                   </div>
 
                   <div>
                     <span className="text-slate-500 text-[10px] block">Total Amount:</span>
                     <span className="font-mono font-black text-emerald-400 text-sm block">₹{order.total_amount}</span>
                     <span className="text-slate-400 text-[10px] block truncate">{order.restaurant_name || restaurantName}</span>
+                    {order.delivery_partner_name && (
+                      <span className="text-cyan-400 text-[10px] flex items-center gap-1 font-semibold truncate mt-0.5">
+                        <Bike size={10} />
+                        {order.delivery_partner_name}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -346,12 +377,16 @@ export default function OrdersTable({
                     Items:
                   </div>
                   <div className="space-y-0.5">
-                    {itemsArr.map((i, idx) => (
-                      <div key={idx} className="flex justify-between text-xs">
-                        <span className="truncate pr-2">{i.name}</span>
-                        <span className="font-mono font-bold text-slate-100 shrink-0">x{i.quantity || 1}</span>
-                      </div>
-                    ))}
+                    {itemsArr.length === 0 ? (
+                      <span className="text-slate-500 text-xs italic">Order items recorded</span>
+                    ) : (
+                      itemsArr.map((i, idx) => (
+                        <div key={idx} className="flex justify-between text-xs">
+                          <span className="truncate pr-2">{i.name}</span>
+                          <span className="font-mono font-bold text-slate-100 shrink-0">x{i.quantity || 1}</span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
