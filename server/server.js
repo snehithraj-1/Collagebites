@@ -2363,6 +2363,37 @@ app.delete('/api/menu/:id', async (req, res) => {
   res.json({ success: true, message: `Dish #${itemId} permanently deleted.` });
 });
 
+// Serve built production frontends if dist folders exist (Unified Full-Stack Deployment)
+const studentDist = path.resolve(__dirname, '../student-app/dist');
+const adminDist = path.resolve(__dirname, '../admin-app/dist');
+const lhkDist = path.resolve(__dirname, '../lhk-admin-app/dist');
+const clgDist = path.resolve(__dirname, '../clg-admin-app/dist');
+const riderDist = path.resolve(__dirname, '../rider-app/dist');
+
+if (fs.existsSync(adminDist)) {
+  app.use('/admin', express.static(adminDist));
+  app.get(['/admin', '/admin/*'], (req, res) => res.sendFile(path.join(adminDist, 'index.html')));
+}
+if (fs.existsSync(lhkDist)) {
+  app.use('/lhk', express.static(lhkDist));
+  app.get(['/lhk', '/lhk/*'], (req, res) => res.sendFile(path.join(lhkDist, 'index.html')));
+}
+if (fs.existsSync(clgDist)) {
+  app.use('/clg', express.static(clgDist));
+  app.get(['/clg', '/clg/*'], (req, res) => res.sendFile(path.join(clgDist, 'index.html')));
+}
+if (fs.existsSync(riderDist)) {
+  app.use('/rider', express.static(riderDist));
+  app.get(['/rider', '/rider/*'], (req, res) => res.sendFile(path.join(riderDist, 'index.html')));
+}
+if (fs.existsSync(studentDist)) {
+  app.use(express.static(studentDist));
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'Endpoint not found' });
+    res.sendFile(path.join(studentDist, 'index.html'));
+  });
+}
+
 // Export app for Vercel Serverless Function deployment
 export default app;
 
