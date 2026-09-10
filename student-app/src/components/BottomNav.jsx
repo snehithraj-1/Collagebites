@@ -12,27 +12,27 @@ export default function BottomNav({ currentView, onNavigate }) {
   const isProfileActive = currentView === 'profile';
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#E2D9D0] shadow-sm transition-all pb-safe">
-      <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-around relative">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-sm transition-all pb-safe">
+      <div className="max-w-md mx-auto px-4 h-15 flex items-center justify-around relative">
         
         {/* 1. Home Tab */}
         <button
           onClick={() => onNavigate('restaurants')}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition-all cursor-pointer border-none bg-transparent group relative active:scale-95 ${
-            isHomeActive ? 'text-[#FF5722]' : 'text-[#64748B] hover:text-[#0F172A]'
+            isHomeActive ? 'text-[#FF5722]' : 'text-slate-500 hover:text-slate-900'
           }`}
           title="Browse Restaurants & Menus"
         >
           {isHomeActive && (
-            <span className="absolute -top-2.5 w-8 h-1 rounded-full bg-[#FF5722] shadow-sm shadow-[#FF5722]/50 animate-scale-in" />
+            <span className="absolute top-0 w-8 h-0.5 rounded-full bg-[#FF5722]" />
           )}
           <Home
-            size={22}
-            className={`transition-transform duration-300 ${
-              isHomeActive ? 'scale-110 stroke-[2.5]' : 'group-hover:scale-105'
+            size={20}
+            className={`transition-transform duration-200 ${
+              isHomeActive ? 'stroke-[2.5]' : ''
             }`}
           />
-          <span className={`text-[11px] mt-1 font-bold ${isHomeActive ? 'font-black' : ''}`}>
+          <span className={`text-[10px] mt-1 font-bold ${isHomeActive ? 'font-extrabold' : ''}`}>
             Home
           </span>
         </button>
@@ -40,21 +40,20 @@ export default function BottomNav({ currentView, onNavigate }) {
         {/* 2. Cart Tab */}
         <button
           onClick={() => setIsCartOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center py-1 transition-all cursor-pointer border-none bg-transparent group relative active:scale-95 text-[#64748B] hover:text-[#0F172A]"
+          className="flex-1 flex flex-col items-center justify-center py-1 transition-all cursor-pointer border-none bg-transparent group relative active:scale-95 text-slate-500 hover:text-slate-900"
           title="Open Food Cart"
         >
           <div className="relative">
             <ShoppingBag
-              size={22}
-              className="group-hover:scale-105 transition-transform"
+              size={20}
             />
             {totalItemsCount > 0 && (
-              <span className="absolute -top-1.5 -right-2.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#FF5722] text-white text-[10px] font-black flex items-center justify-center shadow-md shadow-[#FF5722]/40 animate-pulse">
+              <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#FF5722] text-white text-[9px] font-bold flex items-center justify-center">
                 {totalItemsCount}
               </span>
             )}
           </div>
-          <span className="text-[11px] mt-1 font-bold">
+          <span className="text-[10px] mt-1 font-bold">
             Cart
           </span>
         </button>

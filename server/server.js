@@ -235,11 +235,19 @@ async function initNeonSchema() {
         id VARCHAR(50) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         phone VARCHAR(50) NOT NULL,
+        pin VARCHAR(20) DEFAULT '1234',
+        restaurant_id VARCHAR(100) DEFAULT 'all',
         is_active BOOLEAN DEFAULT true,
         total_deliveries INT DEFAULT 0,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
+    `;
+
+    await sql`
+      ALTER TABLE delivery_partners 
+      ADD COLUMN IF NOT EXISTS pin VARCHAR(20) DEFAULT '1234',
+      ADD COLUMN IF NOT EXISTS restaurant_id VARCHAR(100) DEFAULT 'all';
     `;
 
     // 5. Ensure delivery_partners table exists without force-seeding deleted partners
@@ -598,7 +606,7 @@ app.get(['/', '/api', '/api/health', '/api/db/status'], async (req, res) => {
             </a>
             <a href="http://localhost:5174" class="portal-btn admin">
               <div>
-                <div style="font-size: 18px;">🛡️ Admin Kitchen Portal</div>
+                <div style="font-size: 18px;">🛡️ CampusBites Admin Portal</div>
                 <div style="font-size: 13px; font-weight: 500; opacity: 0.85;">http://localhost:5174</div>
               </div>
               <span style="font-size: 22px;">➔</span>
@@ -1230,6 +1238,7 @@ const handleOrderStatusUpdate = async (req, res) => {
 
   const validStatuses = [
     'CONFIRMED',
+    'ASSIGNED',
     'ACCEPTED',
     'PREPARING',
     'READY',
@@ -1431,284 +1440,353 @@ app.post('/api/students', async (req, res) => {
 });
 
 // ========================================================
-// DELIVERY PARTNERS API (Manage Partners & Assign to Orders)
+// DELIVERY PARTNER & RIDER DISPATCH API
 // ========================================================
 
-// 1. GET /api/delivery-partners - List delivery partners (Supports ?restaurant_id=...)
+const SEED_DELIVERY_PARTNERS = [
+  {
+    id: 'dp-lhk-1',
+    name: 'Suresh Reddy',
+    phone: '9398414231',
+    pin: '1234',
+    restaurant_id: 'local-home-kitchen',
+    is_active: true
+  },
+  {
+    id: 'dp-clg-1',
+    name: 'Rajesh Kumar',
+    phone: '8240756887',
+    pin: '1234',
+    restaurant_id: 'clg-bites-biryani-nation',
+    is_active: true
+  },
+  {
+    id: 'dp-campus-1',
+    name: 'Manoj Varma',
+    phone: '8247840765',
+    pin: '1234',
+    restaurant_id: 'all',
+    is_active: true
+  }
+];
+
+// GET /api/delivery-partners - List active riders (Admin view or kitchen filtered)
 app.get('/api/delivery-partners', async (req, res) => {
   const restaurantId = req.query.restaurant_id || req.query.restaurant;
-
   if (sql) {
     try {
       let rows;
       if (restaurantId && restaurantId !== 'all') {
         rows = await sql`
           SELECT * FROM delivery_partners 
-          WHERE restaurant_id = ${restaurantId} OR restaurant_id IS NULL 
-          ORDER BY created_at ASC;
+          WHERE is_active = true 
+            AND (restaurant_id = ${restaurantId} OR restaurant_id = 'all' OR restaurant_id IS NULL)
+          ORDER BY name ASC;
         `;
       } else {
-        rows = await sql`SELECT * FROM delivery_partners ORDER BY created_at ASC;`;
+        rows = await sql`SELECT * FROM delivery_partners WHERE is_active = true ORDER BY name ASC;`;
       }
-      return res.json({ success: true, partners: rows || [], source: 'neon' });
+      if (rows && rows.length > 0) {
+        return res.json({ success: true, partners: rows });
+      }
     } catch (err) {
       console.warn('[Neon Fetch Delivery Partners Error]:', err.message);
     }
   }
 
   const local = readLocalDb();
-  let partners = Array.isArray(local.delivery_partners) ? local.delivery_partners : [];
+  let partners = (local.delivery_partners && local.delivery_partners.length > 0) ? local.delivery_partners : SEED_DELIVERY_PARTNERS;
   if (restaurantId && restaurantId !== 'all') {
-    partners = partners.filter(p => !p.restaurant_id || p.restaurant_id === restaurantId);
+    partners = partners.filter(p => !p.restaurant_id || p.restaurant_id === 'all' || p.restaurant_id === restaurantId);
   }
-  res.json({
-    success: true,
-    partners,
-    source: 'local_cache'
-  });
+  res.json({ success: true, partners });
 });
 
-// 2. POST /api/delivery-partners - Create a new delivery partner associated with a restaurant
+// POST /api/delivery-partners - Admin creates new delivery partner credentials (phone + PIN)
 app.post('/api/delivery-partners', async (req, res) => {
-  const { name, phone, restaurant_id, pin } = req.body;
+  const { name, phone, pin, restaurant_id } = req.body || {};
   if (!name || !phone) {
-    return res.status(400).json({ success: false, error: 'Name and phone number are required.' });
+    return res.status(400).json({ success: false, error: 'Name and 10-digit mobile number are required.' });
   }
 
-  const partnerId = `dp-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
-  const nowIso = new Date().toISOString();
-  const newPartner = {
-    id: partnerId,
+  const cleanPhone = String(phone).replace(/\D/g, '').slice(-10);
+  if (cleanPhone.length < 10) {
+    return res.status(400).json({ success: false, error: 'Valid 10-digit mobile number is required.' });
+  }
+
+  const cleanPin = pin ? String(pin).trim() : '1234';
+  const id = `dp-${Math.random().toString(36).substring(2, 9)}`;
+
+  const partner = {
+    id,
     name: name.trim(),
-    phone: phone.trim(),
-    restaurant_id: restaurant_id || 'local-home-kitchen',
-    pin: pin ? pin.trim() : '1234',
+    phone: cleanPhone,
+    pin: cleanPin,
+    restaurant_id: restaurant_id || 'all',
     is_active: true,
     total_deliveries: 0,
-    created_at: nowIso,
-    updated_at: nowIso
+    created_at: new Date().toISOString()
   };
 
   if (sql) {
     try {
       await sql`
-        INSERT INTO delivery_partners (id, name, phone, restaurant_id, pin, is_active, total_deliveries, created_at, updated_at)
-        VALUES (${newPartner.id}, ${newPartner.name}, ${newPartner.phone}, ${newPartner.restaurant_id}, ${newPartner.pin}, true, 0, NOW(), NOW())
-        ON CONFLICT (id) DO NOTHING;
+        INSERT INTO delivery_partners (id, name, phone, pin, restaurant_id, is_active, updated_at)
+        VALUES (${partner.id}, ${partner.name}, ${partner.phone}, ${partner.pin}, ${partner.restaurant_id}, true, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          phone = EXCLUDED.phone,
+          pin = EXCLUDED.pin,
+          restaurant_id = EXCLUDED.restaurant_id,
+          is_active = true,
+          updated_at = NOW();
       `;
-      console.log(`[Neon DB] New delivery partner registered for ${newPartner.restaurant_id}: ${newPartner.name} (${newPartner.phone})`);
+      console.log(`[Neon DB] New delivery partner created: ${partner.name} (Phone: ${partner.phone}, PIN: ${partner.pin})`);
     } catch (err) {
-      console.warn('[Neon Insert Delivery Partner Error]:', err.message);
+      console.error('[Neon Delivery Partner Insert Error]:', err.message);
     }
   }
 
   const local = readLocalDb();
-  if (!Array.isArray(local.delivery_partners)) local.delivery_partners = [];
-  local.delivery_partners.push(newPartner);
+  local.delivery_partners = [
+    partner,
+    ...(local.delivery_partners || []).filter(p => p.id !== partner.id && p.phone !== cleanPhone)
+  ];
   writeLocalDb(local);
 
-  res.json({ success: true, message: 'Delivery partner registered successfully', partner: newPartner });
+  res.status(201).json({ success: true, partner });
 });
 
-// 3. DELETE /api/delivery-partners/:id - Delete a delivery partner
-app.delete('/api/delivery-partners/:id', async (req, res) => {
-  const partnerId = req.params.id;
+// PATCH /api/delivery-partners/:id - Update partner PIN, phone, name, or kitchen
+app.patch('/api/delivery-partners/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, phone, pin, restaurant_id, is_active } = req.body || {};
+
+  const cleanPhone = phone ? String(phone).replace(/\D/g, '').slice(-10) : undefined;
+  const cleanPin = pin ? String(pin).trim() : undefined;
 
   if (sql) {
     try {
-      await sql`DELETE FROM delivery_partners WHERE id = ${partnerId};`;
-      console.log(`[Neon DB] Delivery partner ${partnerId} deleted.`);
+      await sql`
+        UPDATE delivery_partners
+        SET
+          name = COALESCE(${name ? name.trim() : null}, name),
+          phone = COALESCE(${cleanPhone || null}, phone),
+          pin = COALESCE(${cleanPin || null}, pin),
+          restaurant_id = COALESCE(${restaurant_id || null}, restaurant_id),
+          is_active = COALESCE(${is_active !== undefined ? Boolean(is_active) : null}, is_active),
+          updated_at = NOW()
+        WHERE id = ${id};
+      `;
     } catch (err) {
-      console.warn('[Neon Delete Delivery Partner Error]:', err.message);
+      console.warn('[Neon Partner Patch Error]:', err.message);
     }
   }
 
   const local = readLocalDb();
-  local.delivery_partners = (local.delivery_partners || []).filter((p) => p.id !== partnerId);
+  let updatedPartner = null;
+  local.delivery_partners = (local.delivery_partners || []).map(p => {
+    if (p.id === id) {
+      updatedPartner = {
+        ...p,
+        ...(name && { name: name.trim() }),
+        ...(cleanPhone && { phone: cleanPhone }),
+        ...(cleanPin && { pin: cleanPin }),
+        ...(restaurant_id && { restaurant_id }),
+        ...(is_active !== undefined && { is_active: Boolean(is_active) })
+      };
+      return updatedPartner;
+    }
+    return p;
+  });
   writeLocalDb(local);
 
-  res.json({ success: true, message: 'Delivery partner deleted successfully' });
+  res.json({ success: true, partner: updatedPartner });
 });
 
-// ========================================================
-// DELIVERY PARTNER (RIDER) PORTAL ENDPOINTS
-// ========================================================
+// DELETE /api/delivery-partners/:id - Remove rider credentials
+app.delete('/api/delivery-partners/:id', async (req, res) => {
+  const { id } = req.params;
+  if (sql) {
+    try {
+      await sql`DELETE FROM delivery_partners WHERE id = ${id};`;
+    } catch (err) {
+      console.warn('[Neon Partner Delete Error]:', err.message);
+    }
+  }
 
-// POST /api/rider/login - Rider logs in via phone and PIN
+  const local = readLocalDb();
+  local.delivery_partners = (local.delivery_partners || []).filter(p => p.id !== id);
+  writeLocalDb(local);
+
+  res.json({ success: true, message: 'Delivery partner credentials removed.' });
+});
+
+// POST /api/rider/login - Rider authentication strictly via 10-digit phone and PIN
 app.post('/api/rider/login', async (req, res) => {
   const { phone, pin } = req.body || {};
   if (!phone) {
-    return res.status(400).json({ success: false, error: 'Phone number is required.' });
+    return res.status(400).json({ success: false, error: '10-digit mobile number is required.' });
   }
 
-  const cleanPhone = phone.toString().replace(/\D/g, '').slice(-10);
-  const inputPin = pin ? pin.toString().trim() : '1234';
+  const cleanPhone = String(phone).replace(/\D/g, '').slice(-10);
+  const cleanPin = pin ? String(pin).trim() : '';
 
+  if (!cleanPin) {
+    return res.status(400).json({ success: false, error: 'Please enter your secret 4-digit PIN.' });
+  }
+
+  let partner = null;
   if (sql) {
     try {
       const rows = await sql`
-        SELECT * FROM delivery_partners
+        SELECT * FROM delivery_partners 
         WHERE RIGHT(REGEXP_REPLACE(phone, '[^0-9]', '', 'g'), 10) = ${cleanPhone}
           AND is_active = true
         LIMIT 1;
       `;
       if (rows && rows.length > 0) {
-        const rider = rows[0];
-        // Validate PIN (default fallback 1234)
-        if (!rider.pin || rider.pin === inputPin || inputPin === '1234') {
-          return res.json({
-            success: true,
-            rider: {
-              id: rider.id,
-              name: rider.name,
-              phone: rider.phone,
-              restaurant_id: rider.restaurant_id,
-              total_deliveries: rider.total_deliveries || 0
-            }
-          });
-        } else {
-          return res.status(401).json({ success: false, error: 'Invalid rider security PIN.' });
-        }
+        partner = rows[0];
       }
     } catch (err) {
       console.warn('[Neon Rider Login Error]:', err.message);
     }
   }
 
-  // Fallback check in local memory
-  const local = readLocalDb();
-  const found = (local.delivery_partners || []).find(
-    p => p.phone && p.phone.replace(/\D/g, '').slice(-10) === cleanPhone && p.is_active !== false
-  );
-  if (found) {
-    return res.json({
-      success: true,
-      rider: {
-        id: found.id,
-        name: found.name,
-        phone: found.phone,
-        restaurant_id: found.restaurant_id || 'local-home-kitchen',
-        total_deliveries: found.total_deliveries || 0
-      }
+  if (!partner) {
+    const local = readLocalDb();
+    partner = (local.delivery_partners || SEED_DELIVERY_PARTNERS).find(
+      p => String(p.phone).replace(/\D/g, '').slice(-10) === cleanPhone && (p.is_active !== false)
+    );
+  }
+
+  if (!partner) {
+    return res.status(401).json({
+      success: false,
+      error: 'No active delivery partner registered with this mobile number. Please contact the administrator.'
     });
   }
 
-  return res.status(404).json({ success: false, error: 'Rider phone number not registered or account inactive. Contact kitchen manager.' });
+  // Validate security PIN
+  const expectedPin = String(partner.pin || '1234').trim();
+  if (cleanPin !== expectedPin) {
+    return res.status(401).json({
+      success: false,
+      error: 'Incorrect security PIN. Please enter the PIN provided by your administrator.'
+    });
+  }
+
+  res.json({ success: true, partner });
 });
 
-// GET /api/rider/orders - Fetch orders assigned ONLY to this specific rider
-app.get('/api/rider/orders', async (req, res) => {
-  const riderId = req.query.rider_id || req.query.id;
-  const riderPhone = req.query.phone;
-
-  if (!riderId && !riderPhone) {
-    return res.status(400).json({ success: false, error: 'Rider ID or phone is required.' });
-  }
+// GET /api/rider/orders - Rider fetches orders assigned to them
+app.get(['/api/rider/orders', '/api/rider/orders/:id'], async (req, res) => {
+  const riderId = req.params.id || req.query.partner_id || req.query.riderId || req.query.rider_id || req.query.id;
+  const phone = req.query.phone ? String(req.query.phone).replace(/\D/g, '').slice(-10) : '';
 
   if (sql) {
     try {
       let rows;
-      if (riderId) {
+      if (riderId && phone) {
         rows = await sql`
           SELECT * FROM orders 
           WHERE delivery_partner_id = ${riderId}
-          ORDER BY created_at DESC 
-          LIMIT 50;
+             OR RIGHT(REGEXP_REPLACE(COALESCE(delivery_partner_phone, ''), '[^0-9]', '', 'g'), 10) = ${phone}
+          ORDER BY created_at DESC;
         `;
-      } else {
-        const cleanPhone = riderPhone.toString().replace(/\D/g, '').slice(-10);
+      } else if (riderId) {
         rows = await sql`
           SELECT * FROM orders 
-          WHERE RIGHT(REGEXP_REPLACE(delivery_partner_phone, '[^0-9]', '', 'g'), 10) = ${cleanPhone}
-          ORDER BY created_at DESC 
-          LIMIT 50;
+          WHERE delivery_partner_id = ${riderId}
+          ORDER BY created_at DESC;
+        `;
+      } else if (phone) {
+        rows = await sql`
+          SELECT * FROM orders 
+          WHERE RIGHT(REGEXP_REPLACE(COALESCE(delivery_partner_phone, ''), '[^0-9]', '', 'g'), 10) = ${phone}
+          ORDER BY created_at DESC;
+        `;
+      } else {
+        rows = await sql`
+          SELECT * FROM orders 
+          WHERE delivery_partner_id IS NOT NULL 
+            AND status IN ('ASSIGNED', 'OUT_FOR_DELIVERY')
+          ORDER BY created_at DESC;
         `;
       }
 
-      const parsed = rows.map((r) => ({
-        ...r,
-        total_amount: Number(r.total_amount),
-        items: typeof r.items === 'string' ? JSON.parse(r.items) : r.items
-      }));
-      return res.json({ success: true, orders: parsed, source: 'neon' });
+      if (rows) {
+        const parsed = rows.map(r => ({
+          ...r,
+          total_amount: Number(r.total_amount),
+          items: typeof r.items === 'string' ? JSON.parse(r.items) : r.items
+        }));
+        return res.json({ success: true, orders: parsed });
+      }
     } catch (err) {
       console.warn('[Neon Rider Orders Error]:', err.message);
     }
   }
 
   const local = readLocalDb();
-  const filtered = (local.orders || []).filter(o => 
-    (riderId && o.delivery_partner_id === riderId) ||
-    (riderPhone && o.delivery_partner_phone && o.delivery_partner_phone.includes(riderPhone))
-  );
-  return res.json({ success: true, orders: filtered, source: 'local_cache' });
+  let orders = (local.orders || []).filter(o => {
+    if (riderId && o.delivery_partner_id === riderId) return true;
+    if (phone && String(o.delivery_partner_phone || '').replace(/\D/g, '').slice(-10) === phone) return true;
+    return false;
+  });
+
+  res.json({ success: true, orders });
 });
 
-// POST /api/rider/status-update - Rider transitions order from ASSIGNED -> OUT_FOR_DELIVERY -> DELIVERED
-app.post('/api/rider/status-update', async (req, res) => {
-  const { orderId, riderId, status } = req.body || {};
-
+// POST /api/rider/orders/status - Rider updates status: ASSIGNED -> OUT_FOR_DELIVERY -> DELIVERED
+app.post('/api/rider/orders/status', async (req, res) => {
+  const { orderId, status, partnerId } = req.body || {};
   if (!orderId || !status) {
-    return res.status(400).json({ success: false, error: 'Order ID and status are required.' });
+    return res.status(400).json({ success: false, error: 'orderId and status are required.' });
   }
 
-  if (!['OUT_FOR_DELIVERY', 'DELIVERED'].includes(status)) {
-    return res.status(400).json({ success: false, error: 'Invalid delivery status. Must be OUT_FOR_DELIVERY or DELIVERED.' });
+  const validStatuses = ['ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({
+      success: false,
+      error: `Invalid rider status. Must be one of: ${validStatuses.join(', ')}`
+    });
   }
 
   let updatedOrder = null;
+  const nowIso = new Date().toISOString();
 
   if (sql) {
     try {
-      const result = await sql`
+      const rows = await sql`
         UPDATE orders 
-        SET status = ${status}, updated_at = NOW() 
-        WHERE (id = ${orderId} OR id LIKE ${orderId + '%'})
+        SET status = ${status}, updated_at = NOW()
+        WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
         RETURNING *;
       `;
-      if (result && result.length > 0) {
+      if (rows && rows.length > 0) {
         updatedOrder = {
-          ...result[0],
-          total_amount: Number(result[0].total_amount),
-          items: typeof result[0].items === 'string' ? JSON.parse(result[0].items) : result[0].items
+          ...rows[0],
+          total_amount: Number(rows[0].total_amount),
+          items: typeof rows[0].items === 'string' ? JSON.parse(rows[0].items) : rows[0].items
         };
-
-        await sql`
-          INSERT INTO order_status_history (order_id, status, changed_at)
-          VALUES (${orderId}, ${status}, NOW());
-        `;
-
-        if (status === 'DELIVERED' && riderId) {
-          await sql`
-            UPDATE delivery_partners
-            SET total_deliveries = COALESCE(total_deliveries, 0) + 1, updated_at = NOW()
-            WHERE id = ${riderId};
-          `.catch(e => {});
-        }
-        console.log(`[Rider Portal] Order #${orderId} marked ${status} by rider ${riderId || 'N/A'}`);
       }
     } catch (err) {
-      console.error('[Rider Status Update Error]:', err.message);
+      console.error('[Neon Rider Status Update Error]:', err.message);
     }
   }
 
   const local = readLocalDb();
-  const order = (local.orders || []).find(o => o.id === orderId || (o.id && o.id.startsWith(orderId)));
-  if (order) {
-    order.status = status;
-    order.updated_at = new Date().toISOString();
+  const orderIdx = (local.orders || []).findIndex(o => o.id === orderId);
+  if (orderIdx !== -1) {
+    local.orders[orderIdx].status = status;
+    local.orders[orderIdx].updated_at = nowIso;
     writeLocalDb(local);
-    if (!updatedOrder) updatedOrder = order;
+    if (!updatedOrder) updatedOrder = local.orders[orderIdx];
   }
 
-  // Always invalidate orders cache so all portals see the update immediately
   invalidateOrdersCache();
-
-  if (updatedOrder) {
-    return res.json({ success: true, message: `Order updated to ${status}`, order: updatedOrder });
-  }
-
-  return res.status(404).json({ success: false, error: 'Order not found.' });
+  res.json({ success: true, order: updatedOrder, status });
 });
 
 // ========================================================
@@ -1825,46 +1903,30 @@ app.post('/api/restaurants/:id/toggle', async (req, res) => {
 // Supports POST and PATCH on both /api/orders/assign-partner and /api/orders/:id/assign-partner
 const handleAssignDeliveryPartner = async (req, res) => {
   const body = req.body || {};
-  const orderId = req.params.id || body.orderId || body.order_id || req.query.id;
+  const orderId = req.params.id || body.orderId || body.order_id;
+  const partnerId = body.partnerId || body.delivery_partner_id || body.partner_id;
+  const partnerName = body.partnerName || body.delivery_partner_name || body.name;
+  const partnerPhone = body.partnerPhone || body.delivery_partner_phone || body.phone;
 
   if (!orderId) {
-    return res.status(400).json({ success: false, error: 'Order ID is required' });
-  }
-
-  const { deliveryPartner, unassign } = body;
-  let partner_id = body.partner_id || body.partnerId || deliveryPartner?.id || null;
-  let partner_name = body.partner_name || body.partnerName || deliveryPartner?.name || null;
-  let partner_phone = body.partner_phone || body.partnerPhone || deliveryPartner?.phone || null;
-
-  const isUnassign = Boolean(unassign || (!partner_id && !partner_name));
-
-  // If partner_id is provided but name/phone missing, look up from delivery_partners table
-  if (!isUnassign && partner_id && (!partner_name || !partner_phone) && sql) {
-    try {
-      const dpRows = await sql`SELECT * FROM delivery_partners WHERE id = ${partner_id} LIMIT 1;`;
-      if (dpRows && dpRows.length > 0) {
-        partner_name = dpRows[0].name;
-        partner_phone = dpRows[0].phone;
-      }
-    } catch (e) {
-      console.warn('[Partner Lookup Error]:', e.message);
-    }
-  }
-
-  if (!isUnassign && (!partner_name || !partner_phone)) {
-    return res.status(400).json({ success: false, error: 'Partner name and phone are required.' });
+    return res.status(400).json({ success: false, error: 'Order ID is required.' });
   }
 
   let updatedOrder = null;
+  const nowIso = new Date().toISOString();
+  // When assigning a delivery partner, order enters ASSIGNED status
+  const nextStatus = partnerId ? 'ASSIGNED' : 'CONFIRMED';
 
   if (sql) {
     try {
       const result = await sql`
         UPDATE orders 
-        SET delivery_partner_id = ${isUnassign ? null : (partner_id || null)},
-            delivery_partner_name = ${isUnassign ? null : partner_name},
-            delivery_partner_phone = ${isUnassign ? null : partner_phone},
-            updated_at = NOW() 
+        SET 
+          delivery_partner_id = ${partnerId || null},
+          delivery_partner_name = ${partnerName || null},
+          delivery_partner_phone = ${partnerPhone || null},
+          status = ${nextStatus},
+          updated_at = NOW()
         WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
         RETURNING *;
       `;
@@ -1874,34 +1936,31 @@ const handleAssignDeliveryPartner = async (req, res) => {
           total_amount: Number(result[0].total_amount),
           items: typeof result[0].items === 'string' ? JSON.parse(result[0].items) : result[0].items
         };
-        console.log(`[Neon DB] ${isUnassign ? 'Unassigned' : 'Assigned ' + partner_name} delivery partner for Order #${orderId}`);
+        console.log(`[Neon DB] Order #${orderId} assigned to partner: ${partnerName} (${partnerId}) - Status: ${nextStatus}`);
       }
     } catch (err) {
-      console.warn('[Neon DB Partner Assign Error]:', err.message);
+      console.error('[Neon DB Assign Partner Error]:', err.message);
     }
   }
 
   const local = readLocalDb();
   const orderIndex = (local.orders || []).findIndex((o) => o.id === orderId);
   if (orderIndex !== -1) {
-    local.orders[orderIndex].delivery_partner_id = isUnassign ? null : (partner_id || null);
-    local.orders[orderIndex].delivery_partner_name = isUnassign ? null : partner_name;
-    local.orders[orderIndex].delivery_partner_phone = isUnassign ? null : partner_phone;
-    local.orders[orderIndex].updated_at = new Date().toISOString();
+    local.orders[orderIndex].delivery_partner_id = partnerId || null;
+    local.orders[orderIndex].delivery_partner_name = partnerName || null;
+    local.orders[orderIndex].delivery_partner_phone = partnerPhone || null;
+    local.orders[orderIndex].status = nextStatus;
+    local.orders[orderIndex].updated_at = nowIso;
     writeLocalDb(local);
     if (!updatedOrder) updatedOrder = local.orders[orderIndex];
   }
 
   invalidateOrdersCache();
-
-  if (!updatedOrder) {
-    return res.status(404).json({ success: false, error: `Order #${orderId} not found.` });
-  }
-
   res.json({
     success: true,
-    message: isUnassign ? `Unassigned delivery partner from Order #${orderId}` : `Assigned delivery partner ${partner_name} to Order #${orderId}`,
-    order: updatedOrder
+    order: updatedOrder,
+    status: nextStatus,
+    message: partnerId ? `Assigned to ${partnerName || 'delivery partner'}` : 'Delivery partner unassigned'
   });
 };
 
@@ -2366,30 +2425,14 @@ app.delete('/api/menu/:id', async (req, res) => {
 // Serve built production frontends if dist folders exist (Unified Full-Stack Deployment)
 const studentDist = path.resolve(__dirname, '../student-app/dist');
 const adminDist = path.resolve(__dirname, '../admin-app/dist');
-const lhkDist = path.resolve(__dirname, '../lhk-admin-app/dist');
-const clgDist = path.resolve(__dirname, '../clg-admin-app/dist');
-const riderDist = path.resolve(__dirname, '../rider-app/dist');
 
 if (fs.existsSync(adminDist)) {
   app.use('/admin', express.static(adminDist));
-  app.get(['/admin', '/admin/*'], (req, res) => res.sendFile(path.join(adminDist, 'index.html')));
-}
-if (fs.existsSync(lhkDist)) {
-  app.use('/lhk', express.static(lhkDist));
-  app.get(['/lhk', '/lhk/*'], (req, res) => res.sendFile(path.join(lhkDist, 'index.html')));
-}
-if (fs.existsSync(clgDist)) {
-  app.use('/clg', express.static(clgDist));
-  app.get(['/clg', '/clg/*'], (req, res) => res.sendFile(path.join(clgDist, 'index.html')));
-}
-if (fs.existsSync(riderDist)) {
-  app.use('/rider', express.static(riderDist));
-  app.get(['/rider', '/rider/*'], (req, res) => res.sendFile(path.join(riderDist, 'index.html')));
+  app.get(/^\/admin(\/.*)?$/, (req, res) => res.sendFile(path.join(adminDist, 'index.html')));
 }
 if (fs.existsSync(studentDist)) {
   app.use(express.static(studentDist));
-  app.get('*', (req, res) => {
-    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'Endpoint not found' });
+  app.get(/^\/(?!api).*/, (req, res) => {
     res.sendFile(path.join(studentDist, 'index.html'));
   });
 }

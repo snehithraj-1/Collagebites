@@ -33,21 +33,21 @@ export default function AdminLoginPage() {
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-black font-['Outfit'] tracking-tight">
-          CampusBites Super Admin
+          CampusBites Admin Portal
         </h1>
         <p className="mt-1 text-xs text-slate-400 font-medium">
-          Executive Platform Management Console (SRM University AP)
+          Central Order & Kitchen Operations Console (SRM University AP)
         </p>
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-slate-900/90 py-7 px-6 sm:px-8 rounded-3xl shadow-2xl border border-slate-800 space-y-5">
           
-          {/* Super Admin Notice */}
+          {/* Admin Notice */}
           <div className="p-3.5 rounded-2xl bg-orange-950/40 border border-orange-800/60 text-xs text-orange-200 flex items-start gap-2.5">
             <ShieldCheck size={18} className="text-[#FF5722] shrink-0 mt-0.5" />
             <div className="text-[11px] leading-relaxed">
-              <strong>Master Control Portal:</strong> Manages overall campus food platform availability, restaurant states, universal order audit, and database records.
+              <strong>Unified Admin Console:</strong> Manage all campus orders, kitchen availability, dish menus, and customer records from a single central portal.
             </div>
           </div>
 
@@ -71,10 +71,10 @@ export default function AdminLoginPage() {
             <div>
               <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
                 <User size={12} className="text-[#FF5722]" />
-                <span>Super Admin Email</span>
+                <span>Admin Email / Username</span>
               </label>
               <input
-                type="email"
+                type="text"
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
@@ -104,11 +104,11 @@ export default function AdminLoginPage() {
               className="w-full py-3 mt-1 rounded-xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-[#FF5722] to-amber-600 hover:from-[#F4511E] hover:to-amber-500 text-white shadow-md shadow-orange-600/30 transition-all cursor-pointer border-none flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isLoading ? (
-                <span>Authenticating Super Admin...</span>
+                <span>Authenticating Administrator...</span>
               ) : (
                 <>
                   <Lock size={14} />
-                  <span>Unlock Super Admin Console</span>
+                  <span>Unlock Admin Portal</span>
                 </>
               )}
             </button>

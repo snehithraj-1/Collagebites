@@ -14,11 +14,12 @@ import OrderHistoryPage from './pages/OrderHistoryPage';
 import StudentProfilePage from './pages/StudentProfilePage';
 import StudentNotificationToast from './components/StudentNotificationToast';
 import BottomNav from './components/BottomNav';
+import RiderPortalPage from './pages/RiderPortalPage';
 
 function StudentAppInner() {
   const { isAuthenticated, loading } = useStudentAuth();
   
-  // Navigation state: 'restaurants' | 'menu' | 'success' | 'history' | 'profile'
+  // Navigation state: 'restaurants' | 'menu' | 'success' | 'history' | 'profile' | 'rider'
   const [currentView, setCurrentView] = useState('restaurants');
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
@@ -26,6 +27,20 @@ function StudentAppInner() {
 
   // Overall Ordering System Status from Supabase
   const [orderingEnabled, setOrderingEnabled] = useState(true);
+
+  // URL Hash / Query Route listener for Rider Portal (#delivery or ?portal=rider)
+  useEffect(() => {
+    const checkHash = () => {
+      const hash = window.location.hash.toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      if (hash.includes('delivery') || hash.includes('rider') || params.get('portal') === 'delivery' || params.get('portal') === 'rider') {
+        setCurrentView('rider');
+      }
+    };
+    checkHash();
+    window.addEventListener('hashchange', checkHash);
+    return () => window.removeEventListener('hashchange', checkHash);
+  }, []);
 
   // 1. Fetch and listen to System Settings (Neon PostgreSQL via Backend API)
   useEffect(() => {
@@ -112,6 +127,19 @@ function StudentAppInner() {
     setCurrentView('success');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Standalone Delivery Partner view (riders don't require student auth)
+  if (currentView === 'rider') {
+    return (
+      <RiderPortalPage
+        onBackToStudent={() => {
+          window.location.hash = '';
+          setCurrentView('restaurants');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -200,6 +228,11 @@ function StudentAppInner() {
               setCurrentView('history');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+            onNavigateToRider={() => {
+              window.location.hash = '#delivery';
+              setCurrentView('rider');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         )}
       </main>
@@ -246,8 +279,18 @@ function StudentAppInner() {
             <span>•</span>
             <span>Student Food Ordering Portal</span>
           </div>
-          <div>
-            <span>SRM University AP, Amaravati, Andhra Pradesh</span>
+          <div className="flex items-center gap-3">
+            <span>SRM University AP, Amaravati</span>
+            <span>•</span>
+            <button
+              onClick={() => {
+                window.location.hash = '#delivery';
+                setCurrentView('rider');
+              }}
+              className="text-[#FF5722] hover:underline font-bold cursor-pointer bg-transparent border-none p-0 text-xs"
+            >
+              Delivery Partner Portal
+            </button>
           </div>
         </div>
       </footer>

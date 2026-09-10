@@ -48,29 +48,20 @@ async function testMultiRoleFlow() {
     console.log('CLG Admin Response:', clgAdminRes);
     assert(clgAdminRes.success && clgAdminRes.user?.restaurant_id === 'clg-bites-biryani-nation', 'CLG Bites Admin Login (clgbites_admin)');
 
-    // 4. Test Delivery Partner Login
-    console.log('\n--- 2. Testing Delivery Partner (Rider) Authentication ---');
+    // 4. Test Delivery Partner Retired Stub
+    console.log('\n--- 2. Testing Delivery Partner Retired Status ---');
     const riderLoginRes = await fetch(`${BASE_URL}/api/rider/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: '8240756887', pin: '1234' })
     }).then(r => r.json());
     console.log('Rider Login Response:', riderLoginRes);
-    assert(riderLoginRes.success && riderLoginRes.rider?.name.toLowerCase().includes('leela'), 'Rider Login (8240756887 / 1234) -> Leela Lenka');
+    assert(!riderLoginRes.success && riderLoginRes.error?.includes('retired'), 'Rider Login retired safely');
 
-    // 5. Test Delivery Partner Scoping by Restaurant
-    console.log('\n--- 3. Testing Delivery Partner Restaurant Scoping ---');
-    const lhkPartnersRes = await fetch(`${BASE_URL}/api/delivery-partners?restaurant_id=local-home-kitchen`).then(r => r.json());
-    const clgPartnersRes = await fetch(`${BASE_URL}/api/delivery-partners?restaurant_id=clg-bites-biryani-nation`).then(r => r.json());
-    
-    assert(
-      lhkPartnersRes.success && lhkPartnersRes.partners.every(p => !p.restaurant_id || p.restaurant_id === 'local-home-kitchen'),
-      `LHK Delivery Partners are isolated (Count: ${lhkPartnersRes.partners?.length || 0})`
-    );
-    assert(
-      clgPartnersRes.success && clgPartnersRes.partners.every(p => p.restaurant_id === 'clg-bites-biryani-nation'),
-      `CLG Bites Delivery Partners are isolated (Count: ${clgPartnersRes.partners?.length || 0})`
-    );
+    // 5. Test Delivery Partner List Retired Stub
+    console.log('\n--- 3. Testing Delivery Partner List Returns Safe Empty Stub ---');
+    const partnersRes = await fetch(`${BASE_URL}/api/delivery-partners`).then(r => r.json());
+    assert(partnersRes.success && Array.isArray(partnersRes.partners) && partnersRes.partners.length === 0, 'Delivery Partners endpoint returns safe empty array');
 
     // 6. Test Orders Scoping by Restaurant
     console.log('\n--- 4. Testing Order Isolation Between Restaurants ---');

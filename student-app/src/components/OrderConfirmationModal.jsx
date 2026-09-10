@@ -224,28 +224,28 @@ export default function OrderConfirmationModal({
         
         {/* Header Title */}
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFF0EB] text-[#FF5722] text-xs font-black uppercase tracking-wider mb-2">
-            <ShieldCheck size={14} />
-            <span>30-Second Verification</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold uppercase tracking-wider mb-2">
+            <Clock size={13} className="text-[#FF5722]" />
+            <span>Order Verification</span>
           </div>
-          <h3 className="text-2xl font-black text-[#0F172A] font-['Outfit']">
+          <h3 className="text-xl font-bold text-slate-900 font-['Outfit']">
             Confirm Your Order
           </h3>
-          <p className="text-xs sm:text-sm text-[#64748B] mt-1">
-            You have 30 seconds to confirm your order.
+          <p className="text-xs text-slate-500 mt-1">
+            Please verify order details within 30 seconds
           </p>
         </div>
 
         {/* Circular Animated Timer */}
-        <div className="relative w-36 h-36 mx-auto flex items-center justify-center">
+        <div className="relative w-32 h-32 mx-auto flex items-center justify-center">
           <svg className="w-full h-full transform -rotate-90" viewBox="0 0 110 110">
             {/* Background Track */}
             <circle
               cx="55"
               cy="55"
               r={radius}
-              stroke="#F1EAE4"
-              strokeWidth="8"
+              stroke="#E2E8F0"
+              strokeWidth="7"
               fill="transparent"
             />
             {/* Countdown Fill */}
@@ -254,7 +254,7 @@ export default function OrderConfirmationModal({
               cy="55"
               r={radius}
               stroke={timeLeft <= 8 ? '#EF4444' : '#FF5722'}
-              strokeWidth="8"
+              strokeWidth="7"
               fill="transparent"
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
@@ -265,8 +265,8 @@ export default function OrderConfirmationModal({
 
           {/* Time text in center */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-4xl font-black font-mono tracking-tight ${
-              timeLeft <= 8 ? 'text-rose-500 animate-timer-pulse' : 'text-[#0F172A]'
+            <span className={`text-3xl font-extrabold font-mono tracking-tight ${
+              timeLeft <= 8 ? 'text-rose-500 animate-timer-pulse' : 'text-slate-900'
             }`}>
               {timeLeft}s
             </span>
@@ -277,52 +277,56 @@ export default function OrderConfirmationModal({
         </div>
 
         {/* Order Details Preview */}
-        <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#F1EAE4] text-xs space-y-1.5 text-left">
-          <div className="flex justify-between items-center text-[#0F172A] font-bold">
-            <span>{restaurant?.name || 'Campus Kitchen'}</span>
-            <span className="font-mono text-[#FF5722] font-black text-sm">₹{totalAmount}</span>
+        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2 text-left">
+          <div className="flex justify-between items-center text-slate-900 font-bold border-b border-slate-200 pb-1.5">
+            <span className="text-xs">{restaurant?.name || 'Campus Kitchen'}</span>
+            <span className="font-mono text-[#FF5722] font-extrabold text-sm">₹{totalAmount}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-[#64748B] text-[11px]">
-            <MapPin size={12} className="text-[#FF5722]" />
-            <span className="font-semibold text-[#0F172A]">SRM University — Gate 3</span>
+          <div className="text-[11px] text-slate-600 flex items-center justify-between">
+            <span>Student: <strong>{profile?.name || 'Student'}</strong></span>
+            <span className="font-mono">{deliveryDetails.phone || profile?.phone}</span>
           </div>
-          <div className="text-[11px] text-slate-500 truncate">
-            {items.map(i => `${i.name} x${i.quantity}`).join(', ')}
+          <div className="flex items-center gap-1.5 text-slate-600 text-[11px]">
+            <MapPin size={12} className="text-[#FF5722] shrink-0" />
+            <span>Drop: <strong>SRM University Gate 3</strong></span>
+          </div>
+          <div className="text-[11px] text-slate-500 border-t border-slate-200 pt-1.5">
+            {items.map(i => `${i.name} × ${i.quantity}`).join(', ')}
           </div>
         </div>
 
         {/* Status Message / Notification */}
         {statusMessage && (
-          <div className={`p-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 ${
+          <div className={`p-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 ${
             isExpired || isCancelled
               ? 'bg-rose-50 text-rose-700 border border-rose-200'
               : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
           }`}>
-            {isExpired || isCancelled ? <XCircle size={16} /> : <CheckCircle2 size={16} />}
+            {isExpired || isCancelled ? <XCircle size={15} /> : <CheckCircle2 size={15} />}
             <span>{statusMessage}</span>
           </div>
         )}
 
         {/* Two Required Action Buttons */}
         {!isExpired && !isCancelled && (
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-2 gap-3 pt-1">
             {/* Cancel Button */}
             <button
               onClick={handleCancelOrder}
               disabled={isSubmitting}
-              className="py-3 px-4 rounded-2xl bg-[#FAF8F5] hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm transition-all cursor-pointer border border-[#E2D9D0]"
+              className="py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer border border-slate-200"
             >
-              [ CANCEL ORDER ]
+              Cancel Order
             </button>
 
             {/* Confirm Button */}
             <button
               onClick={handleConfirmOrder}
               disabled={isSubmitting || timeLeft <= 0}
-              className="btn-primary py-3 px-4 rounded-2xl text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 cursor-pointer border-none disabled:opacity-50"
+              className="btn-primary py-2.5 px-4 rounded-xl text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer border-none disabled:opacity-50"
             >
-              <CheckCircle2 size={16} />
-              <span>[ CONFIRM ORDER ]</span>
+              <CheckCircle2 size={15} />
+              <span>Confirm Order</span>
             </button>
           </div>
         )}

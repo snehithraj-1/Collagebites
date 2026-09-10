@@ -13,14 +13,24 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import StudentsModal from '../components/StudentsModal';
 import MenuManagerModal from '../components/MenuManagerModal';
 import AdminSideMenuDrawer from '../components/AdminSideMenuDrawer';
+import DeliveryPartnersModal from '../components/DeliveryPartnersModal';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function AdminDashboardPage() {
-  const { profile, logout } = useAdminAuth();
+  const { profile, logout, isSuperAdmin, isRestaurantAdmin, assignedRestaurantId } = useAdminAuth();
 
   const [orders, setOrders] = useState([]);
   const [restaurants, setRestaurants] = useState(DEFAULT_RESTAURANTS);
-  const [activeRestaurantTab, setActiveRestaurantTab] = useState('all');
+  const [activeRestaurantTab, setActiveRestaurantTab] = useState(() => {
+    return assignedRestaurantId || 'all';
+  });
+
+  useEffect(() => {
+    if (isRestaurantAdmin && assignedRestaurantId) {
+      setActiveRestaurantTab(assignedRestaurantId);
+    }
+  }, [isRestaurantAdmin, assignedRestaurantId]);
+
   const [orderingEnabled, setOrderingEnabled] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -30,6 +40,7 @@ export default function AdminDashboardPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isStudentsModalOpen, setIsStudentsModalOpen] = useState(false);
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
+  const [isDeliveryPartnersModalOpen, setIsDeliveryPartnersModalOpen] = useState(false);
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
 
   // New Order Notifications & Audio Alert
@@ -432,20 +443,30 @@ export default function AdminDashboardPage() {
           {/* Identity */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg border bg-gradient-to-tr from-[#FF5722] to-amber-600 shadow-orange-500/20 border-orange-400/30">
-              🛡️
+              {isRestaurantAdmin ? '🍳' : '🛡️'}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-lg sm:text-xl font-black text-white font-['Outfit'] tracking-tight">
-                  CampusBites Admin Portal
+                  {isRestaurantAdmin
+                    ? assignedRestaurantId === 'local-home-kitchen'
+                      ? 'Local Home Kitchen Portal'
+                      : assignedRestaurantId === 'clg-bites-biryani-nation'
+                      ? 'CLG Bites Portal'
+                      : `${profile?.name || 'Kitchen Staff'} Portal`
+                    : 'CampusBites Admin Portal'}
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase border bg-orange-500/20 text-orange-400 border-orange-500/30">
-                  Master Console
+                  {isRestaurantAdmin ? 'Kitchen Staff' : 'Master Console'}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>All Orders & Kitchens Management</span>
+                <span>
+                  {isRestaurantAdmin
+                    ? 'Isolated Kitchen Orders & Acceptance'
+                    : 'All Orders & Kitchens Management'}
+                </span>
               </div>
             </div>
           </div>
@@ -599,21 +620,23 @@ export default function AdminDashboardPage() {
           orderingEnabled={orderingEnabled}
         />
 
-        {/* 2. Overall Platform Ordering Switch */}
-        <SystemToggle
-          orderingEnabled={orderingEnabled}
-          onToggleSuccess={(nextState) => {
-            setOrderingEnabled(nextState);
-            setRestaurants((prev) => prev.map((r) => ({ ...r, is_open: nextState })));
-            loadRestaurants();
-          }}
-        />
+        {/* 2. Overall Platform Ordering Switch - Super Admin Only */}
+        {isSuperAdmin && (
+          <SystemToggle
+            orderingEnabled={orderingEnabled}
+            onToggleSuccess={(nextState) => {
+              setOrderingEnabled(nextState);
+              setRestaurants((prev) => prev.map((r) => ({ ...r, is_open: nextState })));
+              loadRestaurants();
+            }}
+          />
+        )}
 
         {/* 3. Individual Restaurant Controls */}
         <RestaurantToggles
           restaurants={restaurants}
           orderingEnabled={orderingEnabled}
-          assignedRestaurantId={null}
+          assignedRestaurantId={isRestaurantAdmin ? assignedRestaurantId : null}
           onRestaurantUpdate={(restaurantId, nextState) => {
             setRestaurants((prev) =>
               prev.map((r) => (r.id === restaurantId ? { ...r, is_open: nextState } : r))
@@ -621,19 +644,17 @@ export default function AdminDashboardPage() {
           }}
         />
 
-        {/* 4. Real-time Student Orders Table (Unified for All Kitchens) */}
+        {/* 4. Real-time Student Orders Table (Unified for All Kitchens or Scoped to Single Restaurant) */}
         <ErrorBoundary>
           <OrdersTable
             orders={orders}
-            activeRestaurantTab={activeRestaurantTab}
-            isRestaurantAdmin={false}
-            onSelectRestaurantTab={(tab) => {
-              setActiveRestaurantTab(tab);
-            }}
+            activeRestaurantTab={isRestaurantAdmin ? assignedRestaurantId : activeRestaurantTab}
+            isRestaurantAdmin={isRestaurantAdmin}
+            onSelectRestaurantTab={isRestaurantAdmin ? null : (tab) => setActiveRestaurantTab(tab)}
             restaurantName={
-              activeRestaurantTab === 'local-home-kitchen'
+              (isRestaurantAdmin && assignedRestaurantId === 'local-home-kitchen') || activeRestaurantTab === 'local-home-kitchen'
                 ? 'Local Home Kitchen'
-                : activeRestaurantTab === 'clg-bites-biryani-nation'
+                : (isRestaurantAdmin && assignedRestaurantId === 'clg-bites-biryani-nation') || activeRestaurantTab === 'clg-bites-biryani-nation'
                 ? 'CLG Bites Biryani Nation'
                 : 'All Restaurants'
             }
@@ -691,6 +712,7 @@ export default function AdminDashboardPage() {
         }}
         onOpenMenuManager={() => setIsMenuModalOpen(true)}
         onOpenStudentsModal={() => setIsStudentsModalOpen(true)}
+        onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
         onRefreshData={() => {
           loadOrders(false);
           loadRestaurants();
@@ -698,6 +720,12 @@ export default function AdminDashboardPage() {
         }}
         isRefreshing={isRefreshing}
         onLogout={logout}
+      />
+
+      {/* Delivery Partners & Rider Access Modal */}
+      <DeliveryPartnersModal
+        isOpen={isDeliveryPartnersModalOpen}
+        onClose={() => setIsDeliveryPartnersModalOpen(false)}
       />
 
 

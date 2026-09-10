@@ -216,7 +216,7 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
                     <input
                       type="tel"
                       required
-                      placeholder="Enter 10digit  mobile number"
+                      placeholder="Enter 10-digit mobile number"
                       value={deliveryDetails.phone ?? profile?.phone ?? ''}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -225,7 +225,7 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
                           updateProfile({ phone: val });
                         }
                       }}
-                      className="w-full px-2.5 py-2 rounded-xl bg-white border border-[#E2D9D0] text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#FF5722]"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-[#FF5722]"
                     />
                   </div>
 
@@ -238,53 +238,50 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
                       placeholder="e.g. Less spicy, extra onions"
                       value={deliveryDetails.instructions}
                       onChange={(e) => setDeliveryDetails({ ...deliveryDetails, instructions: e.target.value })}
-                      className="w-full px-2.5 py-2 rounded-xl bg-white border border-[#E2D9D0] text-xs text-[#0F172A] focus:outline-none focus:border-[#FF5722]"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-[#FF5722]"
                     />
                   </div>
                 </div>
 
                 {/* Pricing Summary */}
-                <div className="p-4 rounded-2xl bg-white border border-[#F1EAE4] space-y-2 text-xs">
-                  <div className="flex justify-between text-[#64748B]">
+                <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between text-slate-500">
                     <span>Items Subtotal</span>
-                    <span className="font-mono text-[#0F172A]">₹{subtotal}</span>
+                    <span className="font-mono text-slate-800">₹{subtotal}</span>
                   </div>
-                  <div className="flex justify-between text-[#64748B]">
-                    <span>Campus Platform Fee</span>
-                    <span className="font-mono text-[#0F172A]">₹{platformFee}</span>
-                  </div>
-                  <div className="flex justify-between text-[#64748B]">
-                    <span>Hostel Doorstep Delivery</span>
+                  <div className="flex justify-between text-slate-500">
+                    <span>Delivery Fee (Gate 3)</span>
                     <span className="font-bold text-emerald-600">FREE</span>
                   </div>
-                  <div className="pt-2 border-t border-[#F1EAE4] flex justify-between items-center text-sm font-black text-[#0F172A]">
-                    <span>To Pay</span>
-                    <span className="text-[#FF5722] font-mono text-base">₹{totalAmount}</span>
+                  <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-bold text-slate-900">
+                    <span>Total Amount</span>
+                    <span className="text-[#FF5722] font-mono text-base font-extrabold">₹{totalAmount}</span>
                   </div>
                 </div>
               </>
             )}
 
             {validationError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
-                ⚠️ {validationError}
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>{validationError}</span>
               </div>
             )}
           </div>
 
           {/* Checkout Footer */}
           {items.length > 0 && (
-            <div className="p-5 border-t border-[#F1EAE4] bg-white space-y-2">
+            <div className="p-4 border-t border-slate-200 bg-white space-y-2">
               <button
                 onClick={handleStartCheckout}
                 disabled={!orderingEnabled || !isRestaurantOpen}
-                className="btn-primary w-full py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary w-full py-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>Proceed to Confirmation</span>
-                <ArrowRight size={16} />
+                <span>Proceed to Confirmation • ₹{totalAmount}</span>
+                <ArrowRight size={15} />
               </button>
-              <p className="text-[11px] text-center text-[#64748B]">
-                Next: 30-Second review window to confirm or cancel
+              <p className="text-[10px] text-center text-slate-400">
+                Next: 30-second review window to confirm or cancel
               </p>
             </div>
           )}

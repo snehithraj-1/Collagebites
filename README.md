@@ -1,13 +1,10 @@
-# CampusBites — Multi-Portal Campus Food Ordering System
+# CampusBites — Campus Food Ordering & Unified Admin System
 
-CampusBites is structured as **5 DEDICATED FRONTEND WEBSITES** connected to **ONE central API & Neon PostgreSQL database**:
+CampusBites is structured as **2 DEDICATED FRONTEND APPLICATIONS** connected to **ONE central API & Neon PostgreSQL database**:
 
 1. **Student Dining Portal** (`student-app/`): `http://localhost:5173`
-2. **Main Super Admin Portal** (`admin-app/`): `http://localhost:5174`
-3. **Local Home Kitchen Portal** (`lhk-admin-app/`): `http://localhost:5175`
-4. **CLG Bites Staff Portal** (`clg-admin-app/`): `http://localhost:5176`
-5. **Delivery Partner Portal** (`rider-app/`): `http://localhost:5177`
-6. **Central Backend API**: `http://localhost:5000`
+2. **Unified Admin Portal** (`admin-app/`): `http://localhost:5174`
+3. **Central Backend API**: `http://localhost:5000`
 
 ---
 
@@ -17,14 +14,11 @@ CampusBites is structured as **5 DEDICATED FRONTEND WEBSITES** connected to **ON
 ```bash
 npm run dev
 ```
-This single command spins up the backend API and all 5 web applications concurrently!
+This single command spins up the backend API, the Student Dining Portal, and the Unified Admin Portal concurrently!
 
 ### 2. Run Individual Applications
 - **Student Dining Portal**: `npm run dev:student` (`http://localhost:5173`)
-- **Main Super Admin Portal**: `npm run dev:admin` (`http://localhost:5174`)
-- **Local Home Kitchen Portal**: `npm run dev:lhk` (`http://localhost:5175`)
-- **CLG Bites Staff Portal**: `npm run dev:clg` (`http://localhost:5176`)
-- **Delivery Partner Portal**: `npm run dev:rider` (`http://localhost:5177`)
+- **CampusBites Admin Portal**: `npm run dev:admin` (`http://localhost:5174`)
 - **Shared Backend API**: `npm run server` (`http://localhost:5000`)
 
 ---

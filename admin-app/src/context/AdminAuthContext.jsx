@@ -10,7 +10,7 @@ export function AdminAuthProvider({ children }) {
       const saved = localStorage.getItem('cb_admin_profile');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.role === 'super_admin') {
+        if (parsed && (parsed.role === 'super_admin' || parsed.role === 'admin' || parsed.role === 'restaurant_admin')) {
           return parsed;
         }
       }
@@ -25,7 +25,7 @@ export function AdminAuthProvider({ children }) {
   // Persist admin session
   useEffect(() => {
     try {
-      if (profile && profile.role === 'super_admin') {
+      if (profile && (profile.role === 'super_admin' || profile.role === 'admin' || profile.role === 'restaurant_admin')) {
         localStorage.setItem('cb_admin_profile', JSON.stringify(profile));
       } else {
         localStorage.removeItem('cb_admin_profile');
@@ -128,12 +128,6 @@ export function AdminAuthProvider({ children }) {
       });
       const data = await res.json();
       if (data.success && data.user) {
-        if (data.user.role !== 'super_admin') {
-          return {
-            success: false,
-            error: 'Access Denied: This portal is strictly for Super Administrators. Please log in at your dedicated kitchen portal.'
-          };
-        }
         setProfile(data.user);
         setUser({ id: data.user.id, email: data.user.email, role: data.user.role });
         setUnauthorizedError('');
@@ -220,8 +214,8 @@ export function AdminAuthProvider({ children }) {
     } catch {}
   };
 
-  const isSuperAdmin = Boolean(profile && (profile.role === 'super_admin' || profile.role === 'admin'));
-  const isRestaurantAdmin = Boolean(profile && profile.role === 'restaurant_admin');
+  const isSuperAdmin = profile?.role === 'super_admin' || (profile?.role === 'admin' && !profile?.restaurant_id);
+  const isRestaurantAdmin = profile?.role === 'restaurant_admin' || Boolean(profile?.restaurant_id);
   const assignedRestaurantId = profile?.restaurant_id || null;
 
   return (

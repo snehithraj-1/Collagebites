@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   X, User, MapPin, Phone, Mail, Clock, ShieldCheck, Ban, Trash2, 
-  CheckCircle2, Check, Printer, Building, FileText
+  CheckCircle2, Check, Printer, Building, FileText, Bike
 } from 'lucide-react';
 
 // Safe date/time formatter that never throws Invalid Option or Invalid Date
@@ -202,6 +202,49 @@ export default function OrderDetailsModal({
                 <a href={`mailto:${order.student_email}`} className="hover:underline truncate text-slate-300 print:text-black">
                   {order.student_email}
                 </a>
+              </div>
+            )}
+          </div>
+
+          {/* Delivery Partner Details */}
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 print:border-slate-300 print:bg-slate-50">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between print:text-slate-600">
+              <span className="flex items-center gap-1.5">
+                <Bike size={13} className="text-indigo-400" />
+                Delivery Partner
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                order.delivery_partner_name 
+                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                  : 'bg-slate-800 text-slate-400'
+              }`}>
+                {order.delivery_partner_name ? 'Assigned' : 'Unassigned'}
+              </span>
+            </div>
+            {order.delivery_partner_name ? (
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-white text-xs sm:text-sm print:text-black">
+                    {order.delivery_partner_name}
+                  </div>
+                  {order.delivery_partner_phone && (
+                    <a
+                      href={`tel:${order.delivery_partner_phone}`}
+                      className="font-mono text-[11px] text-indigo-300 hover:underline flex items-center gap-1 mt-0.5"
+                    >
+                      <Phone size={11} />
+                      <span>{order.delivery_partner_phone}</span>
+                    </a>
+                  )}
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block">Collection Point:</span>
+                  <span className="font-bold text-white text-xs">SRM AP Gate 3</span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400 italic">
+                No rider assigned yet. Use the Orders Table to assign an active campus rider.
               </div>
             )}
           </div>

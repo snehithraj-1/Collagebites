@@ -106,68 +106,72 @@ export default function OrderHistoryPage({ onBackToRestaurants, onTrackOrder }) 
   const getStatusBadge = (status) => {
     switch (status) {
       case 'CONFIRMED':
-        return { label: 'Confirmed 🍲', bg: 'bg-amber-50 text-amber-700 border-amber-200 font-bold' };
+        return { label: 'Confirmed', bg: 'bg-amber-50 text-amber-800 border-amber-200 font-bold' };
+      case 'ASSIGNED':
+        return { label: 'Assigned to Rider', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200 font-bold' };
       case 'OUT_FOR_DELIVERY':
-        return { label: 'Out for Delivery 🛵', bg: 'bg-blue-50 text-blue-700 border-blue-200 font-bold' };
+      case 'OUT FOR DELIVERY':
+        return { label: 'Out for Delivery', bg: 'bg-blue-50 text-blue-800 border-blue-200 font-bold' };
       case 'DELIVERED':
-        return { label: 'Delivered ✅', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-bold' };
+        return { label: 'Delivered', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200 font-bold' };
       case 'CANCELLED':
-        return { label: 'Cancelled ❌', bg: 'bg-rose-50 text-rose-700 border-rose-200 font-bold' };
+        return { label: 'Cancelled', bg: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
       default:
         return { label: status || 'Confirmed', bg: 'bg-slate-100 text-slate-700 border-slate-200' };
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-fade-in">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 space-y-5 animate-fade-in pb-24 md:pb-12">
       
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#F1EAE4] pb-4">
+      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
         <div>
           <button
             onClick={onBackToRestaurants}
-            className="flex items-center gap-1.5 text-xs font-bold text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer border-none bg-transparent p-0 mb-2"
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer border-none bg-transparent p-0 mb-1"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={15} />
             <span>Back to Restaurants</span>
           </button>
-          <h2 className="text-2xl font-black text-[#0F172A] font-['Outfit']">
+          <h2 className="text-xl font-extrabold text-slate-900 font-['Outfit']">
             My Order History
           </h2>
-          <p className="text-xs text-[#64748B]">
-            Only showing orders placed by your student account ({profile?.email})
+          <p className="text-xs text-slate-500">
+            Account: {profile?.email}
           </p>
         </div>
 
         <button
           onClick={() => fetchOrders(true)}
           disabled={isRefreshing}
-          className="p-2.5 rounded-xl bg-white border border-[#E2D9D0] text-[#64748B] hover:text-[#0F172A] transition-colors cursor-pointer"
+          className="p-2 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
           title="Refresh Orders"
         >
-          <RefreshCw size={15} className={isRefreshing ? 'animate-spin text-[#FF5722]' : ''} />
+          <RefreshCw size={14} className={isRefreshing ? 'animate-spin text-[#FF5722]' : ''} />
         </button>
       </div>
 
       {/* Orders List */}
       {isLoading ? (
-        <div className="py-20 text-center space-y-3">
-          <div className="w-10 h-10 rounded-full border-3 border-[#FF5722] border-t-transparent animate-spin mx-auto" />
-          <p className="text-xs text-[#64748B] font-bold">Loading your orders from Supabase...</p>
+        <div className="py-16 text-center space-y-2">
+          <div className="w-8 h-8 rounded-full border-2 border-[#FF5722] border-t-transparent animate-spin mx-auto" />
+          <p className="text-xs text-slate-500">Loading your orders...</p>
         </div>
       ) : orders.length === 0 ? (
-        <div className="card-elevated p-12 text-center space-y-3">
-          <div className="text-5xl">📦</div>
-          <h3 className="text-lg font-bold text-[#0F172A] font-['Outfit']">No past orders yet</h3>
-          <p className="text-xs text-[#64748B] max-w-sm mx-auto">
-            You haven't placed any food orders yet. Pick dishes from our campus kitchens and enjoy doorstep delivery!
+        <div className="bg-white rounded-xl border border-slate-200 p-10 text-center space-y-2.5">
+          <h3 className="text-base font-bold text-slate-900 font-['Outfit']">No orders placed yet</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Browse our campus kitchens to place an order for delivery at Gate 3.
           </p>
-          <button
-            onClick={onBackToRestaurants}
-            className="btn-primary py-2.5 px-6 rounded-xl text-xs font-bold mt-2 cursor-pointer border-none"
-          >
-            Browse Food Menu
-          </button>
+          <div className="pt-2">
+            <button
+              onClick={onBackToRestaurants}
+              className="btn-primary py-2 px-5 rounded-lg text-xs font-bold cursor-pointer border-none"
+            >
+              Browse Campus Kitchens
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -195,98 +199,69 @@ export default function OrderHistoryPage({ onBackToRestaurants, onTrackOrder }) 
             }
 
             return (
-              <div key={order.id} className="card-elevated p-5 sm:p-6 space-y-3">
+              <div key={order.id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 shadow-xs">
                 {/* Order Top Bar */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F1EAE4] pb-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-black text-sm text-[#0F172A]">
+                      <span className="font-mono font-bold text-xs text-slate-900">
                         #{order.id}
                       </span>
-                      <span className="text-xs text-slate-400">•</span>
-                      <span className="font-extrabold text-xs text-[#0F172A]">
+                      <span className="text-xs text-slate-300">•</span>
+                      <span className="font-bold text-xs text-slate-800">
                         {order.restaurant_name || 'Campus Kitchen'}
                       </span>
                     </div>
-                    <div className="text-[11px] text-[#64748B] mt-0.5">
-                      Placed on {dateFormatted}
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      {dateFormatted}
                     </div>
                   </div>
 
-                  <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${badge.bg}`}>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider border ${badge.bg}`}>
                     {badge.label}
                   </span>
                 </div>
 
-                {/* Items and Location */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                {/* Items and Total */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                   <div className="sm:col-span-2 space-y-1">
-                    <div className="font-bold text-slate-400 uppercase text-[10px] tracking-wider">
-                      Ordered Items:
-                    </div>
-                    <div className="text-[#0F172A] font-medium leading-relaxed">
+                    <div className="text-slate-800 font-medium leading-relaxed">
                       {orderItems.length > 0
                         ? orderItems.map((item, idx) => (
                             <span key={idx}>
-                              {item.name || item.item_name || 'Food Item'} <strong className="font-mono text-[#FF5722]">x{item.quantity || item.qty || 1}</strong>
+                              {item.name || item.item_name || 'Food Item'} <span className="font-mono font-bold text-[#FF5722]">×{item.quantity || item.qty || 1}</span>
                               {idx < orderItems.length - 1 ? ', ' : ''}
                             </span>
                           ))
                         : 'Food order'}
                     </div>
+                    {order.delivery_partner_name && (
+                      <div className="text-[11px] text-indigo-700 font-medium">
+                        Rider: {order.delivery_partner_name} {order.delivery_partner_phone ? `(${order.delivery_partner_phone})` : ''}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="sm:text-right space-y-1">
-                    <div className="font-bold text-slate-400 uppercase text-[10px] tracking-wider">
-                      Total Bill:
-                    </div>
-                    <div className="text-base font-black font-mono text-[#FF5722]">
+                  <div className="sm:text-right">
+                    <div className="text-sm font-bold font-mono text-slate-900">
                       ₹{order.total_amount}
                     </div>
                   </div>
                 </div>
 
-                {/* Assigned Delivery Partner Banner with 1-Tap Call */}
-                {order.delivery_partner_name && (
-                  <div className="p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-base">
-                        🛵
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block">Delivery Partner</span>
-                        <span className="font-extrabold text-[#0F172A]">{order.delivery_partner_name}</span>
-                      </div>
-                    </div>
-
-                    {order.delivery_partner_phone && (
-                      <a
-                        href={`tel:${order.delivery_partner_phone}`}
-                        className="py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
-                      >
-                        <Phone size={12} />
-                        <span>Call Partner</span>
-                      </a>
-                    )}
-                  </div>
-                )}
-
                 {/* Drop Destination & Track Button */}
-                <div className="pt-2.5 border-t border-[#F1EAE4] flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#64748B]">
+                <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
                   <div className="flex items-center gap-1.5">
                     <MapPin size={12} className="text-[#FF5722]" />
-                    <span>Drop: {order.delivery_location}</span>
+                    <span>Drop: {order.delivery_location || 'SRM University Gate 3'}</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onTrackOrder && onTrackOrder(order)}
-                      className="px-3 py-1.5 rounded-xl bg-[#FFF0EB] hover:bg-[#FF5722] text-[#FF5722] hover:text-white text-xs font-bold transition-all cursor-pointer border border-[#FFD3C4] flex items-center gap-1 shadow-xs"
-                    >
-                      <span>View Bill & Track</span>
-                      <span>➔</span>
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => onTrackOrder && onTrackOrder(order)}
+                    className="px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all cursor-pointer border border-slate-200"
+                  >
+                    View Details
+                  </button>
                 </div>
               </div>
             );

@@ -17,11 +17,12 @@ import {
   X,
   Database,
   Smartphone,
-  Hash
+  Hash,
+  Bike
 } from 'lucide-react';
 import { useStudentAuth } from '../context/StudentAuthContext';
 
-export default function StudentProfilePage({ onBackToHome, onViewOrders }) {
+export default function StudentProfilePage({ onBackToHome, onViewOrders, onNavigateToRider }) {
   const { profile, updateProfile, logout } = useStudentAuth();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -155,7 +156,7 @@ export default function StudentProfilePage({ onBackToHome, onViewOrders }) {
               Profile Details Updated in Database!
             </h4>
             <p className="text-xs text-emerald-800 mt-0.5">
-              Your name and phone number have been saved to Neon PostgreSQL. Kitchens and delivery partners will contact you at your updated mobile number.
+              Your name and phone number have been saved to Neon PostgreSQL. Kitchens will contact you at your updated mobile number.
             </p>
           </div>
         </div>
@@ -460,7 +461,7 @@ export default function StudentProfilePage({ onBackToHome, onViewOrders }) {
                 <div className="space-y-1.5">
                   <label className="text-xs font-black text-[#0F172A] flex items-center justify-between">
                     <span>Mobile Phone Number <span className="text-[#FF5722]">*</span></span>
-                    <span className="text-[10px] text-slate-400 font-normal">Delivery partner calls for Gate 3 drop</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Contact for Gate 3 drop</span>
                   </label>
                   <div className="relative flex items-center">
                     <span className="absolute left-4 text-xs font-mono font-black text-[#FF5722] select-none">
@@ -544,9 +545,28 @@ export default function StudentProfilePage({ onBackToHome, onViewOrders }) {
                 SRM University AP — Gate 3 Security Dispatch Point
               </span>
               <p className="text-[11px] text-[#64748B] leading-relaxed">
-                CampusBites is exclusively customized for SRM University AP. Delivery partners pick up freshly packed food from campus kitchens and hand it over directly to you at Gate 3.
+                CampusBites is exclusively customized for SRM University AP. Freshly packed food from campus kitchens is handed over directly to you at Gate 3.
               </p>
             </div>
+          </div>
+
+          {/* Delivery Partner Access */}
+          <div className="card-elevated p-4 bg-white border border-[#F1EAE4] rounded-2xl flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 text-[#FF5722] flex items-center justify-center shrink-0 border border-orange-100">
+                <Bike size={20} />
+              </div>
+              <div>
+                <h5 className="font-extrabold text-xs text-[#0F172A]">Delivery Partner Portal</h5>
+                <p className="text-[11px] text-[#64748B]">Assigned rider order pickup & dropoffs</p>
+              </div>
+            </div>
+            <button
+              onClick={() => onNavigateToRider ? onNavigateToRider() : (window.location.hash = '#delivery')}
+              className="px-3.5 py-1.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold transition-all cursor-pointer border-none shadow-xs"
+            >
+              Open Rider App
+            </button>
           </div>
 
         </div>

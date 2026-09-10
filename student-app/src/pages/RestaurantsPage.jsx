@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Store, Clock, Phone, MapPin, ArrowRight, AlertCircle, Sparkles, CheckCircle2, XCircle } from 'lucide-react';
+import { Store, Clock, Phone, MapPin, ArrowRight, AlertCircle, CheckCircle2, XCircle, Search, Utensils } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { DEFAULT_RESTAURANTS } from '../lib/campusSeedData';
 import { useStudentAuth } from '../context/StudentAuthContext';
@@ -7,9 +7,10 @@ import { useStudentAuth } from '../context/StudentAuthContext';
 export default function RestaurantsPage({ onSelectRestaurant, orderingEnabled }) {
   const { profile } = useStudentAuth();
   const [restaurants, setRestaurants] = useState(DEFAULT_RESTAURANTS);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch restaurants from Neon PostgreSQL backend API
+  // Fetch restaurants from backend API
   const loadRestaurants = async () => {
     try {
       const res = await fetch('/api/restaurants');
@@ -54,15 +55,12 @@ export default function RestaurantsPage({ onSelectRestaurant, orderingEnabled })
 
   useEffect(() => {
     loadRestaurants();
+    const interval = setInterval(loadRestaurants, 3000);
 
-    // High frequency 2.5s poll to sync Admin kitchen open/closed toggles
-    const interval = setInterval(loadRestaurants, 2500);
-
-    // Supabase Realtime Subscription for instant status updates if configured
     if (isSupabaseConfigured() && supabase) {
       const channel = supabase
         .channel('public:restaurants')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, () => {
           loadRestaurants();
         })
         .subscribe();
@@ -76,145 +74,189 @@ export default function RestaurantsPage({ onSelectRestaurant, orderingEnabled })
     return () => clearInterval(interval);
   }, []);
 
+  const filteredRestaurants = restaurants.filter((r) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      r.name.toLowerCase().includes(q) ||
+      (r.cuisine && r.cuisine.toLowerCase().includes(q)) ||
+      (r.description && r.description.toLowerCase().includes(q))
+    );
+  });
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-5 space-y-5 animate-fade-in pb-24 md:pb-12">
       
-      {/* Student Welcome Banner */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-orange-500 via-[#FF5722] to-amber-500 text-white shadow-xl shadow-[#FF5722]/20 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-2 text-white/90 text-xs font-extrabold uppercase tracking-wider mb-2">
-            <Sparkles size={14} className="text-amber-200" />
-            <span>Welcome back, {profile?.name || 'Student'}!</span>
+      {/* 1. Header & Location Bar (Food App Style) */}
+      <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="text-xs text-slate-500 font-medium">
+              Welcome, <strong className="text-slate-800">{profile?.name || 'Student'}</strong>
+            </div>
+            <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 font-['Outfit'] tracking-tight mt-0.5">
+              Campus Food Ordering
+            </h2>
+            <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-1">
+              <MapPin size={13} className="text-[#FF5722] shrink-0" />
+              <span>Delivering directly to <strong>SRM University Gate 3</strong></span>
+            </div>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black font-['Outfit']">
-            Hungry on Campus?
-          </h2>
-          <p className="text-white/85 text-xs sm:text-sm mt-1 max-w-xl">
-            Order fresh meals from Neerukonda Village kitchens delivered directly to your SRM-AP hostel doorstep with 0 delivery fee.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-3 bg-black/15 backdrop-blur-md px-5 py-3.5 rounded-2xl border border-white/20 self-start md:self-auto">
-          <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-          <div className="text-xs">
-            <div className="text-white font-black">2 Campus Partners</div>
-            <div className="text-white/70">Live Supabase Sync</div>
+          {/* Search Input */}
+          <div className="relative w-full sm:w-64">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search kitchens & food..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#FF5722] focus:bg-white transition-colors"
+            />
           </div>
         </div>
       </div>
 
-      {/* Restaurant Section Title */}
-      <div className="flex items-center justify-between">
+      {/* 2. Platform Ordering Paused Alert */}
+      {!orderingEnabled && (
+        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2.5">
+          <AlertCircle size={16} className="shrink-0 text-rose-600" />
+          <div>
+            <strong>Campus ordering is temporarily paused.</strong> Restaurant kitchens will reopen shortly.
+          </div>
+        </div>
+      )}
+
+      {/* 3. Section Title */}
+      <div className="flex items-center justify-between pt-1">
         <div>
-          <h3 className="text-xl font-black text-[#0F172A] font-['Outfit']">
-            Available Campus Kitchens
+          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+            Available Restaurants ({filteredRestaurants.length})
           </h3>
-          <p className="text-xs text-[#64748B] mt-0.5">
-            Select a restaurant to browse menus, add items, and place an order
+          <p className="text-xs text-slate-500">
+            Fresh food prepared in Neerukonda and delivered to Gate 3
           </p>
         </div>
-        <span className="text-xs font-bold text-slate-500 bg-white px-3 py-1.5 rounded-full border border-[#E2D9D0]">
-          2 Authentic Kitchens
-        </span>
       </div>
 
-      {/* Two Restaurant Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* 4. Restaurant Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {isLoading ? (
           [1, 2].map((n) => (
-            <div key={n} className="card-elevated overflow-hidden border border-[#F1EAE4] bg-white animate-fade-in">
-              <div className="h-48 sm:h-56 w-full skeleton-shimmer" />
-              <div className="p-6 space-y-4">
-                <div className="w-3/4 h-5 skeleton-shimmer" />
-                <div className="w-full h-10 skeleton-shimmer" />
-                <div className="w-full h-12 skeleton-shimmer rounded-2xl" />
+            <div key={n} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="h-44 w-full skeleton-shimmer" />
+              <div className="p-4 space-y-3">
+                <div className="w-3/4 h-4 skeleton-shimmer" />
+                <div className="w-full h-8 skeleton-shimmer" />
+                <div className="w-full h-10 skeleton-shimmer rounded-lg" />
               </div>
             </div>
           ))
+        ) : filteredRestaurants.length === 0 ? (
+          <div className="col-span-full py-10 text-center bg-white rounded-xl border border-slate-200 p-6 space-y-2">
+            <Utensils size={24} className="mx-auto text-slate-400" />
+            <h4 className="text-sm font-bold text-slate-800">No restaurants found</h4>
+            <p className="text-xs text-slate-500">Try clearing your search query.</p>
+          </div>
         ) : (
-          restaurants.map((restaurant) => {
-          // When overall campus ordering is closed/paused, all restaurants are strictly CLOSED!
-          const isOpen = Boolean(orderingEnabled) && restaurant.is_open !== false;
+          filteredRestaurants.map((restaurant) => {
+            const isOpen = Boolean(orderingEnabled) && restaurant.is_open !== false;
 
-          return (
-            <div
-              key={restaurant.id}
-              className={`card-elevated overflow-hidden flex flex-col justify-between transition-all ${
-                !isOpen ? 'opacity-75 grayscale-[40%]' : ''
-              }`}
-            >
-              {/* Image Banner */}
-              <div className="relative h-48 sm:h-56 w-full overflow-hidden bg-slate-100">
-                <img
-                  src={restaurant.image_url || 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=1200&q=80'}
-                  alt={restaurant.name}
-                  className={`w-full h-full object-cover transition-transform duration-500 hover:scale-105 ${
-                    !isOpen ? 'grayscale' : ''
-                  }`}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-
-                {/* Status Badges */}
-                <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full text-xs font-extrabold bg-white/95 text-[#0F172A] shadow-md backdrop-blur-md">
-                    {restaurant.cuisine || 'Fast Food & Biryani'}
-                  </span>
-
-                  <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md ${
-                    isOpen
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-rose-500 text-white'
-                  }`}>
-                    {isOpen ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
-                    <span>{isOpen ? 'OPEN' : 'CLOSED'}</span>
-                  </span>
-                </div>
-
-                {/* Restaurant Name in Image */}
-                <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <h4 className="text-xl sm:text-2xl font-black font-['Outfit'] drop-shadow-md">
-                    {restaurant.name}
-                  </h4>
-                  <div className="flex items-center gap-2 text-xs text-white/90 mt-0.5">
-                    <MapPin size={13} className="text-[#FF5722]" />
-                    <span>{restaurant.location || 'Neerukonda Village'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card Details */}
-              <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-4">
-                <p className="text-xs sm:text-sm text-[#64748B] line-clamp-2">
-                  {restaurant.description}
-                </p>
-
-                {/* Notice if restaurant closed or overall ordering paused */}
-                {!isOpen && (
-                  <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
-                    <AlertCircle size={16} className="flex-shrink-0" />
-                    <span>Currently Unavailable</span>
-                  </div>
-                )}
-
-                {/* Action button */}
-                <div className="pt-2">
-                  <button
-                    onClick={() => isOpen && onSelectRestaurant(restaurant)}
-                    disabled={!isOpen}
-                    className={`w-full py-3.5 px-5 rounded-2xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all border-none shadow-md ${
-                      isOpen
-                        ? 'btn-primary cursor-pointer'
-                        : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+            return (
+              <div
+                key={restaurant.id}
+                className={`bg-white rounded-xl border transition-all overflow-hidden flex flex-col justify-between ${
+                  isOpen
+                    ? 'border-slate-200 hover:border-slate-400 shadow-xs'
+                    : 'border-slate-200 opacity-70 bg-slate-50'
+                }`}
+              >
+                {/* Restaurant Image with Status Badge */}
+                <div className="relative h-44 w-full bg-slate-100 overflow-hidden">
+                  <img
+                    src={restaurant.image_url || 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=1200&q=80'}
+                    alt={restaurant.name}
+                    loading="lazy"
+                    className={`w-full h-full object-cover transition-transform duration-300 ${
+                      !isOpen ? 'grayscale' : 'hover:scale-102'
                     }`}
-                  >
-                    <span>{isOpen ? 'Browse Food Menu' : 'Currently Unavailable'}</span>
-                    {isOpen && <ArrowRight size={16} />}
-                  </button>
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+                  {/* Top Bar Badges */}
+                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                    <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white/95 text-slate-800 shadow-xs">
+                      {restaurant.cuisine || 'Fast Food & Biryani'}
+                    </span>
+
+                    <span
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-extrabold tracking-wide uppercase flex items-center gap-1 shadow-xs ${
+                        isOpen
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-rose-600 text-white'
+                      }`}
+                    >
+                      {isOpen ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                      <span>{isOpen ? 'OPEN' : 'CLOSED'}</span>
+                    </span>
+                  </div>
+
+                  {/* Bottom Text Over Image */}
+                  <div className="absolute bottom-3 left-3 right-3 text-white">
+                    <h4 className="text-lg font-bold font-['Outfit'] leading-snug drop-shadow-sm">
+                      {restaurant.name}
+                    </h4>
+                  </div>
+                </div>
+
+                {/* Restaurant Information & Action */}
+                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <MapPin size={12} className="text-[#FF5722] shrink-0" />
+                      <span className="truncate">{restaurant.location || 'Neerukonda Village'}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-slate-600">
+                      <Clock size={12} className="shrink-0 text-slate-400" />
+                      <span>Prep time: {restaurant.prep_time || '15-20 mins'}</span>
+                      <span>•</span>
+                      <span className="text-emerald-700 font-semibold">Free Delivery</span>
+                    </div>
+
+                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed pt-1">
+                      {restaurant.description}
+                    </p>
+                  </div>
+
+                  {/* Closed Banner if restaurant closed */}
+                  {!isOpen && (
+                    <div className="p-2 rounded-lg bg-slate-100 text-slate-600 text-[11px] font-medium flex items-center gap-1.5">
+                      <AlertCircle size={13} className="shrink-0 text-slate-400" />
+                      <span>Currently not accepting orders</span>
+                    </div>
+                  )}
+
+                  {/* Action CTA */}
+                  <div className="pt-1">
+                    <button
+                      onClick={() => isOpen && onSelectRestaurant(restaurant)}
+                      disabled={!isOpen}
+                      className={`w-full py-2.5 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-none ${
+                        isOpen
+                          ? 'bg-[#FF5722] hover:bg-[#F4511E] text-white cursor-pointer shadow-xs active:scale-98'
+                          : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <span>{isOpen ? 'View Menu' : 'Currently Unavailable'}</span>
+                      {isOpen && <ArrowRight size={14} />}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        }))}
+            );
+          })
+        )}
       </div>
 
     </div>

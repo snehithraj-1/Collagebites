@@ -3,7 +3,6 @@ import {
   X,
   Volume2,
   VolumeX,
-  Bike,
   UtensilsCrossed,
   Users,
   RefreshCw,
@@ -20,11 +19,9 @@ export default function AdminSideMenuDrawer({
   profile,
   soundEnabled,
   onToggleSound,
-  onOpenDeliveryPartners,
-  deliveryPartnersCount = 0,
   onOpenMenuManager,
   onOpenStudentsModal,
-  onOpenRiderPortal,
+  onOpenDeliveryPartners,
   onRefreshData,
   isRefreshing,
   onLogout
@@ -113,63 +110,6 @@ export default function AdminSideMenuDrawer({
               Operations & Database
             </span>
 
-            {/* 1. Delivery Partners */}
-            <button
-              onClick={() => {
-                onClose();
-                onOpenDeliveryPartners();
-              }}
-              className="w-full p-3.5 rounded-2xl bg-slate-900/90 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/40 text-left transition-all cursor-pointer flex items-center justify-between group active:scale-[0.98]"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-lg border border-cyan-500/30 group-hover:scale-105 transition-transform">
-                  🛵
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">
-                      Delivery Partners
-                    </span>
-                    {deliveryPartnersCount > 0 && (
-                      <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-black border border-cyan-500/30">
-                        {deliveryPartnersCount} Active
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-400">
-                    Register couriers & assign to orders
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-all" />
-            </button>
-
-            {/* Direct Switch to Delivery Partner (Rider) Console */}
-            {onOpenRiderPortal && (
-              <button
-                onClick={() => {
-                  onClose();
-                  onOpenRiderPortal();
-                }}
-                className="w-full p-3.5 rounded-2xl bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-800/60 hover:border-cyan-500 text-left transition-all cursor-pointer flex items-center justify-between group active:scale-[0.98]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-lg border border-cyan-500/40 group-hover:scale-105 transition-transform">
-                    🛵
-                  </div>
-                  <div>
-                    <span className="text-sm font-bold text-cyan-200 group-hover:text-white transition-colors block">
-                      Rider Portal ➔
-                    </span>
-                    <p className="text-xs text-cyan-400/80">
-                      Switch to delivery partner dispatch console
-                    </p>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-cyan-400 group-hover:translate-x-0.5 transition-all" />
-              </button>
-            )}
-
             {/* 2. Menu & Inventory */}
             <button
               onClick={() => {
@@ -217,6 +157,55 @@ export default function AdminSideMenuDrawer({
               </div>
               <ChevronRight size={16} className="text-slate-500 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
             </button>
+
+            {/* Delivery Partners & PIN Credentials */}
+            {onOpenDeliveryPartners && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenDeliveryPartners();
+                }}
+                className="w-full p-3.5 rounded-2xl bg-slate-900/90 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/40 text-left transition-all cursor-pointer flex items-center justify-between group active:scale-[0.98]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-lg border border-indigo-500/30 group-hover:scale-105 transition-transform">
+                    🚴
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors block">
+                      Delivery Partners & PINs
+                    </span>
+                    <p className="text-xs text-slate-400">
+                      Create rider credentials & secret PINs
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-slate-500 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
+              </button>
+            )}
+
+            {/* Delivery Partner Portal Link */}
+            <a
+              href="http://localhost:5173/#delivery"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full p-3.5 rounded-2xl bg-slate-900/90 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/40 text-left transition-all cursor-pointer flex items-center justify-between group active:scale-[0.98] no-underline"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-lg border border-indigo-500/30 group-hover:scale-105 transition-transform">
+                  📱
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors block">
+                    Open Rider Web App
+                  </span>
+                  <p className="text-xs text-slate-400">
+                    Test live mobile rider portal view
+                  </p>
+                </div>
+              </div>
+              <ExternalLink size={15} className="text-slate-500 group-hover:text-indigo-400 transition-all" />
+            </a>
           </div>
 
           {/* Quick Settings & Controls */}
