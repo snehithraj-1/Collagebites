@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   X, User, MapPin, Phone, Mail, Clock, ShieldCheck, Ban, Trash2, 
-  CheckCircle2, Bike, ChevronDown, Check, Printer, Building, FileText
+  CheckCircle2, Check, Printer, Building, FileText
 } from 'lucide-react';
 
 // Safe date/time formatter that never throws Invalid Option or Invalid Date
@@ -57,18 +57,11 @@ function extractItems(order) {
 
 export default function OrderDetailsModal({
   order,
-  deliveryPartners = [],
-  onAssignPartner,
-  onUnassignPartner,
-  onOpenDeliveryPartners,
   onClose,
   onUpdateStatus,
   onCancelOrder,
   onDeleteOrder
 }) {
-  const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
-  const [isAssigning, setIsAssigning] = useState(false);
-
   if (!order) return null;
 
   const items = extractItems(order);
@@ -76,29 +69,6 @@ export default function OrderDetailsModal({
 
   const isCancelled = order.status === 'CANCELLED';
   const isDelivered = order.status === 'DELIVERED';
-  const isOutForDelivery = order.status === 'OUT_FOR_DELIVERY';
-
-  const handlePartnerSelect = async (partner) => {
-    if (!onAssignPartner) return;
-    setIsAssigning(true);
-    try {
-      await onAssignPartner(order.id, partner);
-      setShowPartnerDropdown(false);
-    } finally {
-      setIsAssigning(false);
-    }
-  };
-
-  const handlePartnerUnassign = async () => {
-    if (!onUnassignPartner) return;
-    setIsAssigning(true);
-    try {
-      await onUnassignPartner(order.id);
-      setShowPartnerDropdown(false);
-    } finally {
-      setIsAssigning(false);
-    }
-  };
 
   const handlePrint = () => {
     window.print();
@@ -120,8 +90,6 @@ export default function OrderDetailsModal({
                   ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                   : isDelivered
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                  : isOutForDelivery
-                  ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
                   : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
               } print:border-black print:text-black`}>
                 {order.status || 'CONFIRMED'}
@@ -238,97 +206,6 @@ export default function OrderDetailsModal({
             )}
           </div>
 
-          {/* Delivery Partner Section (with 1-Click Assignment) */}
-          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5 print:hidden">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                <Bike size={13} className="text-[#FF5722]" />
-                <span>Delivery Partner</span>
-              </div>
-              {onOpenDeliveryPartners && (
-                <button
-                  onClick={onOpenDeliveryPartners}
-                  className="text-[10px] font-bold text-[#FF5722] hover:underline cursor-pointer border-none bg-transparent"
-                >
-                  Manage Partners ➔
-                </button>
-              )}
-            </div>
-
-            {order.delivery_partner_name ? (
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-700">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold">
-                    <Bike size={16} />
-                  </div>
-                  <div>
-                    <div className="font-bold text-white text-xs sm:text-sm">
-                      {order.delivery_partner_name}
-                    </div>
-                    {order.delivery_partner_phone && (
-                      <a
-                        href={`tel:${order.delivery_partner_phone}`}
-                        className="text-[11px] font-mono text-cyan-300 hover:underline flex items-center gap-1"
-                      >
-                        <Phone size={10} />
-                        <span>{order.delivery_partner_phone}</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-
-                <button
-                  onClick={handlePartnerUnassign}
-                  disabled={isAssigning}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-300 text-[11px] font-bold transition-colors cursor-pointer border border-slate-700"
-                >
-                  Unassign
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400 text-xs italic">No delivery partner assigned yet</span>
-                  <button
-                    onClick={() => setShowPartnerDropdown(!showPartnerDropdown)}
-                    className="px-3 py-1.5 rounded-xl bg-[#FF5722]/20 hover:bg-[#FF5722]/30 text-[#FF5722] border border-[#FF5722]/40 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
-                  >
-                    <span>Assign Partner</span>
-                    <ChevronDown size={14} />
-                  </button>
-                </div>
-
-                {showPartnerDropdown && (
-                  <div className="p-2 rounded-xl bg-slate-900 border border-slate-700 space-y-1.5 animate-scale-in">
-                    <div className="text-[10px] text-slate-400 font-semibold px-1">
-                      Select delivery partner to assign:
-                    </div>
-                    {deliveryPartners.length === 0 ? (
-                      <div className="p-3 text-center text-slate-500 text-xs">
-                        No delivery partners created yet. Add one via "Manage Partners".
-                      </div>
-                    ) : (
-                      deliveryPartners.map((partner) => (
-                        <button
-                          key={partner.id}
-                          onClick={() => handlePartnerSelect(partner)}
-                          disabled={isAssigning}
-                          className="w-full p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-left flex items-center justify-between cursor-pointer border border-slate-700/60 transition-colors"
-                        >
-                          <div>
-                            <div className="font-bold text-white text-xs">{partner.name}</div>
-                            <div className="text-[10px] font-mono text-slate-400">{partner.phone}</div>
-                          </div>
-                          <span className="text-[11px] font-bold text-cyan-400">Assign ➔</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {/* Ordered Dishes Itemized List */}
           <div className="space-y-2">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between print:text-slate-600">
@@ -381,42 +258,34 @@ export default function OrderDetailsModal({
             </div>
           </div>
 
-          {/* Quick Status Override Buttons */}
+          {/* Quick Status Override Buttons - Only CONFIRMED and DELIVERED */}
           {onUpdateStatus && (
             <div className="space-y-1.5 pt-1 print:hidden">
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 Update Order Status
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => onUpdateStatus(order.id, 'CONFIRMED')}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
                     order.status === 'CONFIRMED'
                       ? 'bg-amber-500/30 text-amber-300 border-amber-500 shadow-xs'
                       : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 border-slate-700'
                   }`}
                 >
-                  CONFIRMED
-                </button>
-                <button
-                  onClick={() => onUpdateStatus(order.id, 'OUT_FOR_DELIVERY')}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                    order.status === 'OUT_FOR_DELIVERY'
-                      ? 'bg-blue-500/30 text-blue-300 border-blue-500 shadow-xs'
-                      : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 border-slate-700'
-                  }`}
-                >
-                  OUT FOR DELIVERY
+                  <Clock size={13} />
+                  <span>CONFIRMED</span>
                 </button>
                 <button
                   onClick={() => onUpdateStatus(order.id, 'DELIVERED')}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
                     order.status === 'DELIVERED'
                       ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500 shadow-xs'
                       : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 border-slate-700'
                   }`}
                 >
-                  DELIVERED
+                  <CheckCircle2 size={13} />
+                  <span>DELIVERED</span>
                 </button>
               </div>
             </div>

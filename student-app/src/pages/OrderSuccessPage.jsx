@@ -44,8 +44,7 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
 
               if (newStatus === 'OUT_FOR_DELIVERY') {
                 playStudentChime('OUT_FOR_DELIVERY');
-                const riderName = data.order.delivery_partner_name || 'Assigned Rider';
-                const msg = `Your food has been picked up by ${riderName} and is on its way to SRM Gate 3!`;
+                const msg = 'Your food is on its way to SRM University Gate 3!';
                 setStageAlert({
                   type: 'OUT_FOR_DELIVERY',
                   title: 'Order Out For Delivery! 🚀',
@@ -147,51 +146,35 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
             currentStatus === 'DELIVERED'
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              : currentStatus === 'OUT_FOR_DELIVERY'
-              ? 'bg-blue-50 text-blue-700 border-blue-200'
               : 'bg-amber-50 text-amber-700 border-amber-200'
           }`}>
-            {currentStatus === 'OUT_FOR_DELIVERY' ? '🚀 Out For Delivery' : currentStatus === 'DELIVERED' ? '✅ Food Delivered' : '👨‍🍳 Order Confirmed'}
+            {currentStatus === 'DELIVERED' ? '✅ Food Delivered' : '👨‍🍳 Order Confirmed'}
           </span>
           <h2 className="text-2xl sm:text-3xl font-black text-[#0F172A] font-['Outfit'] mt-2 tracking-tight">
-            {currentStatus === 'OUT_FOR_DELIVERY' ? 'Your Food is on the Way!' : currentStatus === 'DELIVERED' ? 'Enjoy Your Meal!' : 'Thank You for Your Order!'}
+            {currentStatus === 'DELIVERED' ? 'Enjoy Your Meal!' : 'Thank You for Your Order!'}
           </h2>
           <p className="text-xs sm:text-sm text-[#64748B] mt-1">
-            {currentStatus === 'OUT_FOR_DELIVERY'
-              ? `Rider ${liveOrder.delivery_partner_name || 'Partner'} has picked up your food and is heading to SRM Gate 3.`
-              : currentStatus === 'DELIVERED'
-              ? 'Your order has been handed over at SRM University Gate 3.'
-              : `Your order has been confirmed and is being cooked by ${order.restaurant_name}.`}
+            {currentStatus === 'DELIVERED'
+              ? 'Your order has been delivered and handed over at SRM University Gate 3.'
+              : `Your order has been confirmed and is being prepared by ${order.restaurant_name}.`}
           </p>
         </div>
 
-        {/* Live Delivery Progress Pipeline */}
-        <div className="pt-3 border-t border-[#F1EAE4] grid grid-cols-3 gap-2 text-center text-xs">
+        {/* Live Delivery Progress Pipeline - Confirmed & Delivered */}
+        <div className="pt-3 border-t border-[#F1EAE4] grid grid-cols-2 gap-6 text-center text-xs max-w-xs mx-auto">
           <div className="flex flex-col items-center">
-            <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-[10px]">✓</div>
-            <span className="font-bold text-slate-800 mt-1 text-[11px]">Confirmed</span>
+            <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">✓</div>
+            <span className="font-bold text-slate-800 mt-1.5 text-xs">Confirmed</span>
           </div>
           <div className="flex flex-col items-center">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${
-              currentStatus === 'OUT_FOR_DELIVERY' || currentStatus === 'DELIVERED'
-                ? 'bg-blue-600 text-white animate-pulse'
-                : 'bg-slate-200 text-slate-500'
-            }`}>
-              {currentStatus === 'DELIVERED' ? '✓' : '🛵'}
-            </div>
-            <span className={`font-bold mt-1 text-[11px] ${
-              currentStatus === 'OUT_FOR_DELIVERY' || currentStatus === 'DELIVERED' ? 'text-blue-600' : 'text-slate-400'
-            }`}>Out for Delivery</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${
               currentStatus === 'DELIVERED'
                 ? 'bg-emerald-500 text-white'
                 : 'bg-slate-200 text-slate-500'
             }`}>
-              {currentStatus === 'DELIVERED' ? '✓' : '3'}
+              {currentStatus === 'DELIVERED' ? '✓' : '🍽️'}
             </div>
-            <span className={`font-bold mt-1 text-[11px] ${
+            <span className={`font-bold mt-1.5 text-xs ${
               currentStatus === 'DELIVERED' ? 'text-emerald-600' : 'text-slate-400'
             }`}>Delivered</span>
           </div>
@@ -250,40 +233,7 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
           </div>
         </div>
 
-        {/* Assigned Delivery Partner Banner (if assigned) */}
-        {liveOrder.delivery_partner_name && (
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 flex items-center justify-between gap-3 text-xs animate-fade-in shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-lg shadow-sm">
-                🛵
-              </div>
-              <div>
-                <div className="text-[10px] font-black text-blue-800 uppercase tracking-wider flex items-center gap-1">
-                  <span>{currentStatus === 'OUT_FOR_DELIVERY' ? '🚀 Out on Road with Rider' : 'Assigned Campus Rider'}</span>
-                  {currentStatus === 'OUT_FOR_DELIVERY' && <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />}
-                </div>
-                <div className="font-extrabold text-[#0F172A] text-sm">
-                  {liveOrder.delivery_partner_name}
-                </div>
-                {liveOrder.delivery_partner_phone && (
-                  <div className="text-[11px] text-slate-500 font-mono">
-                    Phone: {liveOrder.delivery_partner_phone}
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {liveOrder.delivery_partner_phone && (
-              <a
-                href={`tel:${liveOrder.delivery_partner_phone}`}
-                className="py-2 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all no-underline shrink-0"
-              >
-                <Phone size={13} />
-                <span>Call Rider</span>
-              </a>
-            )}
-          </div>
-        )}
 
         {/* Student and Delivery Destination */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-[#FAF8F5] border border-[#E2D9D0] text-xs">
