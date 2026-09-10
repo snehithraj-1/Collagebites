@@ -1,24 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+// student-app/src/lib/supabase.js
+// Re-export the shared Supabase client for consistency across all apps
+import { supabase } from "../../shared/src/lib/supabaseClient.js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-export const isSupabaseConfigured = () => {
-  return Boolean(
-    supabaseUrl && 
-    supabaseAnonKey && 
-    !supabaseUrl.includes('your-project-id') &&
-    supabaseUrl.startsWith('http')
-  );
-};
-
-// Initialize Supabase Client if configured, or create a mock/safe client
-export const supabase = isSupabaseConfigured()
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true
-      }
-    })
-  : null;
+export { supabase };
