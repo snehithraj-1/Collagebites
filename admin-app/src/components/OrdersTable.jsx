@@ -306,32 +306,32 @@ export default function OrdersTable({
 
                     {/* Student Info */}
                     <td className="py-3 px-4">
-                      <div className="font-bold text-white text-xs">{order.student_name || 'Student'}</div>
+                      <div className="font-bold text-white text-xs">{order.student_name || order.studentName || 'Student'}</div>
                       <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
                         <Phone size={10} className="text-[#FF5722]" />
-                        <span>{order.student_phone || '—'}</span>
+                        <span>{order.student_phone || order.studentPhone || '—'}</span>
                       </div>
                       <div className="text-[10px] text-slate-500 truncate max-w-[150px]">
-                        {order.delivery_location || 'Gate 3'}
+                        {order.delivery_location || order.deliveryLocation || 'Gate 3'}
                       </div>
                     </td>
 
                     {/* Restaurant */}
                     <td className="py-3 px-4">
                       <div className="font-semibold text-white text-xs truncate max-w-[140px]">
-                        {order.restaurant_name || restaurantName}
+                        {order.restaurant_name || order.restaurantName || restaurantName}
                       </div>
                     </td>
 
                     {/* Delivery Partner */}
                     <td className="py-3 px-4">
-                      {order.delivery_partner_name ? (
+                      {(order.delivery_partner_name || order.deliveryPartner?.name) ? (
                         <div className="flex items-center gap-1.5 text-xs">
                           <Bike size={14} className="text-indigo-400 shrink-0" />
                           <div className="truncate max-w-[130px]">
-                            <div className="font-bold text-white truncate">{order.delivery_partner_name}</div>
-                            {order.delivery_partner_phone && (
-                              <div className="text-[10px] text-slate-400 font-mono">{order.delivery_partner_phone}</div>
+                            <div className="font-bold text-white truncate">{order.delivery_partner_name || order.deliveryPartner?.name}</div>
+                            {(order.delivery_partner_phone || order.deliveryPartner?.phone) && (
+                              <div className="text-[10px] text-slate-400 font-mono">{order.delivery_partner_phone || order.deliveryPartner?.phone}</div>
                             )}
                           </div>
                         </div>
@@ -367,7 +367,7 @@ export default function OrdersTable({
 
                     {/* Total Amount */}
                     <td className="py-3 px-4 text-right whitespace-nowrap font-mono font-black text-sm text-emerald-400">
-                      ₹{order.total_amount}
+                      ₹{order.total_amount ?? order.totalAmount ?? 0}
                     </td>
 
                     {/* Status */}
@@ -472,14 +472,14 @@ export default function OrdersTable({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-slate-500 text-[10px] block">Student:</span>
-                    <span className="font-bold text-white text-xs block truncate">{order.student_name || 'Student'}</span>
-                    <span className="text-slate-400 text-[11px] font-mono block">{order.student_phone || '—'}</span>
+                    <span className="font-bold text-white text-xs block truncate">{order.student_name || order.studentName || 'Student'}</span>
+                    <span className="text-slate-400 text-[11px] font-mono block">{order.student_phone || order.studentPhone || '—'}</span>
                   </div>
 
                   <div>
                     <span className="text-slate-500 text-[10px] block">Total Amount:</span>
-                    <span className="font-mono font-black text-emerald-400 text-sm block">₹{order.total_amount}</span>
-                    <span className="text-slate-400 text-[10px] block truncate">{order.restaurant_name || restaurantName}</span>
+                    <span className="font-mono font-black text-emerald-400 text-sm block">₹{order.total_amount ?? order.totalAmount ?? 0}</span>
+                    <span className="text-slate-400 text-[10px] block truncate">{order.restaurant_name || order.restaurantName || restaurantName}</span>
                   </div>
                 </div>
 
@@ -489,11 +489,11 @@ export default function OrdersTable({
                     <Bike size={12} className="text-indigo-400" />
                     Delivery Rider:
                   </span>
-                  {order.delivery_partner_name ? (
+                  {(order.delivery_partner_name || order.deliveryPartner?.name) ? (
                     <div className="text-right">
-                      <span className="font-bold text-white text-xs">{order.delivery_partner_name}</span>
-                      {order.delivery_partner_phone && (
-                        <span className="text-[10px] text-slate-400 font-mono block">{order.delivery_partner_phone}</span>
+                      <span className="font-bold text-white text-xs">{order.delivery_partner_name || order.deliveryPartner?.name}</span>
+                      {(order.delivery_partner_phone || order.deliveryPartner?.phone) && (
+                        <span className="text-[10px] text-slate-400 font-mono block">{order.delivery_partner_phone || order.deliveryPartner?.phone}</span>
                       )}
                     </div>
                   ) : (

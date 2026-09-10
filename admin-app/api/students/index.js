@@ -22,19 +22,40 @@ export default async function handler(req, res) {
           name, 
           email, 
           phone, 
-          role, 
-          created_at as "createdAt",
-          updated_at as "updatedAt"
+          student_id,
+          hostel_block,
+          room_number,
+          total_orders,
+          created_at,
+          updated_at
         FROM students 
         ORDER BY created_at DESC 
         LIMIT 300;
       `;
-      return res.status(200).json(rows);
+
+      const formatted = rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        phone: r.phone || '—',
+        student_id: r.student_id || '—',
+        studentId: r.student_id || '—',
+        hostel_block: r.hostel_block || 'SRM Campus',
+        hostelBlock: r.hostel_block || 'SRM Campus',
+        room_number: r.room_number || 'Gate 3',
+        roomNumber: r.room_number || 'Gate 3',
+        total_orders: Number(r.total_orders || 0),
+        totalOrders: Number(r.total_orders || 0),
+        created_at: r.created_at,
+        createdAt: r.created_at
+      }));
+
+      return res.status(200).json({ success: true, students: formatted, count: formatted.length });
     } catch (err) {
       console.error('[Admin Students GET Error]:', err.message);
-      return res.status(500).json({ error: 'Failed to fetch students: ' + err.message });
+      return res.status(500).json({ success: false, error: 'Failed to fetch students: ' + err.message });
     }
   }
 
-  return res.status(405).json({ error: 'Method not allowed' });
+  return res.status(405).json({ success: false, error: 'Method not allowed' });
 }

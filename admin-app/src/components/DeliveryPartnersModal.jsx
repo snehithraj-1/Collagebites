@@ -384,11 +384,28 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="p-3.5 border-t border-slate-800 bg-slate-950/70 flex items-center justify-between text-slate-400 text-xs">
-          <span>Riders log in at: <code className="text-indigo-300">http://localhost:5173/#delivery</code></span>
+        <div className="p-3.5 border-t border-slate-800 bg-slate-950/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-400 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span>Riders Portal:</span>
+            <code className="text-indigo-300 bg-indigo-950/50 px-2 py-0.5 rounded border border-indigo-500/30 text-[11px] font-mono">
+              {typeof window !== 'undefined' ? `${window.location.origin}/#delivery` : '/#delivery'}
+            </code>
+            <button
+              onClick={() => {
+                const url = typeof window !== 'undefined' ? `${window.location.origin}/#delivery` : '/#delivery';
+                navigator.clipboard.writeText(url);
+                setSuccessMessage('Rider Portal link copied to clipboard!');
+              }}
+              className="px-2 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors border border-indigo-500/40"
+              title="Copy link to share with riders"
+            >
+              <Copy size={11} />
+              <span>Copy Link</span>
+            </button>
+          </div>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer border-none"
+            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer border-none shrink-0"
           >
             Close
           </button>

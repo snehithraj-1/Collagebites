@@ -9,10 +9,12 @@
     "dev": "node scripts/dev.js",
     "dev:student": "vite student-app --config student-app/vite.config.js --port 5173 --host",
     "dev:admin": "vite admin-app --config admin-app/vite.config.js --port 5174 --host",
+    "dev:delivery": "vite delivery-app --config delivery-app/vite.config.js --port 5175 --host",
     "build": "npm run build:all",
-    "build:all": "vite build student-app --config student-app/vite.config.js && vite build admin-app --config admin-app/vite.config.js",
+    "build:all": "vite build student-app --config student-app/vite.config.js && vite build admin-app --config admin-app/vite.config.js && vite build delivery-app --config delivery-app/vite.config.js",
     "build:student": "vite build student-app --config student-app/vite.config.js",
-    "build:admin": "vite build admin-app --config admin-app/vite.config.js"
+    "build:admin": "vite build admin-app --config admin-app/vite.config.js",
+    "build:delivery": "vite build delivery-app --config delivery-app/vite.config.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
