@@ -11,7 +11,6 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
 
   useEffect(() => {
     setLiveOrder(order);
-    if (order.status) prevStatusRef.current = order.status;
   }, [order]);
 
   // Unlock audio on interaction

@@ -114,8 +114,10 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
             const allData = await allRes.json();
             (allData.orders || []).forEach((o) => {
               const isLocalMatch = localIds.has(o.id) || localOrders.some((lo) => lo.id === o.id || (lo.id && o.id && (lo.id.includes(o.id) || o.id.includes(lo.id))));
-              const isEmailMatch = profile?.email && o.student_email && o.student_email.toLowerCase() === profile.email.toLowerCase();
-              const isPhoneMatch = profile?.phone && o.student_phone && o.student_phone.replace(/\D/g, '').slice(-10) === profile.phone.replace(/\D/g, '').slice(-10);
+              const guestPhone = JSON.parse(localStorage.getItem('cb_delivery_details') || '{}')?.phone || '';
+              const sPhone = String(o.student_phone || '').replace(/\D/g, '').slice(-10);
+              const pPhone = String(profile?.phone || guestPhone || '').replace(/\D/g, '').slice(-10);
+              const isPhoneMatch = Boolean(pPhone && sPhone && sPhone === pPhone);
               
               if (isLocalMatch || isEmailMatch || isPhoneMatch) {
                 ordersMap.set(o.id, o);
@@ -148,7 +150,6 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
             if (o.status === 'DELIVERED' && ageMs > 30 * 60 * 1000) {
               saveNotifiedStage(o.id, 'DELIVERED');
               saveNotifiedStage(o.id, 'OUT_FOR_DELIVERY');
-              saveNotifiedStage(o.id, 'PARTNER_ASSIGNED');
             }
           });
           isFirstPollRef.current = false;
@@ -157,74 +158,10 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
         // Process each order for real-time status transitions
         for (const order of orders) {
           const alreadyNotified = notifiedStages[order.id] || [];
-          const status = order.status;
-          const partnerName = order.delivery_partner_name || '';
+          const orderStatus = order.status || 'CONFIRMED';
 
-          // 1. Rider assigned notification (if not notified yet)
-          if (partnerName && !alreadyNotified.includes('PARTNER_ASSIGNED')) {
-            saveNotifiedStage(order.id, 'PARTNER_ASSIGNED');
-            if (isMounted && status !== 'DELIVERED') {
-              setActiveToast({
-                order,
-                status: 'PARTNER_ASSIGNED',
-                title: '🛵 Delivery Partner Assigned!',
-                desc: `${partnerName} (${order.delivery_partner_phone || 'Courier'}) is assigned to deliver your food to SRM University Gate 3!`,
-                icon: Bike,
-                bg: 'bg-white border-2 border-cyan-400 text-cyan-950 shadow-cyan-500/20',
-                badge: 'bg-cyan-100 text-cyan-800'
-              });
-              playStudentChime('OUT_FOR_DELIVERY');
-              sendStudentNotification(
-                '🛵 Delivery Partner Assigned!',
-                `${partnerName} is delivering #${order.id} to SRM Gate 3`
-              );
-            }
-          }
-
-          // 2. Out for Delivery transition
-          if (status === 'OUT_FOR_DELIVERY' && !alreadyNotified.includes('OUT_FOR_DELIVERY')) {
-            saveNotifiedStage(order.id, 'OUT_FOR_DELIVERY');
-
-            // Sync updated status & partner details to localStorage
-            try {
-              const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-              const updated = stored.map((o) =>
-                o.id === order.id ? { 
-                  ...o, 
-                  status: 'OUT_FOR_DELIVERY',
-                  delivery_partner_name: order.delivery_partner_name || o.delivery_partner_name,
-                  delivery_partner_phone: order.delivery_partner_phone || o.delivery_partner_phone
-                } : o
-              );
-              localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
-            } catch {}
-
-            if (isMounted) {
-              const desc = partnerName
-                ? `Rider ${partnerName} has picked up your food and is heading to SRM Gate 3!`
-                : `Your food parcel has been picked up and is on its way to SRM Gate 3!`;
-
-              setActiveToast({
-                order,
-                status: 'OUT_FOR_DELIVERY',
-                title: 'Out for Delivery! 🚀',
-                desc,
-                icon: Bike,
-                bg: 'bg-white border-2 border-blue-500 text-blue-950 shadow-blue-500/30',
-                badge: 'bg-blue-100 text-blue-800'
-              });
-
-              playStudentChime('OUT_FOR_DELIVERY');
-              sendStudentNotification(
-                'Out for Delivery! 🚀',
-                `Order #${order.id}: ${desc}`
-              );
-            }
-            break; // Show this toast first
-          }
-
-          // 3. Delivered transition
-          if (status === 'DELIVERED' && !alreadyNotified.includes('DELIVERED')) {
+          // 1. Delivered transition
+          if (orderStatus === 'DELIVERED' && !alreadyNotified.includes('DELIVERED')) {
             saveNotifiedStage(order.id, 'DELIVERED');
 
             // Sync updated status & partner details to localStorage
@@ -261,6 +198,32 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
               );
             }
             break; // Show this toast first
+          }
+
+          // 2. Out for Delivery transition (if applicable)
+          if (orderStatus === 'OUT_FOR_DELIVERY' && !alreadyNotified.includes('OUT_FOR_DELIVERY')) {
+            saveNotifiedStage(order.id, 'OUT_FOR_DELIVERY');
+
+            if (isMounted) {
+              const desc = 'Your food parcel is on its way to SRM Gate 3!';
+
+              setActiveToast({
+                order,
+                status: 'OUT_FOR_DELIVERY',
+                title: 'Out for Delivery! 🚀',
+                desc,
+                icon: Bike,
+                bg: 'bg-white border-2 border-blue-500 text-blue-950 shadow-blue-500/30',
+                badge: 'bg-blue-100 text-blue-800'
+              });
+
+              playStudentChime('OUT_FOR_DELIVERY');
+              sendStudentNotification(
+                'Out for Delivery! 🚀',
+                `Order #${order.id}: ${desc}`
+              );
+            }
+            break;
           }
         }
       } catch (err) {
@@ -341,37 +304,25 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
           </button>
         </div>
 
-        {/* Delivery Partner Contact & Drop Point */}
+        {/* Drop Point & Track Button */}
         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
           <div className="flex items-center gap-1.5 text-slate-500 text-[11px] font-semibold">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
             <span>Drop: SRM AP Gate 3</span>
           </div>
 
-          <div className="flex items-center gap-2">
-            {activeToast.order?.delivery_partner_phone && (
-              <a
-                href={`tel:${activeToast.order.delivery_partner_phone}`}
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200 no-underline"
-              >
-                <Phone size={11} />
-                <span>Call Rider</span>
-              </a>
-            )}
-            
-            {onTrackOrder && (
-              <button
-                onClick={() => {
-                  onTrackOrder(activeToast.order);
-                  setActiveToast(null);
-                }}
-                className="inline-flex items-center gap-1 text-[11px] font-black text-[#FF5722] hover:text-[#E64A19] border-none bg-transparent cursor-pointer"
-              >
-                <span>Track Order</span>
-                <ArrowRight size={12} />
-              </button>
-            )}
-          </div>
+          {onTrackOrder && (
+            <button
+              onClick={() => {
+                onTrackOrder(activeToast.order);
+                setActiveToast(null);
+              }}
+              className="inline-flex items-center gap-1 text-[11px] font-black text-[#FF5722] hover:text-[#E64A19] border-none bg-transparent cursor-pointer"
+            >
+              <span>Track Order</span>
+              <ArrowRight size={12} />
+            </button>
+          )}
         </div>
 
       </div>
