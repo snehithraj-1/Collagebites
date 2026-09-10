@@ -132,14 +132,17 @@
       "instructions": null,
       "created_at": "2026-09-09T18:06:07.197Z",
       "confirmed_at": "2026-09-09T18:06:07.197Z",
-      "updated_at": "2026-09-10T05:15:36.497Z",
+      "updated_at": "2026-09-10T07:18:03.105Z",
       "items": [
         {
           "name": "Veg Fried Rice",
           "price": 150,
           "quantity": 1
         }
-      ]
+      ],
+      "delivery_partner_id": "dp-zpp1zco",
+      "delivery_partner_name": "Raju bhai",
+      "delivery_partner_phone": "8125678977"
     },
     {
       "id": "CB-337206",
@@ -390,11 +393,11 @@
       "restaurant_id": "local-home-kitchen",
       "restaurant_name": "Local Home Kitchen",
       "total_amount": 505,
-      "status": "DELIVERED",
+      "status": "ASSIGNED",
       "instructions": null,
       "created_at": "2026-09-09T14:54:47.560Z",
       "confirmed_at": "2026-09-09T14:54:47.570Z",
-      "updated_at": "2026-09-10T05:15:39.074Z",
+      "updated_at": "2026-09-10T07:17:32.308Z",
       "items": [
         {
           "id": "CB-321267-item-1",
@@ -404,7 +407,10 @@
           "quantity": 2,
           "price": 250
         }
-      ]
+      ],
+      "delivery_partner_id": "dp-lhk-1",
+      "delivery_partner_name": "Ramesh Kumar (LHK Rider)",
+      "delivery_partner_phone": "9989955833"
     },
     {
       "id": "CB-763594",
@@ -529,11 +535,11 @@
       "restaurant_id": "local-home-kitchen",
       "restaurant_name": "Local Home Kitchen",
       "total_amount": 285,
-      "status": "PREPARING",
+      "status": "ASSIGNED",
       "instructions": "Gate 3 audit order test",
       "created_at": "2026-09-08T10:22:33.791Z",
       "confirmed_at": "2026-09-08T10:22:33.791Z",
-      "updated_at": "2026-09-08T10:22:35.634Z",
+      "updated_at": "2026-09-10T07:17:37.329Z",
       "items": [
         {
           "id": "CB-AUDIT-5086-1",
@@ -541,7 +547,10 @@
           "quantity": 1,
           "price": 180
         }
-      ]
+      ],
+      "delivery_partner_id": "dp-lhk-2",
+      "delivery_partner_name": "Suresh Reddy (LHK Rider)",
+      "delivery_partner_phone": "9398414231"
     },
     {
       "id": "CB-AUDIT-6771",
@@ -558,7 +567,7 @@
       "instructions": "Gate 3 audit order test",
       "created_at": "2026-09-08T10:21:58.155Z",
       "confirmed_at": "2026-09-08T10:21:58.155Z",
-      "updated_at": "2026-09-10T05:15:42.918Z",
+      "updated_at": "2026-09-10T07:18:05.217Z",
       "items": [
         {
           "id": "CB-AUDIT-6771-1",
@@ -566,7 +575,10 @@
           "quantity": 1,
           "price": 180
         }
-      ]
+      ],
+      "delivery_partner_id": "dp-zpp1zco",
+      "delivery_partner_name": "Raju bhai",
+      "delivery_partner_phone": "8125678977"
     },
     {
       "id": "CB-342240",
