@@ -12,21 +12,17 @@ import OrderDetailsModal from '../components/OrderDetailsModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import StudentsModal from '../components/StudentsModal';
 import MenuManagerModal from '../components/MenuManagerModal';
-import DeliveryPartnersModal from '../components/DeliveryPartnersModal';
 import AdminSideMenuDrawer from '../components/AdminSideMenuDrawer';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function AdminDashboardPage() {
-  const { profile, logout, isSuperAdmin, isRestaurantAdmin, assignedRestaurantId } = useAdminAuth();
+  const { profile, logout } = useAdminAuth();
 
-  const defaultTab = isRestaurantAdmin && assignedRestaurantId ? assignedRestaurantId : 'local-home-kitchen';
   const [orders, setOrders] = useState([]);
   const [restaurants, setRestaurants] = useState(DEFAULT_RESTAURANTS);
-  const [activeRestaurantTab, setActiveRestaurantTab] = useState(defaultTab);
+  const [activeRestaurantTab, setActiveRestaurantTab] = useState('all');
   const [orderingEnabled, setOrderingEnabled] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const effectiveTab = isRestaurantAdmin && assignedRestaurantId ? assignedRestaurantId : activeRestaurantTab;
 
   // Modals & Drawers state
   const [inspectingOrder, setInspectingOrder] = useState(null);
@@ -34,8 +30,6 @@ export default function AdminDashboardPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isStudentsModalOpen, setIsStudentsModalOpen] = useState(false);
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
-  const [deliveryPartners, setDeliveryPartners] = useState([]);
-  const [isDeliveryPartnersModalOpen, setIsDeliveryPartnersModalOpen] = useState(false);
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
 
   // New Order Notifications & Audio Alert
@@ -135,40 +129,7 @@ export default function AdminDashboardPage() {
     } catch {}
   }, []);
 
-  // 3. Load Delivery Partners
-  const loadDeliveryPartners = useCallback(async () => {
-    try {
-      const res = await fetch('/api/delivery-partners');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.partners)) {
-          setDeliveryPartners(json.partners);
-          return;
-        }
-      }
-    } catch (apiErr) {}
 
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('delivery_partners')
-          .select('*')
-          .order('name');
-
-        if (!error && data && data.length > 0) {
-          setDeliveryPartners(data);
-          return;
-        }
-      } catch (err) {
-        console.warn('[Supabase Partners Fetch]:', err.message);
-      }
-    }
-
-    try {
-      const stored = JSON.parse(localStorage.getItem('cb_shared_delivery_partners') || '[]');
-      if (stored.length > 0) setDeliveryPartners(stored);
-    } catch {}
-  }, []);
 
   // 4. Load Orders
   // 4. Load Orders
@@ -176,19 +137,14 @@ export default function AdminDashboardPage() {
     if (!silent) setIsRefreshing(true);
 
     try {
-      // Super admin fetches ALL orders to keep global tracking map consistent across all restaurants.
-      // Restaurant admin fetches only their assigned restaurant.
-      const url = isRestaurantAdmin && assignedRestaurantId
-        ? `/api/orders?restaurant_id=${encodeURIComponent(assignedRestaurantId)}`
-        : '/api/orders';
-      const res = await fetch(url);
+      const res = await fetch('/api/orders');
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.orders)) {
           setOrders(json.orders);
           setIsRefreshing(false);
 
-          // Alert admin ONLY when a genuinely new order is placed or rider updates status
+          // Alert admin ONLY when a genuinely new order is placed or status changes
           if (!isFirstLoadRef.current) {
             // A. New live orders: must NOT be in prev map, NOT cancelled/delivered, and created in last 120 seconds!
             const now = Date.now();
@@ -199,7 +155,7 @@ export default function AdminDashboardPage() {
               return (now - createdAt) < 120 * 1000;
             });
 
-            // B. Existing orders status transitions (from Rider Portal or Kitchen)
+            // B. Existing orders status transitions
             const statusChanges = [];
             json.orders.forEach((o) => {
               if (prevOrdersMapRef.current.has(o.id)) {
@@ -215,7 +171,7 @@ export default function AdminDashboardPage() {
               setNewOrderAlert({
                 type: 'NEW_ORDER',
                 title: 'New Live Order Received! 🔔',
-                badge: 'New Student Order',
+                badge: 'New Order',
                 order: latest,
                 message: `${latest.student_name || 'Student'} • ₹${latest.total_amount}`
               });
@@ -226,7 +182,7 @@ export default function AdminDashboardPage() {
 
               sendAdminNotification(
                 `🔔 New Order Received: #${latest.id}`,
-                `${latest.student_name || 'Student'} placed an order (₹${latest.total_amount}) for delivery to SRM University Gate 3!`
+                `${latest.student_name || 'Student'} placed an order (₹${latest.total_amount}) at ${latest.restaurant_name || 'Campus Kitchen'}!`
               );
             } else if (statusChanges.length > 0) {
               const change = statusChanges[0];
@@ -236,9 +192,9 @@ export default function AdminDashboardPage() {
                 setNewOrderAlert({
                   type: 'OUT_FOR_DELIVERY',
                   title: 'Order Out For Delivery! 🚀',
-                  badge: 'Rider Dispatched',
+                  badge: 'Dispatched',
                   order: o,
-                  message: `Order #${o.id.slice(-8)} is out for delivery with ${o.delivery_partner_name || 'partner'}`
+                  message: `Order #${o.id.slice(-8)} is out for delivery to Gate 3`
                 });
 
                 if (soundEnabledRef.current) {
@@ -247,13 +203,13 @@ export default function AdminDashboardPage() {
 
                 sendAdminNotification(
                   `🚀 Order #${o.id.slice(-8)} Out For Delivery`,
-                  `${o.delivery_partner_name || 'Rider'} has dispatched the order to Gate 3!`
+                  `Order dispatched to Gate 3!`
                 );
               } else if (change.nextStatus === 'DELIVERED') {
                 setNewOrderAlert({
                   type: 'DELIVERED',
                   title: 'Order Successfully Delivered! ✅',
-                  badge: 'Delivered to Student',
+                  badge: 'Delivered',
                   order: o,
                   message: `Order #${o.id.slice(-8)} handed over to ${o.student_name || 'student'}`
                 });
@@ -276,9 +232,7 @@ export default function AdminDashboardPage() {
           const updatedMap = new Map();
           json.orders.forEach((o) => {
             updatedMap.set(o.id, {
-              status: o.status,
-              delivery_partner_id: o.delivery_partner_id,
-              delivery_partner_name: o.delivery_partner_name
+              status: o.status
             });
           });
           prevOrdersMapRef.current = updatedMap;
@@ -332,7 +286,6 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     loadSystemSettings();
     loadRestaurants();
-    loadDeliveryPartners();
     loadOrders();
 
     // Live Polling every 2s ensures instant order updates across ports
@@ -422,116 +375,7 @@ export default function AdminDashboardPage() {
     } catch {}
   };
 
-  // Action: Assign Delivery Partner to an Order
-  const handleAssignPartner = async (orderId, partner) => {
-    if (!orderId || !partner) return;
 
-    // Optimistic UI update
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              delivery_partner_id: partner.id,
-              delivery_partner_name: partner.name,
-              delivery_partner_phone: partner.phone
-            }
-          : o
-      )
-    );
-    setInspectingOrder((prev) =>
-      prev && prev.id === orderId
-        ? {
-            ...prev,
-            delivery_partner_id: partner.id,
-            delivery_partner_name: partner.name,
-            delivery_partner_phone: partner.phone
-          }
-        : prev
-    );
-
-    // Sync localStorage fallback
-    try {
-      const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-      const updated = stored.map((o) =>
-        o.id === orderId
-          ? { ...o, delivery_partner_id: partner.id, delivery_partner_name: partner.name, delivery_partner_phone: partner.phone }
-          : o
-      );
-      localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
-    } catch {}
-
-    // 1. Update in Shared Backend API
-    try {
-      await fetch('/api/orders/assign-partner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId,
-          partnerId: partner.id,
-          partner_id: partner.id,
-          partnerName: partner.name,
-          partner_name: partner.name,
-          partnerPhone: partner.phone,
-          partner_phone: partner.phone,
-          deliveryPartner: partner
-        })
-      });
-    } catch (e) {
-      console.warn('[Assign Partner Error]:', e.message);
-    }
-  };
-
-  // Action: Unassign Delivery Partner from an Order
-  const handleUnassignPartner = async (orderId) => {
-    if (!orderId) return;
-
-    // Optimistic UI update
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              delivery_partner_id: null,
-              delivery_partner_name: null,
-              delivery_partner_phone: null
-            }
-          : o
-      )
-    );
-    setInspectingOrder((prev) =>
-      prev && prev.id === orderId
-        ? {
-            ...prev,
-            delivery_partner_id: null,
-            delivery_partner_name: null,
-            delivery_partner_phone: null
-          }
-        : prev
-    );
-
-    // Sync localStorage fallback
-    try {
-      const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-      const updated = stored.map((o) =>
-        o.id === orderId
-          ? { ...o, delivery_partner_id: null, delivery_partner_name: null, delivery_partner_phone: null }
-          : o
-      );
-      localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
-    } catch {}
-
-    // 1. Update in Shared Backend API
-    try {
-      await fetch('/api/orders/assign-partner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, unassign: true })
-      });
-    } catch (e) {
-      console.warn('[Unassign Partner Error]:', e.message);
-    }
-  };
 
   // Action: Cancel Order
   const handleCancelOrder = async (order) => {
@@ -587,35 +431,21 @@ export default function AdminDashboardPage() {
           
           {/* Identity */}
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg border ${
-              isSuperAdmin
-                ? 'bg-gradient-to-tr from-[#FF5722] to-amber-600 shadow-orange-500/20 border-orange-400/30'
-                : assignedRestaurantId === 'clg-bites-biryani-nation'
-                ? 'bg-gradient-to-tr from-amber-600 to-yellow-600 shadow-amber-500/20 border-amber-400/30'
-                : 'bg-gradient-to-tr from-blue-600 to-indigo-600 shadow-blue-500/20 border-blue-400/30'
-            }`}>
-              {isSuperAdmin ? '🛡️' : '🏪'}
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg border bg-gradient-to-tr from-[#FF5722] to-amber-600 shadow-orange-500/20 border-orange-400/30">
+              🛡️
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-lg sm:text-xl font-black text-white font-['Outfit'] tracking-tight">
-                  {isSuperAdmin
-                    ? 'CampusBites Super Admin'
-                    : assignedRestaurantId === 'clg-bites-biryani-nation'
-                    ? 'CLG Bites Admin Portal'
-                    : 'Local Home Kitchen Portal'}
+                  CampusBites Admin Portal
                 </span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase border ${
-                  isSuperAdmin
-                    ? 'bg-orange-500/20 text-orange-400 border-orange-500/30'
-                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                }`}>
-                  {isSuperAdmin ? 'Super Admin' : 'Kitchen Admin'}
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase border bg-orange-500/20 text-orange-400 border-orange-500/30">
+                  Master Console
                 </span>
               </div>
               <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Neon PostgreSQL: <strong className="text-emerald-400">Connected</strong></span>
+                <span>All Orders & Kitchens Management</span>
               </div>
             </div>
           </div>
@@ -660,15 +490,10 @@ export default function AdminDashboardPage() {
             <button
               onClick={() => setIsSideMenuOpen(true)}
               className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-blue-500/25 active:scale-95 border-none"
-              title="Open Operations Menu (Delivery Partners, Menu, Students, etc.)"
+              title="Open Operations Menu (Menu, Students, etc.)"
             >
               <Menu size={18} />
               <span className="hidden sm:inline">Menu</span>
-              {deliveryPartners.length > 0 && (
-                <span className="px-1.5 py-0.2 bg-white/25 text-white rounded-full text-[10px] font-mono font-bold">
-                  {deliveryPartners.length}
-                </span>
-              )}
             </button>
           </div>
 
@@ -774,23 +599,21 @@ export default function AdminDashboardPage() {
           orderingEnabled={orderingEnabled}
         />
 
-        {/* 2. Overall Platform Ordering Switch - ONLY VISIBLE TO SUPER ADMIN */}
-        {isSuperAdmin && (
-          <SystemToggle
-            orderingEnabled={orderingEnabled}
-            onToggleSuccess={(nextState) => {
-              setOrderingEnabled(nextState);
-              setRestaurants((prev) => prev.map((r) => ({ ...r, is_open: nextState })));
-              loadRestaurants();
-            }}
-          />
-        )}
+        {/* 2. Overall Platform Ordering Switch */}
+        <SystemToggle
+          orderingEnabled={orderingEnabled}
+          onToggleSuccess={(nextState) => {
+            setOrderingEnabled(nextState);
+            setRestaurants((prev) => prev.map((r) => ({ ...r, is_open: nextState })));
+            loadRestaurants();
+          }}
+        />
 
-        {/* 3. Individual Restaurant Controls (Super Admin sees both; Kitchen Admin sees only their kitchen) */}
+        {/* 3. Individual Restaurant Controls */}
         <RestaurantToggles
           restaurants={restaurants}
           orderingEnabled={orderingEnabled}
-          assignedRestaurantId={isRestaurantAdmin ? assignedRestaurantId : null}
+          assignedRestaurantId={null}
           onRestaurantUpdate={(restaurantId, nextState) => {
             setRestaurants((prev) =>
               prev.map((r) => (r.id === restaurantId ? { ...r, is_open: nextState } : r))
@@ -798,26 +621,28 @@ export default function AdminDashboardPage() {
           }}
         />
 
-        {/* 4. Real-time Student Orders Table */}
-        <OrdersTable
-          orders={orders}
-          activeRestaurantTab={effectiveTab}
-          isRestaurantAdmin={isRestaurantAdmin}
-          onSelectRestaurantTab={isRestaurantAdmin ? undefined : (tab) => {
-            setActiveRestaurantTab(tab);
-          }}
-          restaurantName={
-            effectiveTab === 'local-home-kitchen'
-              ? 'Local Home Kitchen'
-              : effectiveTab === 'clg-bites-biryani-nation'
-              ? 'CLG Bites Biryani Nation'
-              : 'All Restaurants'
-          }
-          onInspectOrder={(order) => setInspectingOrder(order)}
-          onUpdateStatus={handleUpdateStatus}
-          onCancelOrder={handleCancelOrder}
-          onPromptDeleteOrder={(order) => setOrderToDelete(order)}
-        />
+        {/* 4. Real-time Student Orders Table (Unified for All Kitchens) */}
+        <ErrorBoundary>
+          <OrdersTable
+            orders={orders}
+            activeRestaurantTab={activeRestaurantTab}
+            isRestaurantAdmin={false}
+            onSelectRestaurantTab={(tab) => {
+              setActiveRestaurantTab(tab);
+            }}
+            restaurantName={
+              activeRestaurantTab === 'local-home-kitchen'
+                ? 'Local Home Kitchen'
+                : activeRestaurantTab === 'clg-bites-biryani-nation'
+                ? 'CLG Bites Biryani Nation'
+                : 'All Restaurants'
+            }
+            onInspectOrder={(order) => setInspectingOrder(order)}
+            onUpdateStatus={handleUpdateStatus}
+            onCancelOrder={handleCancelOrder}
+            onPromptDeleteOrder={(order) => setOrderToDelete(order)}
+          />
+        </ErrorBoundary>
 
       </main>
 
@@ -825,10 +650,6 @@ export default function AdminDashboardPage() {
       <ErrorBoundary onReset={() => setInspectingOrder(null)}>
         <OrderDetailsModal
           order={inspectingOrder}
-          deliveryPartners={deliveryPartners}
-          onAssignPartner={handleAssignPartner}
-          onUnassignPartner={handleUnassignPartner}
-          onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
           onClose={() => setInspectingOrder(null)}
           onUpdateStatus={handleUpdateStatus}
           onCancelOrder={handleCancelOrder}
@@ -843,14 +664,6 @@ export default function AdminDashboardPage() {
         onClose={() => setOrderToDelete(null)}
         onConfirmDelete={handleConfirmDelete}
         isDeleting={isDeleting}
-      />
-
-      {/* Delivery Partners Management Modal */}
-      <DeliveryPartnersModal
-        isOpen={isDeliveryPartnersModalOpen}
-        onClose={() => setIsDeliveryPartnersModalOpen(false)}
-        onPartnersChanged={loadDeliveryPartners}
-        assignedRestaurantId={isRestaurantAdmin ? assignedRestaurantId : null}
       />
 
       {/* Student Database Records Modal */}
@@ -876,8 +689,6 @@ export default function AdminDashboardPage() {
           setSoundEnabled(next);
           if (next) playAdminChime('test');
         }}
-        onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
-        deliveryPartnersCount={deliveryPartners.length}
         onOpenMenuManager={() => setIsMenuModalOpen(true)}
         onOpenStudentsModal={() => setIsStudentsModalOpen(true)}
         onRefreshData={() => {
