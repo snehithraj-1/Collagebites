@@ -15,10 +15,10 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
 
     try {
       // 1. Update Neon PostgreSQL shared backend
-      await fetch(`/api/restaurants/${restaurant.id}/toggle`, {
+      await fetch('/api/restaurants/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_open: nextState })
+        body: JSON.stringify({ id: restaurant.id, is_open: nextState })
       });
 
       // 2. Also sync to Supabase if configured

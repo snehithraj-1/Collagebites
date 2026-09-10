@@ -228,11 +228,6 @@ function StudentAppInner() {
               setCurrentView('history');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            onNavigateToRider={() => {
-              window.location.hash = '#delivery';
-              setCurrentView('rider');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
           />
         )}
       </main>
@@ -281,16 +276,6 @@ function StudentAppInner() {
           </div>
           <div className="flex items-center gap-3">
             <span>SRM University AP, Amaravati</span>
-            <span>•</span>
-            <button
-              onClick={() => {
-                window.location.hash = '#delivery';
-                setCurrentView('rider');
-              }}
-              className="text-[#FF5722] hover:underline font-bold cursor-pointer bg-transparent border-none p-0 text-xs"
-            >
-              Delivery Partner Portal
-            </button>
           </div>
         </div>
       </footer>

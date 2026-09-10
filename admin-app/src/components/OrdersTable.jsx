@@ -61,8 +61,9 @@ export default function OrdersTable({
         const res = await fetch(`/api/delivery-partners${query}`);
         if (res.ok) {
           const json = await res.json();
-          if (json.success && Array.isArray(json.partners)) {
-            setDeliveryPartners(json.partners);
+          const list = Array.isArray(json) ? json : (json.partners || json.data || []);
+          if (Array.isArray(list)) {
+            setDeliveryPartners(list);
           }
         }
       } catch (e) {}
@@ -97,7 +98,8 @@ export default function OrdersTable({
   // 1. Filter orders by restaurant tab, status, and search query
   const filteredOrders = orders.filter((order) => {
     // Restaurant filter
-    if (activeRestaurantTab !== 'all' && order.restaurant_id !== activeRestaurantTab) {
+    const restId = order.restaurant_id || order.restaurantId;
+    if (activeRestaurantTab !== 'all' && restId !== activeRestaurantTab) {
       return false;
     }
 
@@ -109,13 +111,12 @@ export default function OrdersTable({
     // Search query
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    return (
-      (order.id && order.id.toLowerCase().includes(q)) ||
-      (order.student_name && order.student_name.toLowerCase().includes(q)) ||
-      (order.student_email && order.student_email.toLowerCase().includes(q)) ||
-      (order.student_phone && order.student_phone.includes(q)) ||
-      (order.restaurant_name && order.restaurant_name.toLowerCase().includes(q))
-    );
+    const sName = (order.student_name || order.studentName || '').toLowerCase();
+    const sPhone = (order.student_phone || order.studentPhone || '').toLowerCase();
+    const sEmail = (order.student_email || order.studentEmail || '').toLowerCase();
+    const rName = (order.restaurant_name || order.restaurantName || '').toLowerCase();
+    const oId = (order.id || '').toLowerCase();
+    return oId.includes(q) || sName.includes(q) || sPhone.includes(q) || sEmail.includes(q) || rName.includes(q);
   });
 
   const handleQuickExport = () => {

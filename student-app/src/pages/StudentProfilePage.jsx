@@ -549,26 +549,6 @@ export default function StudentProfilePage({ onBackToHome, onViewOrders, onNavig
               </p>
             </div>
           </div>
-
-          {/* Delivery Partner Access */}
-          <div className="card-elevated p-4 bg-white border border-[#F1EAE4] rounded-2xl flex items-center justify-between gap-3 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-50 text-[#FF5722] flex items-center justify-center shrink-0 border border-orange-100">
-                <Bike size={20} />
-              </div>
-              <div>
-                <h5 className="font-extrabold text-xs text-[#0F172A]">Delivery Partner Portal</h5>
-                <p className="text-[11px] text-[#64748B]">Assigned rider order pickup & dropoffs</p>
-              </div>
-            </div>
-            <button
-              onClick={() => onNavigateToRider ? onNavigateToRider() : (window.location.hash = '#delivery')}
-              className="px-3.5 py-1.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold transition-all cursor-pointer border-none shadow-xs"
-            >
-              Open Rider App
-            </button>
-          </div>
-
         </div>
 
       </div>

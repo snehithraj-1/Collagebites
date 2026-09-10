@@ -11,7 +11,8 @@ export default function StudentsModal({ isOpen, onClose }) {
       const res = await fetch('/api/students');
       if (res.ok) {
         const data = await res.json();
-        setStudents(data.students || []);
+        const list = Array.isArray(data) ? data : (data.students || data.data || []);
+        setStudents(list);
       }
     } catch (err) {
       console.warn('Failed to fetch students:', err);

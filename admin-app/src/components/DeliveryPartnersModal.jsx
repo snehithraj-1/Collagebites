@@ -24,8 +24,9 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
       const res = await fetch('/api/delivery-partners');
       if (res.ok) {
         const data = await res.json();
-        if (data.success && Array.isArray(data.partners)) {
-          setPartners(data.partners);
+        const list = Array.isArray(data) ? data : (data.partners || data.data || []);
+        if (Array.isArray(list)) {
+          setPartners(list);
         }
       }
     } catch (e) {

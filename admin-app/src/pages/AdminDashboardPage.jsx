@@ -151,15 +151,53 @@ export default function AdminDashboardPage() {
       const res = await fetch('/api/orders');
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.orders)) {
-          setOrders(json.orders);
+        const rawOrders = Array.isArray(json) ? json : (json.orders || json.data || []);
+        if (Array.isArray(rawOrders)) {
+          const normalizedOrders = rawOrders.map(o => {
+            const studentName = o.student_name || o.studentName || 'Student';
+            const studentPhone = o.student_phone || o.studentPhone || '—';
+            const studentEmail = o.student_email || o.studentEmail || '';
+            const restId = o.restaurant_id || o.restaurantId || 'local-home-kitchen';
+            const restName = o.restaurant_name || o.restaurantName || (restId === 'clg-bites-biryani-nation' ? 'CLG Bites' : 'Local Home Kitchen');
+            const totalNum = Number(o.total_amount ?? o.totalAmount) || 0;
+            const dropLoc = o.delivery_location || o.deliveryLocation || 'SRM University - Gate 3';
+            const dpName = o.delivery_partner_name || o.deliveryPartner?.name || null;
+            const dpPhone = o.delivery_partner_phone || o.deliveryPartner?.phone || null;
+            const dpId = o.delivery_partner_id || o.deliveryPartner?.id || null;
+            const created = o.created_at || o.createdAt || new Date().toISOString();
+
+            return {
+              ...o,
+              student_name: studentName,
+              studentName,
+              student_phone: studentPhone,
+              studentPhone,
+              student_email: studentEmail,
+              studentEmail,
+              restaurant_id: restId,
+              restaurantId: restId,
+              restaurant_name: restName,
+              restaurantName: restName,
+              total_amount: totalNum,
+              totalAmount: totalNum,
+              delivery_location: dropLoc,
+              deliveryLocation: dropLoc,
+              delivery_partner_id: dpId,
+              delivery_partner_name: dpName,
+              delivery_partner_phone: dpPhone,
+              created_at: created,
+              createdAt: created
+            };
+          });
+
+          setOrders(normalizedOrders);
           setIsRefreshing(false);
 
           // Alert admin ONLY when a genuinely new order is placed or status changes
           if (!isFirstLoadRef.current) {
             // A. New live orders: must NOT be in prev map, NOT cancelled/delivered, and created in last 120 seconds!
             const now = Date.now();
-            const incoming = json.orders.filter((o) => {
+            const incoming = normalizedOrders.filter((o) => {
               if (prevOrdersMapRef.current.has(o.id)) return false;
               if (o.status === 'CANCELLED' || o.status === 'DELIVERED') return false;
               const createdAt = new Date(o.created_at || 0).getTime();
