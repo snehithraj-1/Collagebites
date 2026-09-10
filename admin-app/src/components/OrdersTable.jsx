@@ -90,6 +90,8 @@ export default function OrdersTable({
     switch (status) {
       case 'CONFIRMED':
         return 'bg-amber-500/15 text-amber-300 border-amber-500/40 font-bold';
+      case 'PREPARING':
+        return 'bg-purple-500/15 text-purple-300 border-purple-500/40 font-bold';
       case 'OUT_FOR_DELIVERY':
         return 'bg-blue-500/15 text-blue-300 border-blue-500/40 font-bold';
       case 'DELIVERED':
@@ -175,6 +177,7 @@ export default function OrdersTable({
           >
             <option value="ALL">All Statuses</option>
             <option value="CONFIRMED">CONFIRMED</option>
+            <option value="PREPARING">PREPARING</option>
             <option value="OUT_FOR_DELIVERY">OUT FOR DELIVERY</option>
             <option value="DELIVERED">DELIVERED</option>
             <option value="CANCELLED">CANCELLED</option>
@@ -259,12 +262,6 @@ export default function OrdersTable({
                       <div className="font-semibold text-white text-xs truncate max-w-[140px]">
                         {order.restaurant_name || restaurantName}
                       </div>
-                      {order.delivery_partner_name && (
-                        <div className="text-[10px] text-cyan-400 flex items-center gap-1 mt-0.5 font-medium">
-                          <Bike size={10} />
-                          <span className="truncate max-w-[120px]">{order.delivery_partner_name}</span>
-                        </div>
-                      )}
                     </td>
 
                     {/* Items & Qty */}
@@ -409,12 +406,6 @@ export default function OrdersTable({
                     <span className="text-slate-500 text-[10px] block">Total Amount:</span>
                     <span className="font-mono font-black text-emerald-400 text-sm block">₹{order.total_amount}</span>
                     <span className="text-slate-400 text-[10px] block truncate">{order.restaurant_name || restaurantName}</span>
-                    {order.delivery_partner_name && (
-                      <span className="text-cyan-400 text-[10px] flex items-center gap-1 font-semibold truncate mt-0.5">
-                        <Bike size={10} />
-                        {order.delivery_partner_name}
-                      </span>
-                    )}
                   </div>
                 </div>
 
