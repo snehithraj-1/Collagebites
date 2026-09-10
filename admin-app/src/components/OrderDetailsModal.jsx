@@ -297,7 +297,7 @@ export default function OrderDetailsModal({
               </div>
             </div>
             <div className="font-mono font-black text-xl sm:text-2xl text-emerald-400 print:text-black">
-              ₹{order.total_amount}
+              ₹{order.total_amount ?? order.totalAmount ?? 0}
             </div>
           </div>
 

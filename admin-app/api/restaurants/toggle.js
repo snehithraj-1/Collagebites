@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body || {};
-    const id = body.id || body.restaurantId || body.restaurant_id || req.query.id;
+    const id = body.id || body.restaurantId || body.restaurant_id || req.query.id || req.query.restaurantId;
 
     if (!id) {
       return res.status(400).json({ success: false, error: 'Restaurant ID is required.' });
@@ -36,11 +36,11 @@ export default async function handler(req, res) {
     await sql`
       UPDATE restaurants
       SET is_open = ${nextStatus}, updated_at = NOW()
-      WHERE id = ${id};
+      WHERE id = ${id} OR id LIKE ${id + '%'};
     `;
 
     console.log(`[Restaurant Toggle] Restaurant ${id} is_open set to ${nextStatus}`);
-    return res.status(200).json({ success: true, id, is_open: nextStatus });
+    return res.status(200).json({ success: true, id, restaurantId: id, is_open: nextStatus });
   } catch (err) {
     console.error('[Restaurant Toggle Error]:', err.message);
     return res.status(500).json({ success: false, error: 'Failed to toggle restaurant: ' + err.message });

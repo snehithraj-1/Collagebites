@@ -75,7 +75,12 @@ export default async function handler(req, res) {
         createdAt: r.created_at
       }));
 
-      return res.status(200).json({ success: true, partners: formatted });
+      return res.status(200).json({ 
+        success: true, 
+        partners: formatted, 
+        data: formatted,
+        count: formatted.length 
+      });
     } catch (err) {
       console.error('[Admin Delivery Partners GET Error]:', err.message);
       return res.status(500).json({ success: false, error: 'Failed to fetch delivery partners: ' + err.message });
@@ -134,7 +139,7 @@ export default async function handler(req, res) {
       };
 
       console.log(`[Neon DB] Created Delivery Partner: ${name} (+91 ${cleanPhone}) PIN: ${pin}`);
-      return res.status(201).json({ success: true, partner: newPartner });
+      return res.status(201).json({ success: true, partner: newPartner, data: newPartner });
     } catch (err) {
       console.error('[Admin Delivery Partners POST Error]:', err.message);
       return res.status(500).json({ success: false, error: 'Failed to create rider credentials: ' + err.message });

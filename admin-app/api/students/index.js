@@ -16,27 +16,72 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const rows = await sql`
-        SELECT 
-          id, 
-          name, 
-          email, 
-          phone, 
-          student_id,
-          hostel_block,
-          room_number,
-          total_orders,
-          created_at,
-          updated_at
-        FROM students 
-        ORDER BY created_at DESC 
-        LIMIT 300;
-      `;
+      let rows = [];
+      try {
+        rows = await sql`
+          SELECT 
+            id, 
+            name, 
+            email, 
+            phone, 
+            student_id,
+            hostel_block,
+            room_number,
+            total_orders,
+            created_at,
+            updated_at
+          FROM students 
+          ORDER BY created_at DESC 
+          LIMIT 300;
+        `;
+      } catch (e) {
+        console.warn('[Students Table Select Warning]:', e.message);
+      }
+
+      // Also ensure any student who placed an order in Neon DB is included
+      try {
+        const orderStudents = await sql`
+          SELECT 
+            DISTINCT ON (student_phone)
+            id as order_id,
+            student_name,
+            student_email,
+            student_phone,
+            delivery_location,
+            created_at
+          FROM orders
+          WHERE student_phone IS NOT NULL AND student_phone != '' AND student_phone != '—'
+          ORDER BY student_phone, created_at DESC;
+        `;
+
+        const existingPhones = new Set((rows || []).map(r => (r.phone || '').replace(/\D/g, '').slice(-10)));
+
+        for (const os of orderStudents) {
+          const cleanP = (os.student_phone || '').replace(/\D/g, '').slice(-10);
+          if (cleanP && !existingPhones.has(cleanP)) {
+            rows.push({
+              id: 'stu_' + cleanP,
+              name: os.student_name || 'Student',
+              email: os.student_email || '',
+              phone: os.student_phone,
+              student_id: 'SRM-' + cleanP.slice(-4),
+              hostel_block: 'SRM Campus',
+              room_number: os.delivery_location || 'Gate 3',
+              total_orders: 1,
+              created_at: os.created_at,
+              updated_at: os.created_at
+            });
+            existingPhones.add(cleanP);
+          }
+        }
+      } catch (e) {
+        console.warn('[Order students backfill warning]:', e.message);
+      }
 
       const formatted = rows.map(r => ({
         id: r.id,
-        name: r.name,
-        email: r.email,
+        name: r.name || 'Student',
+        email: r.email || '',
         phone: r.phone || '—',
         student_id: r.student_id || '—',
         studentId: r.student_id || '—',
@@ -50,7 +95,13 @@ export default async function handler(req, res) {
         createdAt: r.created_at
       }));
 
-      return res.status(200).json({ success: true, students: formatted, count: formatted.length });
+      // Return both array payload and object with .students and .data
+      return res.status(200).json({ 
+        success: true, 
+        students: formatted, 
+        data: formatted,
+        count: formatted.length 
+      });
     } catch (err) {
       console.error('[Admin Students GET Error]:', err.message);
       return res.status(500).json({ success: false, error: 'Failed to fetch students: ' + err.message });

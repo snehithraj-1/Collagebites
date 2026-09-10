@@ -206,7 +206,7 @@ export default function AdminDashboardPage() {
 
             // B. Existing orders status transitions
             const statusChanges = [];
-            json.orders.forEach((o) => {
+            normalizedOrders.forEach((o) => {
               if (prevOrdersMapRef.current.has(o.id)) {
                 const prev = prevOrdersMapRef.current.get(o.id);
                 if (prev.status && prev.status !== o.status) {
@@ -279,7 +279,7 @@ export default function AdminDashboardPage() {
 
           // Update tracked orders map with all current orders
           const updatedMap = new Map();
-          json.orders.forEach((o) => {
+          normalizedOrders.forEach((o) => {
             updatedMap.set(o.id, {
               status: o.status
             });
