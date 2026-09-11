@@ -156,6 +156,29 @@ export default function AdminSideMenuDrawer({
               </div>
               <ChevronRight size={16} className="text-slate-500 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
             </button>
+
+            {/* 4. Live Student Portal */}
+            <a
+              href={typeof window !== 'undefined' && window.location.hostname === 'clg-bites-srm.vercel.app' ? '/' : 'https://clg-bites-srm.vercel.app'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full p-3.5 rounded-2xl bg-slate-900/90 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/40 text-left transition-all cursor-pointer flex items-center justify-between group active:scale-[0.98]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-lg border border-emerald-500/30 group-hover:scale-105 transition-transform">
+                  🎓
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors block">
+                    Student Portal
+                  </span>
+                  <p className="text-xs text-slate-400">
+                    Live food ordering & menu preview
+                  </p>
+                </div>
+              </div>
+              <ExternalLink size={16} className="text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
+            </a>
           </div>
 
           {/* Quick Settings & Controls */}

@@ -3,15 +3,38 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 
-// Automatically prefix /api calls with VITE_API_URL when deployed to cloud hosts (e.g. Vercel)
-const apiBase = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
-if (apiBase) {
-  const originalFetch = window.fetch;
-  window.fetch = (url, options) => {
-    if (typeof url === 'string' && url.startsWith('/api')) {
-      return originalFetch(`${apiBase}${url}`, options);
+// Automatically route /api requests to the live backend when running on a standalone domain
+const getBackendUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    // Local development proxy (handled by vite server proxy)
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return '';
     }
-    return originalFetch(url, options);
+    // Unified domain: relative /api hits the integrated backend directly
+    if (host === 'clg-bites-srm.vercel.app') {
+      return '';
+    }
+    // Standalone deployment (e.g. any dedicated vercel.app admin domain): target live student backend
+    return 'https://clg-bites-srm.vercel.app';
+  }
+  return '';
+};
+
+const backendBase = getBackendUrl();
+if (backendBase) {
+  const originalFetch = window.fetch;
+  window.fetch = (input, init) => {
+    if (typeof input === 'string' && input.startsWith('/api')) {
+      return originalFetch(`${backendBase}${input}`, init);
+    }
+    if (typeof Request !== 'undefined' && input instanceof Request && input.url.startsWith('/api')) {
+      return originalFetch(new Request(`${backendBase}${input.url}`, input));
+    }
+    return originalFetch(input, init);
   };
 }
 

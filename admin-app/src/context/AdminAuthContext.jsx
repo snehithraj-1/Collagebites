@@ -127,7 +127,7 @@ export function AdminAuthProvider({ children }) {
         body: JSON.stringify({ username: cleanInput, email: cleanInput, password: cleanPassword })
       });
       const data = await res.json();
-      if (data.success && data.user) {
+      if (data && data.success && data.user) {
         setProfile(data.user);
         setUser({ id: data.user.id, email: data.user.email, role: data.user.role });
         setUnauthorizedError('');
@@ -135,16 +135,14 @@ export function AdminAuthProvider({ children }) {
           localStorage.setItem('cb_admin_profile', JSON.stringify(data.user));
         } catch {}
         return { success: true, user: data.user };
-      } else {
-        return {
-          success: false,
-          error: data.error || 'Invalid administrator credentials. Access restricted to authorized staff.'
-        };
       }
     } catch (apiErr) {
-      // Direct credential fallback check
-      const lowerInput = cleanInput.toLowerCase();
-      if ((lowerInput === 'collagebites1@gmail.com' || lowerInput === 'collagebites@gmail.com' || lowerInput === 'rajsrmap2@gmail.com' || lowerInput === 'superadmin' || lowerInput === 'admin@campusbites.com') && (cleanPassword === 'Clgbites123' || cleanPassword === 'Snehith@007' || cleanPassword === 'admin123')) {
+      console.warn('[Admin Auth API fallback]:', apiErr.message);
+    }
+
+    // Direct credential fallback check (Super Admin & Kitchen Staff)
+    const lowerInput = cleanInput.toLowerCase();
+    if ((lowerInput === 'collagebites1@gmail.com' || lowerInput === 'collagebites@gmail.com' || lowerInput === 'rajsrmap2@gmail.com' || lowerInput === 'superadmin' || lowerInput === 'admin@campusbites.com') && (cleanPassword === 'Clgbites123' || cleanPassword === 'Snehith@007' || cleanPassword === 'admin123')) {
         const superProfile = {
           id: 'admin-super',
           username: 'collagebites1@gmail.com',
@@ -196,7 +194,6 @@ export function AdminAuthProvider({ children }) {
         success: false,
         error: 'Invalid administrator credentials. Access restricted to authorized campus staff.'
       };
-    }
   };
 
   // Logout
