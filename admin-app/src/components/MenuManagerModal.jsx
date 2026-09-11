@@ -398,112 +398,133 @@ export default function MenuManagerModal({ isOpen, onClose }) {
 
         </div>
 
-        {/* Restaurant Menu Stock Toggles: Assign All as In Stock or Sold Out */}
-        <div className="p-3 sm:px-6 bg-slate-950/80 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
-              <Sparkles size={14} />
-            </div>
-            <div>
-              <span className="font-extrabold text-xs text-white uppercase tracking-wider block">
-                Restaurant Menu Bulk Availability
-              </span>
-              <span className="text-[11px] text-slate-400">
-                1-click toggle to assign all dishes as in stock or sold out
-              </span>
-            </div>
-          </div>
+        {/* Restaurant Menu Stock Toggle: Appears ONLY when a specific restaurant is selected (no toggle when All Kitchens is selected) */}
+        {selectedRestaurant !== 'ALL' && (() => {
+          const currentRest = restaurantsList.find((r) => r.id === selectedRestaurant) || {
+            id: selectedRestaurant,
+            name: selectedRestaurant === 'clg-bites-biryani-nation'
+              ? 'Clg Bites Biryani Nation'
+              : selectedRestaurant === 'local-home-kitchen'
+              ? 'Local Home Kitchen'
+              : selectedRestaurant
+          };
+          const stats = getRestStats(currentRest.id);
+          const isBusy = bulkUpdatingRest === currentRest.id;
+          const isToggledOn = stats.isAllAvailable;
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {restaurantsList.map((rest) => {
-              const stats = getRestStats(rest.id);
-              const isBusy = bulkUpdatingRest === rest.id;
-              // If all dishes are available, toggle is ON
-              const isToggledOn = stats.isAllAvailable;
-
-              return (
+          return (
+            <div className="p-3 sm:px-6 bg-slate-950/90 border-b border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+              <div className="flex items-center gap-3">
                 <div
-                  key={rest.id}
-                  className={`p-2.5 px-3 rounded-xl border flex items-center justify-between gap-3 transition-all ${
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
                     stats.isAllSoldOut
-                      ? 'bg-rose-950/30 border-rose-800/50'
+                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
                       : stats.isAllAvailable
-                      ? 'bg-emerald-950/30 border-emerald-800/50'
-                      : 'bg-slate-900 border-slate-800'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                      : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
                   }`}
                 >
-                  <div className="min-w-0">
-                    <div className="font-bold text-xs text-white truncate max-w-[140px] sm:max-w-[160px]">
-                      {rest.name}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[10px] mt-0.5">
-                      <span className={stats.isAllSoldOut ? 'text-rose-400 font-bold' : stats.isAllAvailable ? 'text-emerald-400 font-bold' : 'text-slate-400'}>
-                        {stats.available}/{stats.total} In Stock
-                      </span>
-                      {stats.isAllSoldOut && (
-                        <span className="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 font-extrabold uppercase text-[9px]">
-                          Sold Out
-                        </span>
-                      )}
-                      {stats.isAllAvailable && (
-                        <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-extrabold uppercase text-[9px]">
-                          All Available
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Toggle Controls: Master Switch + Quick Buttons */}
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {/* Toggle Switch */}
-                    <button
-                      onClick={() => handleBulkAvailability(rest.id, !isToggledOn)}
-                      disabled={isBusy}
-                      title={`Toggle all dishes for ${rest.name}: ${isToggledOn ? 'Mark All Sold Out' : 'Mark All In Stock'}`}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
-                        isToggledOn ? 'bg-emerald-500' : 'bg-slate-700'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                          isToggledOn ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-
-                    {/* Quick Button: All In Stock */}
-                    <button
-                      onClick={() => handleBulkAvailability(rest.id, true)}
-                      disabled={isBusy || stats.isAllAvailable}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer disabled:opacity-40 ${
-                        stats.isAllAvailable
-                          ? 'bg-emerald-600 text-white border-emerald-500'
-                          : 'bg-slate-800 hover:bg-emerald-600 text-emerald-400 hover:text-white border-slate-700 hover:border-emerald-500'
-                      }`}
-                      title="Assign all dishes in this restaurant as In Stock"
-                    >
-                      In Stock
-                    </button>
-
-                    {/* Quick Button: All Sold Out */}
-                    <button
-                      onClick={() => handleBulkAvailability(rest.id, false)}
-                      disabled={isBusy || stats.isAllSoldOut}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer disabled:opacity-40 ${
-                        stats.isAllSoldOut
-                          ? 'bg-rose-600 text-white border-rose-500'
-                          : 'bg-slate-800 hover:bg-rose-600 text-rose-400 hover:text-white border-slate-700 hover:border-rose-500'
-                      }`}
-                      title="Assign all dishes in this restaurant as Sold Out"
-                    >
-                      Sold Out
-                    </button>
-                  </div>
+                  <Store size={18} />
                 </div>
-              );
-            })}
-          </div>
-        </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-extrabold text-xs sm:text-sm text-white">
+                      {currentRest.name} Menu Stock
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                        stats.isAllSoldOut
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                          : stats.isAllAvailable
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                      }`}
+                    >
+                      {stats.available}/{stats.total} In Stock
+                    </span>
+                    {stats.isAllSoldOut && (
+                      <span className="px-1.5 py-0.5 rounded bg-rose-500/30 text-rose-200 text-[9px] font-black uppercase tracking-wider">
+                        Sold Out
+                      </span>
+                    )}
+                    {stats.isAllAvailable && (
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 text-[9px] font-black uppercase tracking-wider">
+                        All In Stock
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                    1-click master switch to assign all dishes in {currentRest.name} as in stock or sold out
+                  </span>
+                </div>
+              </div>
+
+              {/* Toggle Controls: Master Switch + Quick 1-Click Buttons */}
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                {/* Toggle Switch */}
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5">
+                  <span
+                    className={`text-xs font-bold ${
+                      isToggledOn
+                        ? 'text-emerald-400'
+                        : stats.isAllSoldOut
+                        ? 'text-rose-400'
+                        : 'text-slate-300'
+                    }`}
+                  >
+                    {isToggledOn ? 'In Stock' : stats.isAllSoldOut ? 'Sold Out' : 'Partial'}
+                  </span>
+                  <button
+                    onClick={() => handleBulkAvailability(currentRest.id, !isToggledOn)}
+                    disabled={isBusy}
+                    title={`Toggle all dishes for ${currentRest.name}: ${
+                      isToggledOn ? 'Mark All Sold Out' : 'Mark All In Stock'
+                    }`}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
+                      isToggledOn ? 'bg-emerald-500' : 'bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                        isToggledOn ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Quick Button: All In Stock */}
+                <button
+                  onClick={() => handleBulkAvailability(currentRest.id, true)}
+                  disabled={isBusy || stats.isAllAvailable}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 ${
+                    stats.isAllAvailable
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
+                      : 'bg-slate-900 hover:bg-emerald-600 text-emerald-400 hover:text-white border-slate-700 hover:border-emerald-500'
+                  }`}
+                  title="Assign all dishes in this restaurant as In Stock"
+                >
+                  <CheckCircle2 size={13} />
+                  <span>All In Stock</span>
+                </button>
+
+                {/* Quick Button: All Sold Out */}
+                <button
+                  onClick={() => handleBulkAvailability(currentRest.id, false)}
+                  disabled={isBusy || stats.isAllSoldOut}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 ${
+                    stats.isAllSoldOut
+                      ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
+                      : 'bg-slate-900 hover:bg-rose-600 text-rose-400 hover:text-white border-slate-700 hover:border-rose-500'
+                  }`}
+                  title="Assign all dishes in this restaurant as Sold Out"
+                >
+                  <XCircle size={13} />
+                  <span>All Sold Out</span>
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Dish Items Grid */}
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
