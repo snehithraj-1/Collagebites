@@ -381,16 +381,16 @@ export default function AdminDashboardPage() {
   }, [loadSystemSettings, loadRestaurants, loadOrders]);
 
   // Action: Update Order Status (PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED, CANCELLED)
-  const handleUpdateStatus = async (orderId, nextStatus) => {
+  const handleUpdateStatus = async (orderId, nextStatus, extraFields = {}) => {
     if (!orderId || !nextStatus) return;
 
     // Optimistic UI update
     setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
+      prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus, ...extraFields } : o))
     );
     // Keep inspecting modal synced with updated status
     setInspectingOrder((prev) =>
-      prev && prev.id === orderId ? { ...prev, status: nextStatus } : prev
+      prev && prev.id === orderId ? { ...prev, status: nextStatus, ...extraFields } : prev
     );
 
     // 1. Update in Shared Central Backend API (Vercel Serverless Function)
@@ -409,7 +409,7 @@ export default function AdminDashboardPage() {
       try {
         await supabase
           .from('orders')
-          .update({ status: nextStatus })
+          .update({ status: nextStatus, ...extraFields })
           .eq('id', orderId);
       } catch (err) {
         console.warn('[Supabase Status Update Error]:', err.message);
@@ -419,9 +419,70 @@ export default function AdminDashboardPage() {
     // 3. Update localStorage fallback
     try {
       const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-      const updated = stored.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o));
+      const updated = stored.map((o) => (o.id === orderId ? { ...o, status: nextStatus, ...extraFields } : o));
       localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
     } catch {}
+  };
+
+  // Action: Assign Delivery Partner to Order (Stored in Neon DB & immediate UI reflection)
+  const handleAssignPartner = async (orderId, partner) => {
+    if (!orderId || !partner) return;
+    const partnerId = partner.id;
+    const partnerName = partner.name;
+    const partnerPhone = partner.phone;
+
+    // Optimistically update in state so Admin immediately sees the assigned rider
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              status: 'ASSIGNED',
+              delivery_partner_id: partnerId,
+              delivery_partner_name: partnerName,
+              delivery_partner_phone: partnerPhone
+            }
+          : o
+      )
+    );
+
+    setInspectingOrder((prev) =>
+      prev && prev.id === orderId
+        ? {
+            ...prev,
+            status: 'ASSIGNED',
+            delivery_partner_id: partnerId,
+            delivery_partner_name: partnerName,
+            delivery_partner_phone: partnerPhone
+          }
+        : prev
+    );
+
+    try {
+      const res = await fetch('/api/orders/assign-partner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          partnerId,
+          partnerName,
+          partnerPhone
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.order) {
+          setOrders((prev) =>
+            prev.map((o) => (o.id === orderId ? { ...o, ...data.order } : o))
+          );
+          setInspectingOrder((prev) =>
+            prev && prev.id === orderId ? { ...prev, ...data.order } : prev
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('[Assign Partner Error]:', e);
+    }
   };
 
 
@@ -698,6 +759,7 @@ export default function AdminDashboardPage() {
             }
             onInspectOrder={(order) => setInspectingOrder(order)}
             onUpdateStatus={handleUpdateStatus}
+            onAssignPartner={handleAssignPartner}
             onCancelOrder={handleCancelOrder}
             onPromptDeleteOrder={(order) => setOrderToDelete(order)}
           />
@@ -711,6 +773,7 @@ export default function AdminDashboardPage() {
           order={inspectingOrder}
           onClose={() => setInspectingOrder(null)}
           onUpdateStatus={handleUpdateStatus}
+          onAssignPartner={handleAssignPartner}
           onCancelOrder={handleCancelOrder}
           onDeleteOrder={(order) => setOrderToDelete(order)}
         />

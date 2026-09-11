@@ -43,7 +43,8 @@ export default function OrdersTable({
   onInspectOrder,
   onCancelOrder,
   onPromptDeleteOrder,
-  onUpdateStatus
+  onUpdateStatus,
+  onAssignPartner
 }) {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,7 +54,7 @@ export default function OrdersTable({
   const [customEndDate, setCustomEndDate] = useState('');
   const [deliveryPartners, setDeliveryPartners] = useState([]);
 
-  // Load available delivery partners
+  // Load available delivery partners from Neon DB
   useEffect(() => {
     async function loadPartners() {
       try {
@@ -74,6 +75,12 @@ export default function OrdersTable({
   const handleAssignPartner = async (orderId, partnerId) => {
     const partner = deliveryPartners.find(p => p.id === partnerId);
     if (!partner) return;
+
+    if (onAssignPartner) {
+      onAssignPartner(orderId, partner);
+      return;
+    }
+
     try {
       const res = await fetch('/api/orders/assign-partner', {
         method: 'POST',
@@ -87,7 +94,11 @@ export default function OrdersTable({
       });
       if (res.ok) {
         if (onUpdateStatus) {
-          onUpdateStatus(orderId, 'ASSIGNED');
+          onUpdateStatus(orderId, 'ASSIGNED', {
+            delivery_partner_id: partner.id,
+            delivery_partner_name: partner.name,
+            delivery_partner_phone: partner.phone
+          });
         }
       }
     } catch (e) {
@@ -327,14 +338,31 @@ export default function OrdersTable({
                     {/* Delivery Partner */}
                     <td className="py-3 px-4">
                       {(order.delivery_partner_name || order.deliveryPartner?.name) ? (
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <Bike size={14} className="text-indigo-400 shrink-0" />
-                          <div className="truncate max-w-[130px]">
-                            <div className="font-bold text-white truncate">{order.delivery_partner_name || order.deliveryPartner?.name}</div>
-                            {(order.delivery_partner_phone || order.deliveryPartner?.phone) && (
-                              <div className="text-[10px] text-slate-400 font-mono">{order.delivery_partner_phone || order.deliveryPartner?.phone}</div>
-                            )}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <Bike size={14} className="text-indigo-400 shrink-0" />
+                            <div className="truncate max-w-[140px]">
+                              <div className="font-bold text-white truncate">{order.delivery_partner_name || order.deliveryPartner?.name}</div>
+                              {(order.delivery_partner_phone || order.deliveryPartner?.phone) && (
+                                <a
+                                  href={`tel:${order.delivery_partner_phone || order.deliveryPartner?.phone}`}
+                                  className="text-[10px] text-indigo-300 hover:underline font-mono block"
+                                >
+                                  {order.delivery_partner_phone || order.deliveryPartner?.phone}
+                                </a>
+                              )}
+                            </div>
                           </div>
+                          <select
+                            value=""
+                            onChange={(e) => handleAssignPartner(order.id, e.target.value)}
+                            className="bg-slate-950 border border-slate-800 hover:border-indigo-500 text-slate-400 hover:text-white text-[10px] rounded px-1.5 py-0.5 focus:outline-none cursor-pointer"
+                          >
+                            <option value="" disabled>Change Rider</option>
+                            {deliveryPartners.map(p => (
+                              <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>
+                            ))}
+                          </select>
                         </div>
                       ) : (
                         <select
@@ -491,11 +519,26 @@ export default function OrdersTable({
                     Delivery Rider:
                   </span>
                   {(order.delivery_partner_name || order.deliveryPartner?.name) ? (
-                    <div className="text-right">
-                      <span className="font-bold text-white text-xs">{order.delivery_partner_name || order.deliveryPartner?.name}</span>
+                    <div className="text-right space-y-1">
+                      <span className="font-bold text-white text-xs block">{order.delivery_partner_name || order.deliveryPartner?.name}</span>
                       {(order.delivery_partner_phone || order.deliveryPartner?.phone) && (
-                        <span className="text-[10px] text-slate-400 font-mono block">{order.delivery_partner_phone || order.deliveryPartner?.phone}</span>
+                        <a
+                          href={`tel:${order.delivery_partner_phone || order.deliveryPartner?.phone}`}
+                          className="text-[10px] text-indigo-300 font-mono block hover:underline"
+                        >
+                          {order.delivery_partner_phone || order.deliveryPartner?.phone}
+                        </a>
                       )}
+                      <select
+                        value=""
+                        onChange={(e) => handleAssignPartner(order.id, e.target.value)}
+                        className="bg-slate-900 border border-slate-700 text-slate-400 text-[10px] rounded px-1.5 py-0.5 focus:outline-none cursor-pointer"
+                      >
+                        <option value="" disabled>Change Rider</option>
+                        {deliveryPartners.map(p => (
+                          <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>
+                        ))}
+                      </select>
                     </div>
                   ) : (
                     <select
