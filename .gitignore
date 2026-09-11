@@ -26,3 +26,5 @@ pnpm-debug.log*
 *.sw?
 .system_generated/
 .archive/
+server/data/
+server/uploads/

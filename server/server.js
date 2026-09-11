@@ -329,8 +329,52 @@ async function initNeonSchema() {
       console.log('✅ [Neon DB] Default restaurants seeded successfully!');
     }
 
+    // 9. Ensure admin_accounts table
+    await sql`
+      CREATE TABLE IF NOT EXISTS admin_accounts (
+        id VARCHAR(100) PRIMARY KEY,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        restaurant_id VARCHAR(100),
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+
+    // Seed default admin accounts
+    await sql`
+      INSERT INTO admin_accounts (id, username, name, role, restaurant_id, password_hash)
+      VALUES 
+        ('admin-super', 'rajsrmap2@gmail.com', 'Gaddam Snehithraj (Super Admin)', 'super_admin', null, 'Snehith@007'),
+        ('admin-lhk', 'lhk_admin', 'Local Home Kitchen Staff', 'restaurant_admin', 'local-home-kitchen', 'LHK@Campus2026'),
+        ('admin-clg', 'clgbites_admin', 'CLG Bites Admin', 'restaurant_admin', 'clg-bites-biryani-nation', 'CLG@Campus2026')
+      ON CONFLICT (id) DO UPDATE SET
+        username = EXCLUDED.username,
+        name = EXCLUDED.name,
+        password_hash = EXCLUDED.password_hash,
+        role = EXCLUDED.role,
+        restaurant_id = EXCLUDED.restaurant_id;
+    `;
+
+    // 10. Seed default delivery partners if none exist
+    const dpCount = await sql`SELECT count(*) as c FROM delivery_partners;`;
+    if (parseInt(dpCount[0]?.c || '0', 10) === 0) {
+      console.log('[Neon DB] Seeding initial active delivery partners...');
+      await sql`
+        INSERT INTO delivery_partners (id, name, phone, pin, restaurant_id, is_active, total_deliveries)
+        VALUES
+          ('dp-suresh', 'Suresh Reddy', '9398414231', '1234', 'local-home-kitchen', true, 0),
+          ('dp-rajesh', 'Rajesh Kumar', '8240756887', '1234', 'clg-bites-biryani-nation', true, 0),
+          ('dp-manoj', 'Manoj Varma', '8247840765', '1234', 'all', true, 0)
+        ON CONFLICT (id) DO NOTHING;
+      `;
+      console.log('✅ [Neon DB] Default delivery partners seeded successfully!');
+    }
+
     isNeonReady = true;
-    console.log('✅ [Neon DB] Connected & Schema Initialized Successfully (with Restaurants, System Settings, Menu & Partners)!');
+    console.log('✅ [Neon DB] Connected & Schema Initialized Successfully (with Restaurants, System Settings, Menu, Admin Accounts & Partners)!');
   } catch (err) {
     console.warn('[Neon DB Schema Warning]:', err.message);
     isNeonReady = false;
@@ -1066,8 +1110,9 @@ app.get('/api/orders/:id', async (req, res) => {
 // POST /api/orders - Student creates a new order (Stores in Neon DB)
 app.post('/api/orders', async (req, res) => {
   const orderData = req.body;
+  const totalAmount = orderData ? (orderData.total_amount ?? orderData.totalAmount) : undefined;
 
-  if (!orderData || !orderData.total_amount || !Array.isArray(orderData.items)) {
+  if (!orderData || totalAmount === undefined || !Array.isArray(orderData.items)) {
     return res.status(400).json({ success: false, error: 'Invalid order payload.' });
   }
 
@@ -1082,7 +1127,7 @@ app.post('/api/orders', async (req, res) => {
         });
       }
 
-      const restId = orderData.restaurant_id || 'local-home-kitchen';
+      const restId = orderData.restaurant_id || orderData.restaurantId || 'local-home-kitchen';
       const restRows = await sql`SELECT is_open, name FROM restaurants WHERE id = ${restId} LIMIT 1;`;
       if (restRows && restRows.length > 0 && restRows[0].is_open === false) {
         return res.status(403).json({
@@ -1100,15 +1145,15 @@ app.post('/api/orders', async (req, res) => {
 
   const newOrder = {
     id: orderId,
-    user_id: orderData.user_id || null,
-    student_name: orderData.student_name || 'Student',
-    student_email: orderData.student_email || '',
-    student_id: orderData.student_id || null,
-    student_phone: orderData.student_phone || '',
-    delivery_location: orderData.delivery_location || 'SRM University - Gate 3',
-    restaurant_id: orderData.restaurant_id || 'local-home-kitchen',
-    restaurant_name: orderData.restaurant_name || 'Campus Kitchen',
-    total_amount: Number(orderData.total_amount) || 0,
+    user_id: orderData.user_id || orderData.userId || null,
+    student_name: orderData.student_name || orderData.studentName || 'Student',
+    student_email: orderData.student_email || orderData.studentEmail || '',
+    student_id: orderData.student_id || orderData.studentId || null,
+    student_phone: orderData.student_phone || orderData.studentPhone || '',
+    delivery_location: orderData.delivery_location || orderData.deliveryLocation || 'SRM University - Gate 3',
+    restaurant_id: orderData.restaurant_id || orderData.restaurantId || 'local-home-kitchen',
+    restaurant_name: orderData.restaurant_name || orderData.restaurantName || 'Campus Kitchen',
+    total_amount: Number(totalAmount) || 0,
     status: orderData.status || 'CONFIRMED',
     instructions: orderData.instructions || null,
     created_at: orderData.created_at || nowIso,

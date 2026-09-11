@@ -27,7 +27,6 @@ async function testMultiRoleFlow() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier: 'rajsrmap2@gmail.com', password: 'Snehith@007' })
     }).then(r => r.json());
-    console.log('Super Admin Response:', superAdminRes);
     assert(superAdminRes.success && superAdminRes.user?.role === 'super_admin', 'Super Admin Login (rajsrmap2@gmail.com)');
 
     // 2. Test Local Home Kitchen Admin Login
@@ -36,7 +35,6 @@ async function testMultiRoleFlow() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier: 'lhk_admin', password: 'LHK@Campus2026' })
     }).then(r => r.json());
-    console.log('LHK Admin Response:', lhkAdminRes);
     assert(lhkAdminRes.success && lhkAdminRes.user?.restaurant_id === 'local-home-kitchen', 'Local Home Kitchen Admin Login (lhk_admin)');
 
     // 3. Test CLG Bites Admin Login
@@ -45,23 +43,21 @@ async function testMultiRoleFlow() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier: 'clgbites_admin', password: 'CLG@Campus2026' })
     }).then(r => r.json());
-    console.log('CLG Admin Response:', clgAdminRes);
     assert(clgAdminRes.success && clgAdminRes.user?.restaurant_id === 'clg-bites-biryani-nation', 'CLG Bites Admin Login (clgbites_admin)');
 
-    // 4. Test Delivery Partner Retired Stub
-    console.log('\n--- 2. Testing Delivery Partner Retired Status ---');
+    // 4. Test Delivery Partner (Rider) Login via Phone + PIN
+    console.log('\n--- 2. Testing Delivery Partner Authentication ---');
     const riderLoginRes = await fetch(`${BASE_URL}/api/rider/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: '8240756887', pin: '1234' })
     }).then(r => r.json());
-    console.log('Rider Login Response:', riderLoginRes);
-    assert(!riderLoginRes.success && riderLoginRes.error?.includes('retired'), 'Rider Login retired safely');
+    assert(riderLoginRes.success && Boolean(riderLoginRes.partner?.id), 'Delivery Partner Login via Phone & PIN (8240756887)');
 
-    // 5. Test Delivery Partner List Retired Stub
-    console.log('\n--- 3. Testing Delivery Partner List Returns Safe Empty Stub ---');
+    // 5. Test Active Delivery Partners Endpoint
+    console.log('\n--- 3. Testing Delivery Partners List ---');
     const partnersRes = await fetch(`${BASE_URL}/api/delivery-partners`).then(r => r.json());
-    assert(partnersRes.success && Array.isArray(partnersRes.partners) && partnersRes.partners.length === 0, 'Delivery Partners endpoint returns safe empty array');
+    assert(partnersRes.success && Array.isArray(partnersRes.partners) && partnersRes.partners.length > 0, `Active Delivery Partners Available (Count: ${partnersRes.partners?.length || 0})`);
 
     // 6. Test Orders Scoping by Restaurant
     console.log('\n--- 4. Testing Order Isolation Between Restaurants ---');
@@ -84,6 +80,11 @@ async function testMultiRoleFlow() {
 
     const restaurantsRes = await fetch(`${BASE_URL}/api/restaurants`).then(r => r.json());
     assert(restaurantsRes.success && Array.isArray(restaurantsRes.restaurants), 'Restaurants status query');
+
+    // 8. Test Rider Status Updates Endpoint (Lifecycle: ASSIGNED -> OUT_FOR_DELIVERY -> DELIVERED)
+    console.log('\n--- 6. Testing Delivery Partner Order Status Stepper ---');
+    const riderOrders = await fetch(`${BASE_URL}/api/rider/orders?phone=8240756887`).then(r => r.json());
+    assert(riderOrders.success && Array.isArray(riderOrders.orders), 'Rider Orders Endpoint responds with active orders list');
 
     console.log('\n====================================================');
     console.log(`  TEST RESULTS: ${passedCount} / ${totalTests} TESTS PASSED`);

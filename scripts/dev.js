@@ -11,6 +11,7 @@ console.log('================================================================');
 console.log('  ⚡ Shared Backend API:          http://localhost:5000');
 console.log('  🍔 Student Dining Portal:       http://localhost:5173');
 console.log('  🛡️  CampusBites Admin Portal:    http://localhost:5174');
+console.log('  🚴 Delivery Partner Portal:     http://localhost:5175');
 console.log('================================================================\n');
 
 const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
@@ -41,18 +42,22 @@ function startProcess(name, cmd, args, colorCode) {
 }
 
 // 1. Shared Backend API (Port 5000) with auto-reload
-const backend = startProcess('BACKEND :5000', nodeCmd, ['--watch', 'server/server.js'], '32');
+const backend = startProcess('BACKEND  :5000', nodeCmd, ['--watch', 'server/server.js'], '32');
 
 // 2. Student Dining Portal (Port 5173)
-const student = startProcess('STUDENT :5173', npxCmd, ['vite', 'student-app', '--config', 'student-app/vite.config.js', '--port', '5173', '--host'], '38;5;208');
+const student = startProcess('STUDENT  :5173', npxCmd, ['vite', 'student-app', '--config', 'student-app/vite.config.js', '--port', '5173', '--host'], '38;5;208');
 
 // 3. Main Admin Portal (Port 5174)
-const admin = startProcess('ADMIN   :5174', npxCmd, ['vite', 'admin-app', '--config', 'admin-app/vite.config.js', '--port', '5174', '--host'], '34');
+const admin = startProcess('ADMIN    :5174', npxCmd, ['vite', 'admin-app', '--config', 'admin-app/vite.config.js', '--port', '5174', '--host'], '34');
+
+// 4. Delivery Partner Portal (Port 5175)
+const delivery = startProcess('DELIVERY :5175', npxCmd, ['vite', 'delivery-app', '--config', 'delivery-app/vite.config.js', '--port', '5175', '--host'], '36');
 
 function handleExit() {
   backend.kill();
   student.kill();
   admin.kill();
+  delivery.kill();
   process.exit();
 }
 

@@ -16,7 +16,6 @@
     "build:admin": "vite build admin-app --config admin-app/vite.config.js",
     "build:delivery": "vite build delivery-app --config delivery-app/vite.config.js"
   },
-  "workspaces": ["shared", "student-app", "admin-app", "delivery-app"],
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
     "@supabase/supabase-js": "^2.116.0",
