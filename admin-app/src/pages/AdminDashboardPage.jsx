@@ -51,6 +51,35 @@ export default function AdminDashboardPage() {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
 
+  // Desktop Push Notifications Permission State
+  const [hasNotificationPermission, setHasNotificationPermission] = useState(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      return Notification.permission === 'granted';
+    }
+    return false;
+  });
+
+  const handleEnablePushAlerts = async () => {
+    const perm = await requestNotificationPermission();
+    if (perm === 'granted') {
+      setHasNotificationPermission(true);
+      setSoundEnabled(true);
+    }
+  };
+
+  const handleTestAlert = async () => {
+    setSoundEnabled(true);
+    if (!hasNotificationPermission) {
+      const perm = await requestNotificationPermission();
+      if (perm === 'granted') setHasNotificationPermission(true);
+    }
+    await playAdminChime('new_order');
+    sendAdminNotification(
+      '🔔 CampusBites Live Order #CB-8899',
+      'Chicken Biryani x 2 (₹360) • Handover: Gate 3. Loud audio alert is working!'
+    );
+  };
+
   // Auto-dismiss alert banner after 7 seconds
   useEffect(() => {
     if (!newOrderAlert) return;
@@ -229,24 +258,7 @@ export default function AdminDashboardPage() {
               const change = statusChanges[0];
               const o = change.order;
 
-              if (change.nextStatus === 'OUT_FOR_DELIVERY') {
-                setNewOrderAlert({
-                  type: 'OUT_FOR_DELIVERY',
-                  title: 'Order Out For Delivery! 🚀',
-                  badge: 'Dispatched',
-                  order: o,
-                  message: `Order #${o.id.slice(-8)} is out for delivery to Gate 3`
-                });
-
-                if (soundEnabledRef.current) {
-                  playAdminChime('delivery');
-                }
-
-                sendAdminNotification(
-                  `🚀 Order #${o.id.slice(-8)} Out For Delivery`,
-                  `Order dispatched to Gate 3!`
-                );
-              } else if (change.nextStatus === 'DELIVERED') {
+              if (change.nextStatus === 'DELIVERED') {
                 setNewOrderAlert({
                   type: 'DELIVERED',
                   title: 'Order Successfully Delivered! ✅',
@@ -256,7 +268,7 @@ export default function AdminDashboardPage() {
                 });
 
                 if (soundEnabledRef.current) {
-                  playAdminChime('delivery');
+                  playAdminChime('delivered');
                 }
 
                 sendAdminNotification(
@@ -505,25 +517,18 @@ export default function AdminDashboardPage() {
 
           {/* Right Header Controls: Clean, Uncluttered with Three-Lines Menu Drawer */}
           <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* Quick Audio Alert Chime Toggle */}
+            {/* Quick Audio Alert Chime & Native Push Notification Test */}
             <button
-              onClick={() => {
-                if (soundEnabled) {
-                  playAdminChime('test');
-                } else {
-                  setSoundEnabled(true);
-                  playAdminChime('test');
-                }
-              }}
+              onClick={handleTestAlert}
               className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 soundEnabled
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
                   : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
               }`}
-              title="Click to Test or Toggle Sound Chime"
+              title="Click to Test Loud Restaurant Bell & Desktop Windows Push Alert"
             >
-              {soundEnabled ? <Volume2 size={15} className="text-emerald-400 animate-pulse" /> : <VolumeX size={15} />}
-              <span>{soundEnabled ? '🔔 Sound: ON (Test)' : '🔕 Sound: OFF'}</span>
+              <Volume2 size={15} className="text-emerald-400 animate-pulse" />
+              <span>🔔 Test Loud Sound & Push</span>
             </button>
 
             {/* Quick Sync Button */}
@@ -644,6 +649,32 @@ export default function AdminDashboardPage() {
 
       {/* Main Content Dashboard */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
+
+        {/* Desktop Push & Loud Audio Alert Permission Prompt */}
+        {!hasNotificationPermission && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-orange-400/40">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-2xl shrink-0 shadow-inner">
+                🔔
+              </div>
+              <div>
+                <h4 className="text-xs sm:text-sm font-black font-['Outfit'] tracking-wide">
+                  Enable Desktop Push Notifications & Loud Order Chimes
+                </h4>
+                <p className="text-[11px] sm:text-xs text-orange-100 mt-0.5 leading-relaxed">
+                  Get instant Windows popups outside Chrome and loud kitchen bell rings for incoming orders so you can hear alerts easily across the room.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleEnablePushAlerts}
+              className="px-4 py-2.5 rounded-xl bg-white text-orange-800 hover:bg-orange-50 font-black text-xs shadow-md transition-all cursor-pointer border-none shrink-0 flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <Bell size={15} />
+              <span>Allow Desktop Alerts</span>
+            </button>
+          </div>
+        )}
         
         {/* 1. Metrics Counters */}
         <MetricsOverview

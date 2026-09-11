@@ -1373,14 +1373,9 @@ const handleOrderStatusUpdate = async (req, res) => {
 
   const validStatuses = [
     'CONFIRMED',
-    'ASSIGNED',
-    'ACCEPTED',
     'PREPARING',
-    'READY',
-    'OUT_FOR_DELIVERY',
     'DELIVERED',
-    'CANCELLED',
-    'EXPIRED'
+    'CANCELLED'
   ];
 
   if (!orderId) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChefHat, PackageCheck, Bike, CheckCheck, X, ArrowRight, Bell, Sparkles, CheckCircle2, Phone } from 'lucide-react';
+import { ChefHat, PackageCheck, CheckCheck, X, ArrowRight, Bell, Sparkles, CheckCircle2, Phone } from 'lucide-react';
 import { playStudentChime, sendStudentNotification, requestStudentNotificationPermission, unlockStudentAudio } from '../lib/notificationSound';
 import { useStudentAuth } from '../context/StudentAuthContext';
 
@@ -25,13 +25,7 @@ const STATUS_DETAILS = {
     bg: 'bg-white border-2 border-cyan-400 text-cyan-950 shadow-cyan-500/20',
     badge: 'bg-cyan-100 text-cyan-800'
   },
-  OUT_FOR_DELIVERY: {
-    title: 'Out for Delivery! 🚀',
-    desc: 'Your food parcel is on its way to SRM University Gate 3!',
-    icon: Bike,
-    bg: 'bg-white border-2 border-blue-500 text-blue-950 shadow-blue-500/30',
-    badge: 'bg-blue-100 text-blue-800'
-  },
+
   DELIVERED: {
     title: 'Food Delivered! 🎉',
     desc: 'Your parcel has arrived at SRM University Gate 3. Enjoy your meal!',
@@ -200,31 +194,7 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
             break; // Show this toast first
           }
 
-          // 2. Out for Delivery transition (if applicable)
-          if (orderStatus === 'OUT_FOR_DELIVERY' && !alreadyNotified.includes('OUT_FOR_DELIVERY')) {
-            saveNotifiedStage(order.id, 'OUT_FOR_DELIVERY');
 
-            if (isMounted) {
-              const desc = 'Your food parcel is on its way to SRM Gate 3!';
-
-              setActiveToast({
-                order,
-                status: 'OUT_FOR_DELIVERY',
-                title: 'Out for Delivery! 🚀',
-                desc,
-                icon: Bike,
-                bg: 'bg-white border-2 border-blue-500 text-blue-950 shadow-blue-500/30',
-                badge: 'bg-blue-100 text-blue-800'
-              });
-
-              playStudentChime('OUT_FOR_DELIVERY');
-              sendStudentNotification(
-                'Out for Delivery! 🚀',
-                `Order #${order.id}: ${desc}`
-              );
-            }
-            break;
-          }
         }
       } catch (err) {
         // Silent catch for network hiccups

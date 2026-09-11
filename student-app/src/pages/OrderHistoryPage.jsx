@@ -105,20 +105,13 @@ export default function OrderHistoryPage({ onBackToRestaurants, onTrackOrder }) 
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'CONFIRMED':
-        return { label: 'Confirmed', bg: 'bg-amber-50 text-amber-800 border-amber-200 font-bold' };
-      case 'PREPARING':
-      case 'ASSIGNED':
-        return { label: 'In Kitchen', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200 font-bold' };
-      case 'OUT_FOR_DELIVERY':
-      case 'OUT FOR DELIVERY':
-        return { label: 'Out for Delivery', bg: 'bg-blue-50 text-blue-800 border-blue-200 font-bold' };
       case 'DELIVERED':
         return { label: 'Delivered', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200 font-bold' };
       case 'CANCELLED':
         return { label: 'Cancelled', bg: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
+      case 'CONFIRMED':
       default:
-        return { label: status || 'Confirmed', bg: 'bg-slate-100 text-slate-700 border-slate-200' };
+        return { label: 'Confirmed', bg: 'bg-amber-50 text-amber-800 border-amber-200 font-bold' };
     }
   };
 
