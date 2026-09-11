@@ -5,8 +5,8 @@ import { useAdminAuth } from '../context/AdminAuthContext';
 export default function AdminLoginPage() {
   const { loginAdmin, unauthorizedError } = useAdminAuth();
 
-  const [identifier, setIdentifier] = useState('rajsrmap2@gmail.com');
-  const [password, setPassword] = useState('Snehith@007');
+  const [identifier, setIdentifier] = useState('collagebites1@gmail.com');
+  const [password, setPassword] = useState('Clgbites123');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -33,7 +33,7 @@ export default function AdminLoginPage() {
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-black font-['Outfit'] tracking-tight">
-          CampusBites Admin Portal
+          Collage Bites Admin Portal
         </h1>
         <p className="mt-1 text-xs text-slate-400 font-medium">
           Central Order & Kitchen Operations Console (SRM University AP)
@@ -78,7 +78,7 @@ export default function AdminLoginPage() {
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="rajsrmap2@gmail.com"
+                placeholder="collagebites1@gmail.com"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FF5722]"
               />
             </div>

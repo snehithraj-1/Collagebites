@@ -91,7 +91,7 @@ function getEmailCredentials() {
     } catch (e) {}
   }
   return {
-    user: user || 'rajsrmap2@gmail.com',
+    user: user || 'collagebites1@gmail.com',
     pass: (pass || 'fvhkfaacapwrdmew').replace(/\s+/g, '')
   };
 }
@@ -378,7 +378,8 @@ async function initNeonSchema() {
     await sql`
       INSERT INTO admin_accounts (id, username, name, role, restaurant_id, password_hash)
       VALUES 
-        ('admin-super', 'rajsrmap2@gmail.com', 'Gaddam Snehithraj (Super Admin)', 'super_admin', null, 'Snehith@007'),
+        ('admin-super', 'collagebites1@gmail.com', 'Collage Bites (Super Admin)', 'super_admin', null, 'Clgbites123'),
+        ('admin-super-alias', 'collagebites@gmail.com', 'Collage Bites Admin', 'super_admin', null, 'Clgbites123'),
         ('admin-lhk', 'lhk_admin', 'Local Home Kitchen Staff', 'restaurant_admin', 'local-home-kitchen', 'LHK@Campus2026'),
         ('admin-clg', 'clgbites_admin', 'CLG Bites Admin', 'restaurant_admin', 'clg-bites-biryani-nation', 'CLG@Campus2026')
       ON CONFLICT (id) DO UPDATE SET
@@ -792,9 +793,9 @@ app.post('/api/auth/send-otp', async (req, res) => {
     try {
       await Promise.race([
         mailTransporter.sendMail({
-          from: '"CampusBites SRM" <' + emailUser + '>',
+          from: '"Collage Bites Dining" <' + emailUser + '>',
           to: cleanEmail,
-          subject: `${otp} is your CampusBites Login Code`,
+          subject: `${otp} is your Collage Bites Login Code`,
           html: htmlTemplate
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP send timeout (6s)')), 6000))
@@ -966,12 +967,12 @@ app.post('/api/auth/admin-login', async (req, res) => {
     }
 
     // 2. Direct Fallback checks: Super Admin & Restaurant Admins
-    if ((inputIdentifier === 'rajsrmap2@gmail.com' || inputIdentifier === 'superadmin' || inputIdentifier === 'admin@campusbites.com') && (cleanPassword === 'Snehith@007' || cleanPassword === 'admin123')) {
+    if ((inputIdentifier === 'collagebites1@gmail.com' || inputIdentifier === 'collagebites@gmail.com' || inputIdentifier === 'rajsrmap2@gmail.com' || inputIdentifier === 'superadmin' || inputIdentifier === 'admin@campusbites.com') && (cleanPassword === 'Clgbites123' || cleanPassword === 'Snehith@007' || cleanPassword === 'admin123')) {
       const superAdminProfile = {
         id: 'admin-super',
-        username: 'rajsrmap2@gmail.com',
-        name: 'Gaddam Snehithraj (Super Admin)',
-        email: 'rajsrmap2@gmail.com',
+        username: 'collagebites1@gmail.com',
+        name: 'Collage Bites (Super Admin)',
+        email: 'collagebites1@gmail.com',
         role: 'super_admin',
         restaurant_id: null,
         created_at: new Date().toISOString()
