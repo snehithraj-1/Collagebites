@@ -1489,6 +1489,162 @@ app.post('/api/orders/delete', handleOrderDelete);
 app.delete('/api/orders/delete', handleOrderDelete);
 app.delete('/api/orders/:id', handleOrderDelete);
 
+// 5B. Delivery Partners & Rider Management
+const SEED_DELIVERY_PARTNERS = [
+  { id: 'dp-1', name: 'Raju (Gate 3 Fleet)', phone: '9876543210', pin: '1234', restaurant_id: 'all', is_active: true, total_deliveries: 42, created_at: new Date().toISOString() },
+  { id: 'dp-2', name: 'Suresh (Home Kitchen Rider)', phone: '9876543211', pin: '1234', restaurant_id: 'local-home-kitchen', is_active: true, total_deliveries: 28, created_at: new Date().toISOString() },
+  { id: 'dp-3', name: 'Kiran (CLG Express)', phone: '9876543212', pin: '1234', restaurant_id: 'clg-bites-biryani-nation', is_active: true, total_deliveries: 35, created_at: new Date().toISOString() }
+];
+
+// GET /api/delivery-partners
+app.get('/api/delivery-partners', async (req, res) => {
+  const restaurantId = req.query.restaurant_id || req.query.restaurant;
+  if (sql) {
+    try {
+      let rows;
+      if (restaurantId && restaurantId !== 'all') {
+        rows = await sql`
+          SELECT * FROM delivery_partners 
+          WHERE is_active = true 
+            AND (restaurant_id = ${restaurantId} OR restaurant_id = 'all' OR restaurant_id IS NULL)
+          ORDER BY name ASC;
+        `;
+      } else {
+        rows = await sql`SELECT * FROM delivery_partners WHERE is_active = true ORDER BY name ASC;`;
+      }
+      if (rows && rows.length > 0) {
+        return res.json({ success: true, partners: rows });
+      }
+    } catch (err) {
+      console.warn('[Neon Fetch Delivery Partners Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  let partners = (local.delivery_partners && local.delivery_partners.length > 0) ? local.delivery_partners : SEED_DELIVERY_PARTNERS;
+  if (restaurantId && restaurantId !== 'all') {
+    partners = partners.filter(p => !p.restaurant_id || p.restaurant_id === 'all' || p.restaurant_id === restaurantId);
+  }
+  res.json({ success: true, partners });
+});
+
+// POST /api/delivery-partners
+app.post('/api/delivery-partners', async (req, res) => {
+  const { name, phone, pin, restaurant_id } = req.body || {};
+  if (!name || !phone) {
+    return res.status(400).json({ success: false, error: 'Name and 10-digit mobile number are required.' });
+  }
+
+  const cleanPhone = String(phone).replace(/\D/g, '').slice(-10);
+  if (cleanPhone.length < 10) {
+    return res.status(400).json({ success: false, error: 'Valid 10-digit mobile number is required.' });
+  }
+
+  const cleanPin = pin ? String(pin).trim() : '1234';
+  const id = `dp-${Math.random().toString(36).substring(2, 9)}`;
+
+  const partner = {
+    id,
+    name: name.trim(),
+    phone: cleanPhone,
+    pin: cleanPin,
+    restaurant_id: restaurant_id || 'all',
+    is_active: true,
+    total_deliveries: 0,
+    created_at: new Date().toISOString()
+  };
+
+  if (sql) {
+    try {
+      await sql`
+        INSERT INTO delivery_partners (id, name, phone, pin, restaurant_id, is_active, updated_at)
+        VALUES (${partner.id}, ${partner.name}, ${partner.phone}, ${partner.pin}, ${partner.restaurant_id}, true, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          phone = EXCLUDED.phone,
+          pin = EXCLUDED.pin,
+          restaurant_id = EXCLUDED.restaurant_id,
+          is_active = true,
+          updated_at = NOW();
+      `;
+      console.log(`[Neon DB] New delivery partner created: ${partner.name} (Phone: ${partner.phone}, PIN: ${partner.pin})`);
+    } catch (err) {
+      console.error('[Neon Delivery Partner Insert Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  local.delivery_partners = [partner, ...(local.delivery_partners || []).filter(p => p.id !== partner.id)];
+  writeLocalDb(local);
+
+  res.status(201).json({ success: true, partner });
+});
+
+// PATCH /api/delivery-partners/:id
+app.patch('/api/delivery-partners/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, phone, pin, restaurant_id, is_active } = req.body || {};
+
+  const cleanPhone = phone ? String(phone).replace(/\D/g, '').slice(-10) : undefined;
+  const cleanPin = pin ? String(pin).trim() : undefined;
+
+  if (sql) {
+    try {
+      await sql`
+        UPDATE delivery_partners
+        SET
+          name = COALESCE(${name ? name.trim() : null}, name),
+          phone = COALESCE(${cleanPhone || null}, phone),
+          pin = COALESCE(${cleanPin || null}, pin),
+          restaurant_id = COALESCE(${restaurant_id || null}, restaurant_id),
+          is_active = COALESCE(${is_active !== undefined ? Boolean(is_active) : null}, is_active),
+          updated_at = NOW()
+        WHERE id = ${id};
+      `;
+    } catch (err) {
+      console.warn('[Neon Partner Patch Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  let updatedPartner = null;
+  local.delivery_partners = (local.delivery_partners || []).map(p => {
+    if (p.id === id) {
+      updatedPartner = {
+        ...p,
+        ...(name && { name: name.trim() }),
+        ...(cleanPhone && { phone: cleanPhone }),
+        ...(cleanPin && { pin: cleanPin }),
+        ...(restaurant_id && { restaurant_id }),
+        ...(is_active !== undefined && { is_active: Boolean(is_active) })
+      };
+      return updatedPartner;
+    }
+    return p;
+  });
+  writeLocalDb(local);
+
+  res.json({ success: true, partner: updatedPartner });
+});
+
+// DELETE /api/delivery-partners/:id
+app.delete('/api/delivery-partners/:id', async (req, res) => {
+  const { id } = req.params;
+  if (sql) {
+    try {
+      await sql`DELETE FROM delivery_partners WHERE id = ${id};`;
+    } catch (err) {
+      console.warn('[Neon Partner Delete Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  local.delivery_partners = (local.delivery_partners || []).filter(p => p.id !== id);
+  writeLocalDb(local);
+
+  res.json({ success: true, message: 'Delivery partner credentials removed.' });
+});
+
 // 6. GET /api/students - Admin views all registered students
 app.get('/api/students', async (req, res) => {
   if (sql) {

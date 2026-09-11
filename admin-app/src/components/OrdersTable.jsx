@@ -51,12 +51,53 @@ export default function OrdersTable({
   const [exportTimeframe, setExportTimeframe] = useState('ALL');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [deliveryPartners, setDeliveryPartners] = useState([]);
+
+  // Load available delivery partners
+  useEffect(() => {
+    async function loadPartners() {
+      try {
+        const query = activeRestaurantTab && activeRestaurantTab !== 'all' ? `?restaurant_id=${activeRestaurantTab}` : '';
+        const res = await fetch(`/api/delivery-partners${query}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.partners)) {
+            setDeliveryPartners(json.partners);
+          }
+        }
+      } catch (e) {}
+    }
+    loadPartners();
+  }, [activeRestaurantTab]);
+
+  const handleAssignPartner = async (orderId, partnerId) => {
+    const partner = deliveryPartners.find(p => p.id === partnerId);
+    if (!partner) return;
+    try {
+      const res = await fetch('/api/orders/assign-partner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          partnerId: partner.id,
+          partnerName: partner.name,
+          partnerPhone: partner.phone
+        })
+      });
+      if (res.ok) {
+        if (onUpdateStatus) {
+          onUpdateStatus(orderId, 'ASSIGNED');
+        }
+      }
+    } catch (e) {
+      console.warn('[Assign Partner Error]:', e);
+    }
+  };
 
   // 1. Filter orders by restaurant tab, status, and search query
   const filteredOrders = orders.filter((order) => {
     // Restaurant filter
-    const restId = order.restaurant_id || order.restaurantId;
-    if (activeRestaurantTab !== 'all' && restId !== activeRestaurantTab) {
+    if (activeRestaurantTab !== 'all' && order.restaurant_id !== activeRestaurantTab) {
       return false;
     }
 
@@ -68,12 +109,13 @@ export default function OrdersTable({
     // Search query
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    const sName = (order.student_name || order.studentName || '').toLowerCase();
-    const sPhone = (order.student_phone || order.studentPhone || '').toLowerCase();
-    const sEmail = (order.student_email || order.studentEmail || '').toLowerCase();
-    const rName = (order.restaurant_name || order.restaurantName || '').toLowerCase();
-    const oId = (order.id || '').toLowerCase();
-    return oId.includes(q) || sName.includes(q) || sPhone.includes(q) || sEmail.includes(q) || rName.includes(q);
+    return (
+      (order.id && order.id.toLowerCase().includes(q)) ||
+      (order.student_name && order.student_name.toLowerCase().includes(q)) ||
+      (order.student_email && order.student_email.toLowerCase().includes(q)) ||
+      (order.student_phone && order.student_phone.includes(q)) ||
+      (order.restaurant_name && order.restaurant_name.toLowerCase().includes(q))
+    );
   });
 
   const handleQuickExport = () => {
@@ -99,6 +141,11 @@ export default function OrdersTable({
         return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 font-bold';
       case 'CANCELLED':
         return 'bg-rose-500/15 text-rose-300 border-rose-500/40 font-bold';
+      case 'ASSIGNED':
+        return 'bg-indigo-500/15 text-indigo-300 border-indigo-500/40 font-bold';
+      case 'OUT_FOR_DELIVERY':
+      case 'OUT FOR DELIVERY':
+        return 'bg-blue-500/15 text-blue-300 border-blue-500/40 font-bold';
       case 'CONFIRMED':
       default:
         return 'bg-amber-500/15 text-amber-300 border-amber-500/40 font-bold';
@@ -179,6 +226,8 @@ export default function OrdersTable({
           >
             <option value="ALL">All Statuses</option>
             <option value="CONFIRMED">CONFIRMED</option>
+            <option value="ASSIGNED">ASSIGNED</option>
+            <option value="OUT_FOR_DELIVERY">OUT FOR DELIVERY</option>
             <option value="DELIVERED">DELIVERED</option>
             <option value="CANCELLED">CANCELLED</option>
           </select>
@@ -223,6 +272,7 @@ export default function OrdersTable({
               <th className="py-3 px-4">Order ID & Date</th>
               <th className="py-3 px-4">Student</th>
               <th className="py-3 px-4">Restaurant</th>
+              <th className="py-3 px-4">Delivery Partner</th>
               <th className="py-3 px-4">Ordered Items</th>
               <th className="py-3 px-4 text-right">Amount</th>
               <th className="py-3 px-4 text-center">Status</th>
@@ -232,7 +282,7 @@ export default function OrdersTable({
           <tbody className="divide-y divide-slate-800/60 text-slate-300">
             {filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-slate-500 text-xs">
+                <td colSpan={8} className="py-12 text-center text-slate-500 text-xs">
                   No orders found matching the selected filter.
                 </td>
               </tr>
@@ -256,21 +306,47 @@ export default function OrdersTable({
 
                     {/* Student Info */}
                     <td className="py-3 px-4">
-                      <div className="font-bold text-white text-xs">{order.student_name || order.studentName || 'Student'}</div>
+                      <div className="font-bold text-white text-xs">{order.student_name || 'Student'}</div>
                       <div className="text-[11px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
                         <Phone size={10} className="text-[#FF5722]" />
-                        <span>{order.student_phone || order.studentPhone || '—'}</span>
+                        <span>{order.student_phone || '—'}</span>
                       </div>
                       <div className="text-[10px] text-slate-500 truncate max-w-[150px]">
-                        {order.delivery_location || order.deliveryLocation || 'Gate 3'}
+                        {order.delivery_location || 'Gate 3'}
                       </div>
                     </td>
 
                     {/* Restaurant */}
                     <td className="py-3 px-4">
                       <div className="font-semibold text-white text-xs truncate max-w-[140px]">
-                        {order.restaurant_name || order.restaurantName || restaurantName}
+                        {order.restaurant_name || restaurantName}
                       </div>
+                    </td>
+
+                    {/* Delivery Partner */}
+                    <td className="py-3 px-4">
+                      {order.delivery_partner_name ? (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <Bike size={14} className="text-indigo-400 shrink-0" />
+                          <div className="truncate max-w-[130px]">
+                            <div className="font-bold text-white truncate">{order.delivery_partner_name}</div>
+                            {order.delivery_partner_phone && (
+                              <div className="text-[10px] text-slate-400 font-mono">{order.delivery_partner_phone}</div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <select
+                          defaultValue=""
+                          onChange={(e) => handleAssignPartner(order.id, e.target.value)}
+                          className="bg-slate-950/90 border border-slate-700 hover:border-indigo-500 text-slate-300 hover:text-white text-[11px] font-semibold rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                        >
+                          <option value="" disabled>+ Assign Rider</option>
+                          {deliveryPartners.map(p => (
+                            <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>
+                          ))}
+                        </select>
+                      )}
                     </td>
 
                     {/* Items & Qty */}
@@ -291,7 +367,7 @@ export default function OrdersTable({
 
                     {/* Total Amount */}
                     <td className="py-3 px-4 text-right whitespace-nowrap font-mono font-black text-sm text-emerald-400">
-                      ₹{order.total_amount ?? order.totalAmount ?? 0}
+                      ₹{order.total_amount}
                     </td>
 
                     {/* Status */}
@@ -312,7 +388,7 @@ export default function OrdersTable({
                           <Eye size={13} />
                         </button>
 
-                        {onUpdateStatus && order.status === 'CONFIRMED' && (
+                        {onUpdateStatus && (order.status === 'CONFIRMED' || order.status === 'ASSIGNED' || order.status === 'OUT_FOR_DELIVERY' || order.status === 'OUT FOR DELIVERY') && (
                           <button
                             onClick={() => onUpdateStatus(order.id, 'DELIVERED')}
                             className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border-none shadow-xs"
@@ -396,15 +472,42 @@ export default function OrdersTable({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-slate-500 text-[10px] block">Student:</span>
-                    <span className="font-bold text-white text-xs block truncate">{order.student_name || order.studentName || 'Student'}</span>
-                    <span className="text-slate-400 text-[11px] font-mono block">{order.student_phone || order.studentPhone || '—'}</span>
+                    <span className="font-bold text-white text-xs block truncate">{order.student_name || 'Student'}</span>
+                    <span className="text-slate-400 text-[11px] font-mono block">{order.student_phone || '—'}</span>
                   </div>
 
                   <div>
                     <span className="text-slate-500 text-[10px] block">Total Amount:</span>
-                    <span className="font-mono font-black text-emerald-400 text-sm block">₹{order.total_amount ?? order.totalAmount ?? 0}</span>
-                    <span className="text-slate-400 text-[10px] block truncate">{order.restaurant_name || order.restaurantName || restaurantName}</span>
+                    <span className="font-mono font-black text-emerald-400 text-sm block">₹{order.total_amount}</span>
+                    <span className="text-slate-400 text-[10px] block truncate">{order.restaurant_name || restaurantName}</span>
                   </div>
+                </div>
+
+                {/* Delivery Partner */}
+                <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <Bike size={12} className="text-indigo-400" />
+                    Delivery Rider:
+                  </span>
+                  {order.delivery_partner_name ? (
+                    <div className="text-right">
+                      <span className="font-bold text-white text-xs">{order.delivery_partner_name}</span>
+                      {order.delivery_partner_phone && (
+                        <span className="text-[10px] text-slate-400 font-mono block">{order.delivery_partner_phone}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <select
+                      defaultValue=""
+                      onChange={(e) => handleAssignPartner(order.id, e.target.value)}
+                      className="bg-slate-900 border border-indigo-500/50 text-indigo-300 text-[11px] font-semibold rounded-lg px-2 py-1 focus:outline-none cursor-pointer"
+                    >
+                      <option value="" disabled>+ Assign Rider</option>
+                      {deliveryPartners.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 {/* Items Summary */}
@@ -436,7 +539,7 @@ export default function OrdersTable({
                     <span>View</span>
                   </button>
 
-                  {onUpdateStatus && order.status === 'CONFIRMED' && (
+                  {onUpdateStatus && (order.status === 'CONFIRMED' || order.status === 'ASSIGNED' || order.status === 'OUT_FOR_DELIVERY' || order.status === 'OUT FOR DELIVERY') && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'DELIVERED')}
                       className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 cursor-pointer border-none shadow-xs"

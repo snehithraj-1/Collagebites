@@ -13,6 +13,7 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import StudentsModal from '../components/StudentsModal';
 import MenuManagerModal from '../components/MenuManagerModal';
 import AdminSideMenuDrawer from '../components/AdminSideMenuDrawer';
+import DeliveryPartnersModal from '../components/DeliveryPartnersModal';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function AdminDashboardPage() {
@@ -39,6 +40,7 @@ export default function AdminDashboardPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isStudentsModalOpen, setIsStudentsModalOpen] = useState(false);
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
+  const [isDeliveryPartnersModalOpen, setIsDeliveryPartnersModalOpen] = useState(false);
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
 
   // New Order Notifications & Audio Alert
@@ -50,35 +52,6 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
-
-  // Desktop Push Notifications Permission State
-  const [hasNotificationPermission, setHasNotificationPermission] = useState(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      return Notification.permission === 'granted';
-    }
-    return false;
-  });
-
-  const handleEnablePushAlerts = async () => {
-    const perm = await requestNotificationPermission();
-    if (perm === 'granted') {
-      setHasNotificationPermission(true);
-      setSoundEnabled(true);
-    }
-  };
-
-  const handleTestAlert = async () => {
-    setSoundEnabled(true);
-    if (!hasNotificationPermission) {
-      const perm = await requestNotificationPermission();
-      if (perm === 'granted') setHasNotificationPermission(true);
-    }
-    await playAdminChime('new_order');
-    sendAdminNotification(
-      '🔔 CampusBites Live Order #CB-8899',
-      'Chicken Biryani x 2 (₹360) • Handover: Gate 3. Loud audio alert is working!'
-    );
-  };
 
   // Auto-dismiss alert banner after 7 seconds
   useEffect(() => {
@@ -178,47 +151,15 @@ export default function AdminDashboardPage() {
       const res = await fetch('/api/orders');
       if (res.ok) {
         const json = await res.json();
-        const rawOrders = Array.isArray(json) ? json : (json.orders || json.data || []);
-        if (Array.isArray(rawOrders)) {
-          const normalizedOrders = rawOrders.map(o => {
-            const studentName = o.student_name || o.studentName || 'Student';
-            const studentPhone = o.student_phone || o.studentPhone || '—';
-            const studentEmail = o.student_email || o.studentEmail || '';
-            const restId = o.restaurant_id || o.restaurantId || 'local-home-kitchen';
-            const restName = o.restaurant_name || o.restaurantName || (restId === 'clg-bites-biryani-nation' ? 'CLG Bites' : 'Local Home Kitchen');
-            const totalNum = Number(o.total_amount ?? o.totalAmount) || 0;
-            const dropLoc = o.delivery_location || o.deliveryLocation || 'SRM University - Gate 3';
-            const created = o.created_at || o.createdAt || new Date().toISOString();
-
-            return {
-              ...o,
-              student_name: studentName,
-              studentName,
-              student_phone: studentPhone,
-              studentPhone,
-              student_email: studentEmail,
-              studentEmail,
-              restaurant_id: restId,
-              restaurantId: restId,
-              restaurant_name: restName,
-              restaurantName: restName,
-              total_amount: totalNum,
-              totalAmount: totalNum,
-              delivery_location: dropLoc,
-              deliveryLocation: dropLoc,
-              created_at: created,
-              createdAt: created
-            };
-          });
-
-          setOrders(normalizedOrders);
+        if (json.success && Array.isArray(json.orders)) {
+          setOrders(json.orders);
           setIsRefreshing(false);
 
           // Alert admin ONLY when a genuinely new order is placed or status changes
           if (!isFirstLoadRef.current) {
             // A. New live orders: must NOT be in prev map, NOT cancelled/delivered, and created in last 120 seconds!
             const now = Date.now();
-            const incoming = normalizedOrders.filter((o) => {
+            const incoming = json.orders.filter((o) => {
               if (prevOrdersMapRef.current.has(o.id)) return false;
               if (o.status === 'CANCELLED' || o.status === 'DELIVERED') return false;
               const createdAt = new Date(o.created_at || 0).getTime();
@@ -227,7 +168,7 @@ export default function AdminDashboardPage() {
 
             // B. Existing orders status transitions
             const statusChanges = [];
-            normalizedOrders.forEach((o) => {
+            json.orders.forEach((o) => {
               if (prevOrdersMapRef.current.has(o.id)) {
                 const prev = prevOrdersMapRef.current.get(o.id);
                 if (prev.status && prev.status !== o.status) {
@@ -258,7 +199,24 @@ export default function AdminDashboardPage() {
               const change = statusChanges[0];
               const o = change.order;
 
-              if (change.nextStatus === 'DELIVERED') {
+              if (change.nextStatus === 'OUT_FOR_DELIVERY') {
+                setNewOrderAlert({
+                  type: 'OUT_FOR_DELIVERY',
+                  title: 'Order Out For Delivery! 🚀',
+                  badge: 'Dispatched',
+                  order: o,
+                  message: `Order #${o.id.slice(-8)} is out for delivery to Gate 3`
+                });
+
+                if (soundEnabledRef.current) {
+                  playAdminChime('delivery');
+                }
+
+                sendAdminNotification(
+                  `🚀 Order #${o.id.slice(-8)} Out For Delivery`,
+                  `Order dispatched to Gate 3!`
+                );
+              } else if (change.nextStatus === 'DELIVERED') {
                 setNewOrderAlert({
                   type: 'DELIVERED',
                   title: 'Order Successfully Delivered! ✅',
@@ -268,7 +226,7 @@ export default function AdminDashboardPage() {
                 });
 
                 if (soundEnabledRef.current) {
-                  playAdminChime('delivered');
+                  playAdminChime('delivery');
                 }
 
                 sendAdminNotification(
@@ -283,7 +241,7 @@ export default function AdminDashboardPage() {
 
           // Update tracked orders map with all current orders
           const updatedMap = new Map();
-          normalizedOrders.forEach((o) => {
+          json.orders.forEach((o) => {
             updatedMap.set(o.id, {
               status: o.status
             });
@@ -385,16 +343,16 @@ export default function AdminDashboardPage() {
   }, [loadSystemSettings, loadRestaurants, loadOrders]);
 
   // Action: Update Order Status (PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED, CANCELLED)
-  const handleUpdateStatus = async (orderId, nextStatus, extraFields = {}) => {
+  const handleUpdateStatus = async (orderId, nextStatus) => {
     if (!orderId || !nextStatus) return;
 
     // Optimistic UI update
     setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus, ...extraFields } : o))
+      prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
     );
     // Keep inspecting modal synced with updated status
     setInspectingOrder((prev) =>
-      prev && prev.id === orderId ? { ...prev, status: nextStatus, ...extraFields } : prev
+      prev && prev.id === orderId ? { ...prev, status: nextStatus } : prev
     );
 
     // 1. Update in Shared Central Backend API (Vercel Serverless Function)
@@ -413,7 +371,7 @@ export default function AdminDashboardPage() {
       try {
         await supabase
           .from('orders')
-          .update({ status: nextStatus, ...extraFields })
+          .update({ status: nextStatus })
           .eq('id', orderId);
       } catch (err) {
         console.warn('[Supabase Status Update Error]:', err.message);
@@ -423,12 +381,10 @@ export default function AdminDashboardPage() {
     // 3. Update localStorage fallback
     try {
       const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-      const updated = stored.map((o) => (o.id === orderId ? { ...o, status: nextStatus, ...extraFields } : o));
+      const updated = stored.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o));
       localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
     } catch {}
   };
-
-
 
 
 
@@ -517,18 +473,25 @@ export default function AdminDashboardPage() {
 
           {/* Right Header Controls: Clean, Uncluttered with Three-Lines Menu Drawer */}
           <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* Quick Audio Alert Chime & Native Push Notification Test */}
+            {/* Quick Audio Alert Chime Toggle */}
             <button
-              onClick={handleTestAlert}
+              onClick={() => {
+                if (soundEnabled) {
+                  playAdminChime('test');
+                } else {
+                  setSoundEnabled(true);
+                  playAdminChime('test');
+                }
+              }}
               className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 soundEnabled
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
                   : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
               }`}
-              title="Click to Test Loud Restaurant Bell & Desktop Windows Push Alert"
+              title="Click to Test or Toggle Sound Chime"
             >
-              <Volume2 size={15} className="text-emerald-400 animate-pulse" />
-              <span>🔔 Test Loud Sound & Push</span>
+              {soundEnabled ? <Volume2 size={15} className="text-emerald-400 animate-pulse" /> : <VolumeX size={15} />}
+              <span>{soundEnabled ? '🔔 Sound: ON (Test)' : '🔕 Sound: OFF'}</span>
             </button>
 
             {/* Quick Sync Button */}
@@ -649,32 +612,6 @@ export default function AdminDashboardPage() {
 
       {/* Main Content Dashboard */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
-
-        {/* Desktop Push & Loud Audio Alert Permission Prompt */}
-        {!hasNotificationPermission && (
-          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-orange-600 via-amber-600 to-orange-700 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-orange-400/40">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-2xl shrink-0 shadow-inner">
-                🔔
-              </div>
-              <div>
-                <h4 className="text-xs sm:text-sm font-black font-['Outfit'] tracking-wide">
-                  Enable Desktop Push Notifications & Loud Order Chimes
-                </h4>
-                <p className="text-[11px] sm:text-xs text-orange-100 mt-0.5 leading-relaxed">
-                  Get instant Windows popups outside Chrome and loud kitchen bell rings for incoming orders so you can hear alerts easily across the room.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleEnablePushAlerts}
-              className="px-4 py-2.5 rounded-xl bg-white text-orange-800 hover:bg-orange-50 font-black text-xs shadow-md transition-all cursor-pointer border-none shrink-0 flex items-center justify-center gap-1.5 active:scale-95"
-            >
-              <Bell size={15} />
-              <span>Allow Desktop Alerts</span>
-            </button>
-          </div>
-        )}
         
         {/* 1. Metrics Counters */}
         <MetricsOverview
@@ -775,6 +712,7 @@ export default function AdminDashboardPage() {
         }}
         onOpenMenuManager={() => setIsMenuModalOpen(true)}
         onOpenStudentsModal={() => setIsStudentsModalOpen(true)}
+        onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
         onRefreshData={() => {
           loadOrders(false);
           loadRestaurants();
@@ -782,6 +720,12 @@ export default function AdminDashboardPage() {
         }}
         isRefreshing={isRefreshing}
         onLogout={logout}
+      />
+
+      {/* Delivery Partners & Rider Access Modal */}
+      <DeliveryPartnersModal
+        isOpen={isDeliveryPartnersModalOpen}
+        onClose={() => setIsDeliveryPartnersModalOpen(false)}
       />
 
 

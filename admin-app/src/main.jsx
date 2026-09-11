@@ -10,7 +10,7 @@ const getBackendUrl = () => {
   }
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-    // Local development proxy (handled by vite server proxy)
+    // Localhost development uses Vite proxy to port 5000
     if (host === 'localhost' || host === '127.0.0.1') {
       return '';
     }
@@ -18,7 +18,7 @@ const getBackendUrl = () => {
     if (host === 'clg-bites-srm.vercel.app') {
       return '';
     }
-    // Standalone deployment (e.g. any dedicated vercel.app admin domain): target live student backend
+    // Standalone deployment on Vercel: target live student backend
     return 'https://clg-bites-srm.vercel.app';
   }
   return '';

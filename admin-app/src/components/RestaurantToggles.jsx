@@ -15,33 +15,11 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
 
     try {
       // 1. Update Neon PostgreSQL shared backend
-      const payload = JSON.stringify({ 
-        id: restaurant.id, 
-        restaurantId: restaurant.id, 
-        is_open: nextState 
-      });
-
-      let res = await fetch(`/api/restaurants/${encodeURIComponent(restaurant.id)}/toggle`, {
+      await fetch(`/api/restaurants/${restaurant.id}/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: payload
+        body: JSON.stringify({ is_open: nextState })
       });
-
-      if (!res.ok) {
-        res = await fetch('/api/restaurants/toggle', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload
-        });
-      }
-      
-      if (!res.ok) {
-        await fetch('/api/restaurants', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload
-        });
-      }
 
       // 2. Also sync to Supabase if configured
       if (isSupabaseConfigured() && supabase) {
@@ -55,7 +33,7 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
         }
       }
 
-      // 3. Fallback localStorage and optimistic update
+      // 3. Fallback localStorage
       const updated = restaurants.map((r) =>
         r.id === restaurant.id ? { ...r, is_open: nextState } : r
       );
