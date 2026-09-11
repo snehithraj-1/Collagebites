@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 import { neon } from '@neondatabase/serverless';
 
 const DATABASE_URL = process.env.DATABASE_URL || 
-  'postgresql://neondb_owner:npg_IDfEm7NR9gHC@ep-winter-moon-axhp8k01-pooler.c-4.us-east-2.aws.neon.tech/clgbytes?sslmode=require';
+  'postgresql://neondb_owner:npg_3O6tHydAMuSg@ep-soft-flower-a5yk954q-pooler.us-east-2.aws.neon.tech/clgbites?sslmode=require&channel_binding=require';
 
 const sql = neon(DATABASE_URL);
 
@@ -12,8 +12,8 @@ const mailTransporter = nodemailer.createTransport({
   secure: true,
   family: 4,
   auth: {
-    user: process.env.EMAIL_USER || 'rajsrmap2@gmail.com',
-    pass: (process.env.EMAIL_PASS || 'fvhkfaacapwrdmew').replace(/\s+/g, '')
+    user: process.env.EMAIL_USER || 'collagebites1@gmail.com',
+    pass: (process.env.EMAIL_PASS || 'ufstkqiollxubvjg').replace(/\s+/g, '')
   }
 });
 
@@ -61,14 +61,14 @@ export default async function handler(req, res) {
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
         <div style="background: linear-gradient(135deg, #FF5722 0%, #F4511E 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
           <div style="font-size: 40px; margin-bottom: 8px;">🍔</div>
-          <h1 style="margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px;">CampusBites Dining</h1>
+          <h1 style="margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px;">Collage Bites Dining</h1>
           <p style="margin: 6px 0 0; font-size: 13px; opacity: 0.9;">SRM University-AP Hostel Delivery Portal</p>
         </div>
         
         <div style="padding: 32px 28px; text-align: center;">
           <h2 style="font-size: 18px; color: #0f172a; margin-top: 0; font-weight: 800;">Your One-Time Login Code</h2>
           <p style="color: #64748b; font-size: 14px; line-height: 1.5; margin: 8px 0 24px;">
-            Hello <b>${name || 'Student'}</b>, use the 6-digit verification code below to securely sign into CampusBites.
+            Hello <b>${name || 'Student'}</b>, use the 6-digit verification code below to securely sign into Collage Bites.
           </p>
           
           <div style="display: inline-block; background: #FFF0EB; border: 2px dashed #FF5722; border-radius: 16px; padding: 16px 36px; margin-bottom: 24px;">
@@ -91,12 +91,13 @@ export default async function handler(req, res) {
     let emailError = null;
     let smtpResponse = null;
     try {
+      const activeSender = process.env.EMAIL_USER || 'collagebites1@gmail.com';
       const info = await mailTransporter.sendMail({
-        from: '"CampusBites SRM" <rajsrmap2@gmail.com>',
+        from: '"Collage Bites Dining" <' + activeSender + '>',
         to: cleanEmail,
-        replyTo: 'rajsrmap2@gmail.com',
-        subject: `CampusBites login code: ${otp}`,
-        text: `Your CampusBites verification code is: ${otp}\n\nThis code is valid for 10 minutes.\n\nSRM University-AP Campus Dining\nDelivery Support: 9989955833`,
+        replyTo: activeSender,
+        subject: `${otp} is your Collage Bites Login Code`,
+        text: `Your Collage Bites verification code is: ${otp}\n\nThis code is valid for 10 minutes.\n\nSRM University-AP Campus Dining\nDelivery Support: 9989955833`,
         html: htmlTemplate
       });
       emailSent = true;
