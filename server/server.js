@@ -419,7 +419,9 @@ async function runNeonSchemaInitWithRetry(maxRetries = 3) {
   console.warn('[Neon DB] Schema initialization deferred; individual requests will auto-reconnect.');
 }
 
-runNeonSchemaInitWithRetry();
+if (!process.env.VERCEL) {
+  runNeonSchemaInitWithRetry();
+}
 
 // ----------------------------------------------------
 // 2. INITIAL SEED DISHES & LOCAL CACHE HELPERS
