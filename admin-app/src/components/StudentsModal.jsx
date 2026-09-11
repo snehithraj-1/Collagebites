@@ -1,146 +1,144 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, MapPin, Hash, RefreshCw, ShoppingBag } from 'lucide-react';
+import { X, Search, Phone, Mail, User, Users, Calendar } from 'lucide-react';
+import { api } from '../services/api';
 
 export default function StudentsModal({ isOpen, onClose }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
-  const fetchStudents = async () => {
+  useEffect(() => {
+    if (isOpen) {
+      loadStudents();
+    }
+  }, [isOpen]);
+
+  const loadStudents = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/students');
-      if (res.ok) {
-        const data = await res.json();
-        const list = Array.isArray(data) ? data : (data.students || data.data || []);
-        setStudents(list);
-      }
+      const data = await api.getStudents();
+      setStudents(data);
     } catch (err) {
-      console.warn('Failed to fetch students:', err);
+      console.error('Failed to load students:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchStudents();
-    }
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-      <div onClick={onClose} className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
+  const filteredStudents = students.filter((s) => {
+    const term = search.toLowerCase();
+    return (
+      (s.name || '').toLowerCase().includes(term) ||
+      (s.phone || '').toLowerCase().includes(term) ||
+      (s.email || '').toLowerCase().includes(term)
+    );
+  });
 
-      <div className="relative bg-[#111827] border border-slate-700 w-full max-w-2xl rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-white text-xs animate-scale-in">
-        
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 animate-fade-in">
+      <div onClick={onClose} className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm cursor-pointer" />
+
+      <div className="relative w-full max-w-3xl bg-[#0F172A] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden z-10 flex flex-col h-[85vh]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg border border-blue-500/30">
-              👥
+        <div className="p-5 border-b border-slate-800 bg-[#111C34] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-lg shadow-lg border border-blue-400/30">
+              <Users size={20} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black font-['Outfit'] text-white">
-                  Student Database Records
-                </h3>
-                <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-mono text-[10px] font-bold">
-                  {students.length} Registered
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Synchronized live with Neon PostgreSQL (<code className="text-emerald-400">students</code> table)
+              <h2 className="text-base sm:text-lg font-black font-['Outfit'] text-white">
+                Registered Students Directory
+              </h2>
+              <p className="text-xs text-slate-400">
+                {students.length} students registered at SRM University AP
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={fetchStudents}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
-              title="Refresh Students"
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin text-blue-400' : ''} />
-            </button>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors cursor-pointer border border-slate-700"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* Student Records List */}
-        <div className="max-h-96 overflow-y-auto space-y-3 pr-1">
-          {loading ? (
-            <div className="py-12 text-center space-y-2">
-              <div className="w-8 h-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin mx-auto" />
-              <p className="text-slate-400 text-xs">Loading students from Neon PostgreSQL...</p>
-            </div>
-          ) : students.length === 0 ? (
-            <div className="py-12 text-center text-slate-500 text-xs">
-              No student profiles recorded yet. Students are automatically saved when they sign in or order.
-            </div>
-          ) : (
-            students.map((student) => (
-              <div
-                key={student.id || student.email}
-                className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-all space-y-2"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-sm text-white">
-                      {student.name}
-                    </span>
-                  </div>
-                  {student.total_orders !== undefined && (
-                    <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-800">
-                      {student.total_orders} Orders
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-300 text-[11px] pt-1">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <Mail size={12} className="text-slate-400 shrink-0" />
-                    <span className="font-mono truncate">{student.email}</span>
-                  </div>
-
-                  {student.phone && (
-                    <div className="flex items-center gap-1.5">
-                      <Phone size={12} className="text-emerald-400 shrink-0" />
-                      <span className="font-mono">{student.phone}</span>
-                    </div>
-                  )}
-
-                  {(student.hostel_block || student.room_number) && (
-                    <div className="flex items-center gap-1.5 sm:col-span-2">
-                      <MapPin size={12} className="text-[#FF5722] shrink-0" />
-                      <span>
-                        {student.hostel_block} {student.room_number ? `Room ${student.room_number}` : ''}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-[11px] text-slate-400">
-          <span>Persisted securely in Neon AWS PostgreSQL</span>
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer border border-slate-700"
+            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
-            Close
+            <X size={18} />
           </button>
         </div>
 
+        {/* Search Input */}
+        <div className="p-4 border-b border-slate-800/80 bg-slate-900/60">
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by student name, phone number, or SRM email..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        {/* Students List */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-64 text-slate-400 space-y-2">
+              <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-xs font-semibold">Loading student records...</p>
+            </div>
+          ) : filteredStudents.length === 0 ? (
+            <div className="text-center py-16 text-slate-500 text-xs">
+              No students found matching your search.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {filteredStudents.map((s, idx) => (
+                <div
+                  key={s.id || idx}
+                  className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold text-xs border border-blue-500/20">
+                        {s.name ? s.name[0].toUpperCase() : 'S'}
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-white text-xs sm:text-sm">
+                          {s.name || 'Anonymous Student'}
+                        </h4>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          ID: {(s.id || '').toString().slice(-6).toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-xs text-slate-300 pt-1">
+                    {s.phone && (
+                      <div className="flex items-center gap-2 text-[11px] text-orange-400">
+                        <Phone size={12} />
+                        <a href={`tel:${s.phone}`} className="hover:underline">{s.phone}</a>
+                      </div>
+                    )}
+                    {s.email && (
+                      <div className="flex items-center gap-2 text-[11px] text-slate-400 truncate">
+                        <Mail size={12} />
+                        <span>{s.email}</span>
+                      </div>
+                    )}
+                    {s.created_at && (
+                      <div className="flex items-center gap-2 text-[10px] text-slate-500 pt-1">
+                        <Calendar size={11} />
+                        <span>Joined: {new Date(s.created_at).toLocaleDateString('en-IN')}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

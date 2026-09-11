@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Search,
@@ -6,51 +6,41 @@ import {
   Edit2,
   Trash2,
   Check,
-  AlertCircle,
-  Clock,
+  UtensilsCrossed,
   Sparkles,
-  Utensils,
-  Store,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  Upload,
-  Image as ImageIcon,
+  AlertCircle,
+  Save,
   CheckCircle2,
-  XCircle,
-  ToggleLeft,
-  ToggleRight
+  XCircle
 } from 'lucide-react';
+import { api } from '../services/api';
 
-export default function MenuManagerModal({ isOpen, onClose }) {
-  const [items, setItems] = useState([]);
+export default function MenuManagerModal({
+  isOpen,
+  onClose,
+  restaurants = [],
+  assignedRestaurantId = null
+}) {
+  const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRestaurant, setSelectedRestaurant] = useState('ALL');
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedRestaurant, setSelectedRestaurant] = useState(assignedRestaurantId || 'all');
   const [togglingId, setTogglingId] = useState(null);
 
-  // Add / Edit Modal state
-  const [editingItem, setEditingItem] = useState(null); // null = closed, {} = add, { ...item } = edit
-  const [isSaving, setIsSaving] = useState(false);
+  // Edit / Add Item State
+  const [editingItem, setEditingItem] = useState(null); // null = modal closed, {} = new item, item = edit
+  const [formData, setFormData] = useState({
+    name: '',
+    price: '',
+    category: 'Main Course',
+    restaurant_id: 'local-home-kitchen',
+    description: '',
+    is_available: true,
+    is_veg: true
+  });
+  const [savingItem, setSavingItem] = useState(false);
   const [formError, setFormError] = useState('');
-  const [uploadingImage, setUploadingImage] = useState(false);
-
-  // Fetch menu items from shared backend
-  const loadMenu = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/menu');
-      const data = await res.json();
-      if (data.success && Array.isArray(data.items)) {
-        setItems(data.items);
-      }
-    } catch (err) {
-      console.error('Failed to fetch menu items:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     if (isOpen) {
@@ -58,903 +48,425 @@ export default function MenuManagerModal({ isOpen, onClose }) {
     }
   }, [isOpen]);
 
-  // Extract unique categories
-  const categories = useMemo(() => {
-    const set = new Set(items.map((i) => i.category).filter(Boolean));
-    return ['ALL', ...Array.from(set)];
-  }, [items]);
-
-  // Filtered dishes
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const matchSearch =
-        !searchQuery ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchRest =
-        selectedRestaurant === 'ALL' || item.restaurant_id === selectedRestaurant;
-      const matchCat =
-        selectedCategory === 'ALL' || item.category === selectedCategory;
-      return matchSearch && matchRest && matchCat;
-    });
-  }, [items, searchQuery, selectedRestaurant, selectedCategory]);
-
-  const totalDishes = items.length;
-  const soldOutCount = items.filter((i) => !i.is_available).length;
-  const availableCount = totalDishes - soldOutCount;
-
-  const [bulkUpdatingRest, setBulkUpdatingRest] = useState(null);
-
-  const restaurantsList = [
-    { id: 'local-home-kitchen', name: 'Local Home Kitchen' },
-    { id: 'clg-bites-biryani-nation', name: 'Clg Bites Biryani Nation' }
-  ];
-
-  const getRestStats = (restId) => {
-    const restItems = items.filter((i) => i.restaurant_id === restId);
-    const available = restItems.filter((i) => i.is_available).length;
-    const soldOut = restItems.length - available;
-    const isAllAvailable = restItems.length > 0 && available === restItems.length;
-    const isAllSoldOut = restItems.length > 0 && available === 0;
-    return { total: restItems.length, available, soldOut, isAllAvailable, isAllSoldOut };
-  };
-
-  // Bulk Assign All Dishes in a Restaurant as In Stock or Sold Out
-  const handleBulkAvailability = async (restaurantId, isAvailable) => {
-    setBulkUpdatingRest(restaurantId);
-
-    // Optimistic UI update
-    setItems((prev) =>
-      prev.map((i) => {
-        if (restaurantId === 'ALL' || i.restaurant_id === restaurantId) {
-          return { ...i, is_available: isAvailable };
-        }
-        return i;
-      })
-    );
-
+  const loadMenu = async () => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/menu/bulk-availability', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          restaurant_id: restaurantId,
-          is_available: isAvailable
-        })
-      });
-      const data = await res.json();
-      if (!data.success) {
-        loadMenu();
-      }
-    } catch (e) {
-      console.warn('[Bulk Availability Error]:', e);
-      loadMenu();
+      const items = await api.getMenu();
+      setMenuItems(items);
+    } catch (err) {
+      console.error('Failed to load menu:', err);
     } finally {
-      setBulkUpdatingRest(null);
+      setLoading(false);
     }
   };
 
-  // 1-Click Toggle Availability (Sold Out vs In Stock)
+  if (!isOpen) return null;
+
+  // Categories extracted from items
+  const categories = ['all', ...new Set(menuItems.map((i) => i.category || 'General').filter(Boolean))];
+
+  // Filter items
+  const filteredItems = menuItems.filter((item) => {
+    const matchesSearch = (item.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.category || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCat = selectedCategory === 'all' || item.category === selectedCategory;
+    const matchesRest = selectedRestaurant === 'all' || item.restaurant_id === selectedRestaurant;
+    return matchesSearch && matchesCat && matchesRest;
+  });
+
+  // Toggle availability
   const handleToggleAvailability = async (item) => {
-    const nextStatus = !item.is_available;
     setTogglingId(item.id);
-
-    // Optimistic UI update
-    setItems((prev) =>
-      prev.map((i) => (i.id === item.id ? { ...i, is_available: nextStatus } : i))
-    );
-
+    const nextState = !item.is_available;
     try {
-      const res = await fetch(`/api/menu/${item.id}/availability`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_available: nextStatus })
-      });
-      const data = await res.json();
-      if (!data.success) {
-        // Revert on error
-        setItems((prev) =>
-          prev.map((i) => (i.id === item.id ? { ...i, is_available: item.is_available } : i))
-        );
-      }
-    } catch (e) {
-      // Revert on error
-      setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, is_available: item.is_available } : i))
+      await api.toggleItemAvailability(item.id, nextState);
+      setMenuItems((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, is_available: nextState } : i))
       );
+    } catch (err) {
+      alert(`Failed to update availability: ${err.message}`);
     } finally {
       setTogglingId(null);
     }
   };
 
-  // Delete a dish
-  const handleDeleteItem = async (item) => {
-    if (!window.confirm(`Are you sure you want to permanently delete "${item.name}" from the menu?`)) {
-      return;
-    }
-
-    setItems((prev) => prev.filter((i) => i.id !== item.id));
-
+  // Delete Item
+  const handleDeleteItem = async (itemId) => {
+    if (!window.confirm('Are you sure you want to delete this dish from the menu?')) return;
     try {
-      await fetch(`/api/menu/${item.id}`, { method: 'DELETE' });
-    } catch (e) {
-      console.error('Failed to delete item:', e);
-      loadMenu();
-    }
-  };
-
-  // Upload image from file picker
-  const handleImageFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      setFormError('Image file is too large (max 10MB). Please select a smaller photo.');
-      return;
-    }
-
-    setUploadingImage(true);
-    setFormError('');
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64Data = reader.result;
-        // Optimistically set preview immediately
-        setEditingItem((prev) => ({ ...prev, image_url: base64Data }));
-
-        // Try server upload to store statically
-        try {
-          const res = await fetch('/api/upload-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64Data, name: file.name })
-          });
-          const data = await res.json();
-          if (data.success && data.url) {
-            setEditingItem((prev) => ({ ...prev, image_url: data.url }));
-          }
-        } catch (uploadErr) {
-          console.warn('Server upload endpoint fallback:', uploadErr);
-        } finally {
-          setUploadingImage(false);
-        }
-      };
-      reader.readAsDataURL(file);
+      await api.deleteMenuItem(itemId);
+      setMenuItems((prev) => prev.filter((i) => i.id !== itemId));
     } catch (err) {
-      setFormError('Failed to read image file.');
-      setUploadingImage(false);
+      alert(`Failed to delete item: ${err.message}`);
     }
   };
 
-  // Save Dish (Add or Edit)
+  // Open Edit Form
+  const handleOpenEdit = (item) => {
+    setEditingItem(item);
+    setFormData({
+      name: item.name || '',
+      price: item.price || '',
+      category: item.category || 'Main Course',
+      restaurant_id: item.restaurant_id || 'local-home-kitchen',
+      description: item.description || '',
+      is_available: item.is_available !== false,
+      is_veg: item.is_veg !== false
+    });
+    setFormError('');
+  };
+
+  // Open Add Form
+  const handleOpenAdd = () => {
+    setEditingItem({});
+    setFormData({
+      name: '',
+      price: '',
+      category: 'Main Course',
+      restaurant_id: assignedRestaurantId || (restaurants[0]?.id || 'local-home-kitchen'),
+      description: '',
+      is_available: true,
+      is_veg: true
+    });
+    setFormError('');
+  };
+
+  // Save Item (Add or Edit)
   const handleSaveItem = async (e) => {
     e.preventDefault();
-    setFormError('');
-
-    if (!editingItem.name || !editingItem.price || !editingItem.category) {
-      setFormError('Please fill in all required fields (Name, Price, Category).');
+    if (!formData.name.trim() || !formData.price) {
+      setFormError('Name and Price are required.');
       return;
     }
 
-    setIsSaving(true);
-    const isEdit = Boolean(editingItem.id);
+    setSavingItem(true);
+    setFormError('');
 
     try {
-      if (isEdit) {
-        const res = await fetch(`/api/menu/${editingItem.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(editingItem)
-        });
-        const data = await res.json();
-        if (data.success) {
-          setItems((prev) =>
-            prev.map((i) => (i.id === editingItem.id ? { ...i, ...editingItem, price: Number(editingItem.price) } : i))
-          );
-          setEditingItem(null);
-        } else {
-          setFormError(data.error || 'Failed to update dish.');
-        }
+      const payload = {
+        name: formData.name.trim(),
+        price: Number(formData.price),
+        category: formData.category,
+        restaurant_id: formData.restaurant_id,
+        description: formData.description.trim(),
+        is_available: formData.is_available,
+        is_veg: formData.is_veg
+      };
+
+      if (editingItem.id) {
+        // Update existing
+        await api.updateMenuItem(editingItem.id, payload);
+        setMenuItems((prev) =>
+          prev.map((i) => (i.id === editingItem.id ? { ...i, ...payload } : i))
+        );
       } else {
-        const res = await fetch('/api/menu', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(editingItem)
-        });
-        const data = await res.json();
-        if (data.success && data.item) {
-          setItems((prev) => [data.item, ...prev]);
-          setEditingItem(null);
-        } else {
-          setFormError(data.error || 'Failed to add dish.');
-        }
+        // Create new
+        const created = await api.createMenuItem(payload);
+        setMenuItems((prev) => [created.item || { ...payload, id: `item-${Date.now()}` }, ...prev]);
       }
+      setEditingItem(null);
     } catch (err) {
-      setFormError(err.message || 'Network error saving dish.');
+      setFormError(err.message || 'Failed to save menu dish.');
     } finally {
-      setIsSaving(false);
+      setSavingItem(false);
     }
   };
 
-  const getFallbackImage = (isVeg) => {
-    return isVeg
-      ? 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=400&q=80'
-      : 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=400&q=80';
-  };
-
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-in">
-        
-        {/* Modal Header */}
-        <div className="p-6 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-4 bg-slate-900/90 sticky top-0 z-10">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-                <Utensils size={20} />
-              </div>
-              <div>
-                <h2 className="text-xl sm:text-2xl font-black text-white font-['Outfit'] tracking-tight flex items-center gap-2">
-                  <span>Kitchen Menu & Food Catalog</span>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold">
-                    Neon DB Live
-                  </span>
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Manage dishes, upload food photos, adjust prices, and toggle <strong className="text-rose-400">Sold Out</strong> status live.
-                </p>
-              </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 animate-fade-in">
+      {/* Backdrop */}
+      <div onClick={onClose} className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm cursor-pointer" />
+
+      {/* Modal Dialog */}
+      <div className="relative w-full max-w-5xl bg-[#0F172A] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden z-10 flex flex-col h-[90vh]">
+        {/* Modal Top Header */}
+        <div className="p-5 border-b border-slate-800 bg-[#111C34] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white text-lg shadow-lg border border-amber-400/30">
+              🍽️
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-black font-['Outfit'] text-white">
+                Menu & Stock Management
+              </h2>
+              <p className="text-xs text-slate-400">
+                {menuItems.length} authentic dishes loaded from Neon DB
+              </p>
             </div>
           </div>
 
-          {/* Quick Metrics & Actions */}
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs">
-              <span className="text-slate-400">Available:</span>
-              <strong className="text-emerald-400 font-bold">{availableCount}</strong>
-              <span className="text-slate-600">|</span>
-              <span className="text-slate-400">Sold Out:</span>
-              <strong className="text-rose-400 font-bold">{soldOutCount}</strong>
-            </div>
-
+          <div className="flex items-center gap-2">
             <button
-              onClick={() =>
-                setEditingItem({
-                  restaurant_id: selectedRestaurant !== 'ALL' ? selectedRestaurant : 'local-home-kitchen',
-                  restaurant_name: selectedRestaurant === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen',
-                  category: 'Biryani',
-                  name: '',
-                  description: '',
-                  price: '',
-                  image_url: '',
-                  is_veg: true,
-                  is_available: true,
-                  preparation_time: '15-20 mins'
-                })
-              }
-              className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+              type="button"
+              onClick={handleOpenAdd}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#FF5722] to-amber-600 hover:from-[#F4511E] hover:to-amber-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer border-none"
             >
               <Plus size={16} />
-              <span>Add New Dish</span>
+              <span className="hidden sm:inline">Add New Dish</span>
             </button>
-
             <button
+              type="button"
               onClick={onClose}
               className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
         </div>
 
         {/* Filter Controls Bar */}
-        <div className="p-4 sm:px-6 bg-slate-950/60 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
-          
-          {/* Search bar */}
-          <div className="relative flex-1 min-w-[220px]">
-            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="p-4 border-b border-slate-800/80 bg-slate-900/60 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search dishes by name or ingredients..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+              placeholder="Search dish name or category..."
+              className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-[#FF5722]"
             />
           </div>
 
-          {/* Restaurant Filter */}
           <div className="flex items-center gap-2">
-            <Store size={14} className="text-slate-400" />
+            {/* Restaurant Selector */}
             <select
               value={selectedRestaurant}
               onChange={(e) => setSelectedRestaurant(e.target.value)}
-              className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-amber-500 cursor-pointer"
+              className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-white focus:outline-none"
             >
-              <option value="ALL">All Kitchens ({items.length})</option>
-              <option value="local-home-kitchen">Local Home Kitchen</option>
-              <option value="clg-bites-biryani-nation">Clg Bites Biryani Nation</option>
+              <option value="all">All Kitchens</option>
+              {restaurants.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+
+            {/* Category Selector */}
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-white focus:outline-none"
+            >
+              {categories.map((c) => (
+                <option key={c} value={c}>{c.toUpperCase()}</option>
+              ))}
             </select>
           </div>
-
-          {/* Category Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto py-1 max-w-full no-scrollbar">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  selectedCategory === cat
-                    ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
-                    : 'bg-slate-800/60 text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
         </div>
 
-        {/* Restaurant Menu Stock Toggle: Appears ONLY when a specific restaurant is selected (no toggle when All Kitchens is selected) */}
-        {selectedRestaurant !== 'ALL' && (() => {
-          const currentRest = restaurantsList.find((r) => r.id === selectedRestaurant) || {
-            id: selectedRestaurant,
-            name: selectedRestaurant === 'clg-bites-biryani-nation'
-              ? 'Clg Bites Biryani Nation'
-              : selectedRestaurant === 'local-home-kitchen'
-              ? 'Local Home Kitchen'
-              : selectedRestaurant
-          };
-          const stats = getRestStats(currentRest.id);
-          const isBusy = bulkUpdatingRest === currentRest.id;
-          // Switch is ON if any dishes are in stock; OFF if all sold out
-          const isMenuInStock = stats.available > 0;
-
-          return (
-            <div className="p-3 sm:px-6 bg-slate-950/90 border-b border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-colors ${
-                    stats.isAllSoldOut
-                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                      : stats.isAllAvailable
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                      : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                  }`}
-                >
-                  <Store size={18} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-extrabold text-xs sm:text-sm text-white">
-                      {currentRest.name} Menu Stock
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border transition-colors ${
-                        stats.isAllSoldOut
-                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-                          : stats.isAllAvailable
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                      }`}
-                    >
-                      {stats.available}/{stats.total} In Stock
-                    </span>
-                    {stats.isAllSoldOut && (
-                      <span className="px-1.5 py-0.5 rounded bg-rose-500/30 text-rose-200 text-[9px] font-black uppercase tracking-wider">
-                        All Sold Out
-                      </span>
-                    )}
-                    {stats.isAllAvailable && (
-                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 text-[9px] font-black uppercase tracking-wider">
-                        All In Stock
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">
-                    1-click master switch to assign all dishes in {currentRest.name} as in stock or sold out
-                  </span>
-                </div>
-              </div>
-
-              {/* Toggle Controls: Master Switch + Quick 1-Click Buttons */}
-              <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
-                {/* Master Toggle Switch */}
-                <div 
-                  onClick={() => !isBusy && handleBulkAvailability(currentRest.id, !isMenuInStock)}
-                  className={`flex items-center gap-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl px-3.5 py-2 cursor-pointer transition-all select-none ${
-                    isBusy ? 'opacity-50 pointer-events-none' : ''
-                  }`}
-                  title={`Click to mark all dishes ${isMenuInStock ? 'SOLD OUT' : 'IN STOCK'}`}
-                >
-                  <span
-                    className={`text-xs font-bold transition-colors ${
-                      stats.isAllSoldOut
-                        ? 'text-rose-400'
-                        : stats.isAllAvailable
-                        ? 'text-emerald-400'
-                        : 'text-amber-400'
-                    }`}
-                  >
-                    {stats.isAllSoldOut ? 'Sold Out' : stats.isAllAvailable ? 'In Stock' : `${stats.available}/${stats.total} Stock`}
-                  </span>
-                  <div
-                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                      isMenuInStock ? 'bg-emerald-500' : 'bg-slate-700'
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                        isMenuInStock ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                {/* Quick Button: All In Stock */}
-                <button
-                  onClick={() => handleBulkAvailability(currentRest.id, true)}
-                  disabled={isBusy || stats.isAllAvailable}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 ${
-                    stats.isAllAvailable
-                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
-                      : 'bg-slate-900 hover:bg-emerald-600 text-emerald-400 hover:text-white border-slate-700 hover:border-emerald-500'
-                  }`}
-                  title="Assign all dishes in this restaurant as In Stock"
-                >
-                  <CheckCircle2 size={13} />
-                  <span>All In Stock</span>
-                </button>
-
-                {/* Quick Button: All Sold Out */}
-                <button
-                  onClick={() => handleBulkAvailability(currentRest.id, false)}
-                  disabled={isBusy || stats.isAllSoldOut}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 ${
-                    stats.isAllSoldOut
-                      ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
-                      : 'bg-slate-900 hover:bg-rose-600 text-rose-400 hover:text-white border-slate-700 hover:border-rose-500'
-                  }`}
-                  title="Assign all dishes in this restaurant as Sold Out"
-                >
-                  <XCircle size={13} />
-                  <span>All Sold Out</span>
-                </button>
-              </div>
-            </div>
-          );
-        })()}
-
         {/* Dish Items Grid */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 space-y-3">
-              <RefreshCw size={28} className="animate-spin text-amber-500" />
-              <p className="text-xs text-slate-400 font-medium">Loading dishes from Neon database...</p>
+            <div className="flex flex-col items-center justify-center h-64 text-slate-400 space-y-2">
+              <div className="w-8 h-8 border-3 border-[#FF5722] border-t-transparent rounded-full animate-spin" />
+              <p className="text-xs font-semibold">Loading menu inventory...</p>
             </div>
           ) : filteredItems.length === 0 ? (
-            <div className="text-center py-16 space-y-3">
-              <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-500">
-                <Utensils size={24} />
-              </div>
-              <p className="text-sm font-bold text-slate-300">No dishes match your search.</p>
-              <p className="text-xs text-slate-500">Try changing the category, restaurant filter, or add a new dish.</p>
+            <div className="text-center py-16 text-slate-500 text-xs">
+              No dishes found matching your criteria.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className={`relative p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${
-                    item.is_available
-                      ? 'bg-slate-800/40 border-slate-800 hover:border-slate-700 shadow-md'
-                      : 'bg-rose-950/10 border-rose-900/30 opacity-75'
-                  }`}
-                >
-                  <div>
-                    {/* Dish Row with Image Thumbnail */}
-                    <div className="flex items-start gap-3">
-                      
-                      {/* Food Image Thumbnail */}
-                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-slate-800 border border-slate-700 shrink-0 relative">
-                        <img
-                          src={item.image_url || getFallbackImage(item.is_veg)}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = getFallbackImage(item.is_veg);
-                          }}
-                        />
-                        {/* Veg / Non-Veg Icon Tag */}
-                        <div
-                          className={`absolute top-1 left-1 w-4 h-4 rounded-md border flex items-center justify-center bg-white/95 shadow-sm ${
-                            item.is_veg ? 'border-emerald-600' : 'border-rose-600'
-                          }`}
-                          title={item.is_veg ? 'Vegetarian' : 'Non-Vegetarian'}
-                        >
-                          <div
-                            className={`w-2 h-2 rounded-full ${
-                              item.is_veg ? 'bg-emerald-600' : 'bg-rose-600'
-                            }`}
-                          />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {filteredItems.map((item) => {
+                const isAvail = item.is_available !== false;
+                const isToggling = togglingId === item.id;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between ${
+                      isAvail
+                        ? 'bg-slate-900/80 border-slate-800'
+                        : 'bg-slate-950/60 border-slate-800/60 opacity-60'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${item.is_veg !== false ? 'bg-emerald-400' : 'bg-rose-500'}`} />
+                            <h4 className="font-extrabold text-white text-xs sm:text-sm">
+                              {item.name}
+                            </h4>
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">
+                            {item.category || 'Main Course'}
+                          </span>
                         </div>
+                        <span className="text-sm font-black font-['Outfit'] text-emerald-400">
+                          ₹{item.price}
+                        </span>
                       </div>
 
-                      {/* Dish Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="text-sm font-black text-white font-['Outfit'] leading-snug truncate" title={item.name}>
-                            {item.name}
-                          </h3>
-                          <span className="text-base font-black text-amber-400 font-['Outfit'] shrink-0">
-                            ₹{item.price}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-300 text-[10px] font-bold">
-                            {item.category}
-                          </span>
-                          <span className="text-[11px] text-slate-400 flex items-center gap-1 truncate">
-                            <Store size={11} className="shrink-0" />
-                            <span className="truncate">{item.restaurant_name || item.restaurant_id}</span>
-                          </span>
-                        </div>
-
-                        {/* Description */}
-                        {item.description && (
-                          <p className="text-xs text-slate-400 mt-1.5 line-clamp-1 leading-relaxed">
-                            {item.description}
-                          </p>
-                        )}
-
-                        {/* Prep Time */}
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-1">
-                          <Clock size={11} />
-                          <span>{item.preparation_time || '15 mins'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Bottom: Live Availability Toggle & Actions */}
-                  <div className="mt-3 pt-3 border-t border-slate-700/40 flex items-center justify-between gap-3">
-                    
-                    {/* 1-Click Availability Toggle */}
-                    <button
-                      onClick={() => handleToggleAvailability(item)}
-                      disabled={togglingId === item.id}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        item.is_available
-                          ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30'
-                          : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40'
-                      }`}
-                      title={item.is_available ? 'Click to mark as Sold Out' : 'Click to mark as In Stock'}
-                    >
-                      {item.is_available ? (
-                        <>
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                          <span>In Stock</span>
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle size={13} />
-                          <span>SOLD OUT</span>
-                        </>
+                      {item.description && (
+                        <p className="text-[11px] text-slate-400 line-clamp-2 mt-1.5">
+                          {item.description}
+                        </p>
                       )}
-                    </button>
+                    </div>
 
-                    {/* Edit & Delete Action Buttons */}
-                    <div className="flex items-center gap-1.5">
+                    {/* Actions Row */}
+                    <div className="pt-3 mt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                      {/* In Stock / Sold Out Button */}
                       <button
-                        onClick={() => setEditingItem({ ...item })}
-                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
-                        title="Edit Dish Details & Price"
+                        type="button"
+                        onClick={() => handleToggleAvailability(item)}
+                        disabled={isToggling}
+                        className={`flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                          isAvail
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20'
+                        }`}
                       >
-                        <Edit2 size={14} />
+                        {isAvail ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                        <span>{isToggling ? 'Updating...' : isAvail ? 'In Stock' : 'Sold Out'}</span>
                       </button>
+
+                      {/* Edit Button */}
                       <button
-                        onClick={() => handleDeleteItem(item)}
-                        className="p-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer border border-rose-900/30"
+                        type="button"
+                        onClick={() => handleOpenEdit(item)}
+                        className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                        title="Edit Dish"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+
+                      {/* Delete Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteItem(item.id)}
+                        className="p-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 transition-colors"
                         title="Delete Dish"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                       </button>
                     </div>
-
                   </div>
-
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="p-4 sm:px-6 bg-slate-950/80 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-          <div>
-            Showing <strong className="text-white">{filteredItems.length}</strong> of{' '}
-            <strong className="text-white">{items.length}</strong> dishes
-          </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-colors cursor-pointer"
-          >
-            Done
-          </button>
-        </div>
-
-      </div>
-
-      {/* Add / Edit Dish Sub-Modal */}
-      {editingItem && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-black text-white font-['Outfit']">
-                {editingItem.id ? '✏️ Edit Dish' : '➕ Add New Food Item'}
-              </h3>
-              <button
-                onClick={() => setEditingItem(null)}
-                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {formError && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleSaveItem} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
-                  Dish Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Chicken Dum Biryani, Paneer Fried Rice"
-                  value={editingItem.name || ''}
-                  onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">
-                    Kitchen / Restaurant *
-                  </label>
-                  <select
-                    value={editingItem.restaurant_id || 'local-home-kitchen'}
-                    onChange={(e) =>
-                      setEditingItem({
-                        ...editingItem,
-                        restaurant_id: e.target.value,
-                        restaurant_name:
-                          e.target.value === 'clg-bites-biryani-nation'
-                            ? 'Clg Bites Biryani Nation'
-                            : 'Local Home Kitchen'
-                      })
-                    }
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white cursor-pointer focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="local-home-kitchen">Local Home Kitchen</option>
-                    <option value="clg-bites-biryani-nation">Clg Bites Biryani Nation</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">
-                    Category *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Biryani, Starters, Fried Rice"
-                    value={editingItem.category || ''}
-                    onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">
-                    Price (₹) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    placeholder="190"
-                    value={editingItem.price || ''}
-                    onChange={(e) => setEditingItem({ ...editingItem, price: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">
-                    Preparation Time
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 15-20 mins"
-                    value={editingItem.preparation_time || ''}
-                    onChange={(e) =>
-                      setEditingItem({ ...editingItem, preparation_time: e.target.value })
-                    }
-                    className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-
-              {/* Food Image Upload & Preview */}
-              <div className="p-3 bg-slate-800/60 rounded-2xl border border-slate-700/60 space-y-2.5">
-                <label className="block text-xs font-bold text-slate-300 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <ImageIcon size={14} className="text-amber-400" />
-                    <span>Food Item Image</span>
-                  </span>
-                  <span className="text-[10px] text-slate-400">Device Upload or Image URL</span>
-                </label>
-                
-                <div className="flex items-center gap-3">
-                  {/* Thumbnail Preview */}
-                  <div className="w-16 h-16 rounded-xl bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center shrink-0 relative">
-                    {editingItem.image_url ? (
-                      <img
-                        src={editingItem.image_url}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = getFallbackImage(editingItem.is_veg);
-                        }}
-                      />
-                    ) : (
-                      <ImageIcon size={22} className="text-slate-500" />
-                    )}
-                    {uploadingImage && (
-                      <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                        <RefreshCw size={16} className="text-amber-400 animate-spin" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Device Upload Button and URL input */}
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <label
-                        htmlFor="dish-file-upload"
-                        className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
-                      >
-                        <Upload size={13} />
-                        <span>Upload Photo from Device</span>
-                      </label>
-                      <input
-                        id="dish-file-upload"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageFileChange}
-                      />
-                      {editingItem.image_url && (
-                        <button
-                          type="button"
-                          onClick={() => setEditingItem({ ...editingItem, image_url: '' })}
-                          className="text-[11px] text-rose-400 hover:text-rose-300 font-bold cursor-pointer"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-
-                    <input
-                      type="text"
-                      placeholder="Image URL or DB Path (auto-filled on upload)"
-                      value={editingItem.image_url || ''}
-                      onChange={(e) => setEditingItem({ ...editingItem, image_url: e.target.value })}
-                      className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                </div>
-
-                {/* 1-Click Popular Food Presets */}
-                <div className="flex items-center gap-1.5 pt-1 overflow-x-auto no-scrollbar">
-                  <span className="text-[10px] text-slate-400 shrink-0 font-medium">Presets:</span>
-                  {[
-                    { label: '🍗 Dum Biryani', url: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80' },
-                    { label: '🍗 Fry Biryani', url: 'https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&w=600&q=80' },
-                    { label: '🥗 Veg Biryani', url: 'https://images.unsplash.com/photo-1645177628172-a94c1f96e6db?auto=format&fit=crop&w=600&q=80' },
-                    { label: '🍚 Fried Rice', url: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=600&q=80' },
-                    { label: '🍜 Noodles', url: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=600&q=80' },
-                    { label: '🍗 Starters', url: 'https://images.unsplash.com/photo-1626074353765-517a681e40be?auto=format&fit=crop&w=600&q=80' },
-                    { label: '🥤 Soft Drinks', url: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80' }
-                  ].map((preset) => (
-                    <button
-                      type="button"
-                      key={preset.label}
-                      onClick={() => setEditingItem({ ...editingItem, image_url: preset.url })}
-                      className="px-2 py-0.5 rounded bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] whitespace-nowrap transition-colors cursor-pointer border border-slate-600/40"
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
-                  Description
-                </label>
-                <textarea
-                  rows="2"
-                  placeholder="Ingredients, spice level, or special recipe notes..."
-                  value={editingItem.description || ''}
-                  onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-slate-800/60 rounded-xl border border-slate-700/60">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-300">Food Classification:</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingItem({ ...editingItem, is_veg: true })}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      editingItem.is_veg
-                        ? 'bg-emerald-500 text-slate-950'
-                        : 'bg-slate-700 text-slate-400'
-                    }`}
-                  >
-                    🟢 Veg
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingItem({ ...editingItem, is_veg: false })}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      !editingItem.is_veg
-                        ? 'bg-rose-500 text-white'
-                        : 'bg-slate-700 text-slate-400'
-                    }`}
-                  >
-                    🔴 Non-Veg
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-2">
+        {/* Add/Edit Modal Layer */}
+        {editingItem !== null && (
+          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md z-20 flex items-center justify-center p-4">
+            <div className="bg-[#0F172A] border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 className="text-base font-extrabold text-white">
+                  {editingItem.id ? 'Edit Dish' : 'Add New Menu Item'}
+                </h3>
                 <button
                   type="button"
                   onClick={() => setEditingItem(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-bold text-xs cursor-pointer"
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-white"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 cursor-pointer flex items-center gap-1.5"
-                >
-                  {isSaving && <RefreshCw size={13} className="animate-spin" />}
-                  <span>{editingItem.id ? 'Update Dish' : 'Add to Menu'}</span>
+                  <X size={16} />
                 </button>
               </div>
-            </form>
+
+              {formError && (
+                <div className="p-3 rounded-xl bg-rose-950 text-rose-300 text-xs font-semibold">
+                  {formError}
+                </div>
+              )}
+
+              <form onSubmit={handleSaveItem} className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 font-bold mb-1">Dish Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">Price (₹)</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">Diet Type</label>
+                    <select
+                      value={formData.is_veg ? 'veg' : 'nonveg'}
+                      onChange={(e) => setFormData({ ...formData, is_veg: e.target.value === 'veg' })}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                    >
+                      <option value="veg">🟢 Veg</option>
+                      <option value="nonveg">🔴 Non-Veg</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">Category</label>
+                    <input
+                      type="text"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">Restaurant</label>
+                    <select
+                      value={formData.restaurant_id}
+                      onChange={(e) => setFormData({ ...formData, restaurant_id: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                    >
+                      {restaurants.map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-bold mb-1">Description</label>
+                  <textarea
+                    rows={2}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="is_available"
+                    checked={formData.is_available}
+                    onChange={(e) => setFormData({ ...formData, is_available: e.target.checked })}
+                    className="rounded border-slate-700 text-[#FF5722]"
+                  />
+                  <label htmlFor="is_available" className="text-white font-semibold">Available for ordering</label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingItem}
+                  className="w-full py-2.5 mt-2 rounded-xl bg-[#FF5722] hover:bg-[#F4511E] text-white font-bold text-xs uppercase tracking-wider transition-all"
+                >
+                  {savingItem ? 'Saving Dish...' : 'Save Menu Item'}
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
