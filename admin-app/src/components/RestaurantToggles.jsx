@@ -4,10 +4,39 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export default function RestaurantToggles({ restaurants, orderingEnabled, onRestaurantUpdate, assignedRestaurantId = null }) {
   const [updatingId, setUpdatingId] = useState(null);
+  const [stockUpdatingId, setStockUpdatingId] = useState(null);
+  const [stockFeedback, setStockFeedback] = useState({});
 
   const visibleRestaurants = assignedRestaurantId
     ? restaurants.filter((r) => r.id === assignedRestaurantId)
     : restaurants;
+
+  const handleBulkStock = async (restaurantId, isAvailable) => {
+    setStockUpdatingId(restaurantId);
+    try {
+      const res = await fetch('/api/menu/bulk-availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurant_id: restaurantId,
+          is_available: isAvailable
+        })
+      });
+      if (res.ok) {
+        setStockFeedback((prev) => ({
+          ...prev,
+          [restaurantId]: isAvailable ? 'All In Stock ✓' : 'All Sold Out ✕'
+        }));
+        setTimeout(() => {
+          setStockFeedback((prev) => ({ ...prev, [restaurantId]: null }));
+        }, 3000);
+      }
+    } catch (e) {
+      console.warn('[Bulk Stock Error]:', e);
+    } finally {
+      setStockUpdatingId(null);
+    }
+  };
 
   const handleToggle = async (restaurant) => {
     const nextState = !(restaurant.is_open !== false);
@@ -116,6 +145,32 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
                     <span className="text-[11px] text-slate-400 hidden sm:inline truncate">
                       {restaurant.location || 'Neerukonda'}
                     </span>
+                    {stockFeedback[restaurant.id] && (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                        {stockFeedback[restaurant.id]}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Menu Stock Bulk Toggles */}
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Dishes:</span>
+                    <button
+                      onClick={() => handleBulkStock(restaurant.id, true)}
+                      disabled={stockUpdatingId === restaurant.id}
+                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-slate-700 hover:border-emerald-500 text-[10px] font-bold transition-all cursor-pointer"
+                      title={`Assign all dishes in ${restaurant.name} as In Stock`}
+                    >
+                      All In Stock
+                    </button>
+                    <button
+                      onClick={() => handleBulkStock(restaurant.id, false)}
+                      disabled={stockUpdatingId === restaurant.id}
+                      className="px-2 py-0.5 rounded bg-slate-800 hover:bg-rose-600 text-rose-400 hover:text-white border border-slate-700 hover:border-rose-500 text-[10px] font-bold transition-all cursor-pointer"
+                      title={`Assign all dishes in ${restaurant.name} as Sold Out`}
+                    >
+                      All Sold Out
+                    </button>
                   </div>
                 </div>
               </div>

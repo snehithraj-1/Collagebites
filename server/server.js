@@ -2573,6 +2573,67 @@ app.patch('/api/menu/:id/availability', async (req, res) => {
   res.json({ success: true, id: itemId, is_available });
 });
 
+// PATCH & POST /api/menu/bulk-availability & /api/menu/restaurant/:restaurantId/availability
+// Admin assigns all dishes in a restaurant as IN STOCK or SOLD OUT
+const handleBulkMenuAvailability = async (req, res) => {
+  const restaurant_id = req.params.restaurantId || req.body?.restaurant_id || req.body?.restaurantId;
+  const is_available = req.body?.is_available !== false;
+
+  if (!restaurant_id) {
+    return res.status(400).json({ success: false, error: 'restaurant_id is required' });
+  }
+
+  let updatedCount = 0;
+
+  if (sql) {
+    try {
+      let result;
+      if (restaurant_id === 'all' || restaurant_id === 'ALL') {
+        result = await sql`
+          UPDATE menu_items 
+          SET is_available = ${is_available}, updated_at = NOW()
+          RETURNING id;
+        `;
+      } else {
+        result = await sql`
+          UPDATE menu_items 
+          SET is_available = ${is_available}, updated_at = NOW() 
+          WHERE restaurant_id = ${restaurant_id} OR restaurant_id LIKE ${restaurant_id + '%'}
+          RETURNING id;
+        `;
+      }
+      updatedCount = result ? result.length : 0;
+      console.log(`[Neon DB] Bulk updated ${updatedCount} dishes for restaurant ${restaurant_id} to: ${is_available ? 'IN STOCK' : 'SOLD OUT'}`);
+    } catch (err) {
+      console.error('[Neon DB Bulk Menu Availability Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  let localUpdated = 0;
+  local.menu_items = (local.menu_items || INITIAL_MENU_ITEMS).map(i => {
+    if (restaurant_id === 'all' || restaurant_id === 'ALL' || i.restaurant_id === restaurant_id || i.restaurant_id.startsWith(restaurant_id)) {
+      localUpdated++;
+      return { ...i, is_available, updated_at: new Date().toISOString() };
+    }
+    return i;
+  });
+  writeLocalDb(local);
+
+  res.json({
+    success: true,
+    restaurant_id,
+    is_available,
+    count: updatedCount || localUpdated,
+    message: `All dishes for ${restaurant_id === 'all' ? 'all kitchens' : restaurant_id} marked as ${is_available ? 'IN STOCK' : 'SOLD OUT'}`
+  });
+};
+
+app.post('/api/menu/bulk-availability', handleBulkMenuAvailability);
+app.patch('/api/menu/bulk-availability', handleBulkMenuAvailability);
+app.post('/api/menu/restaurant/:restaurantId/availability', handleBulkMenuAvailability);
+app.patch('/api/menu/restaurant/:restaurantId/availability', handleBulkMenuAvailability);
+
 // DELETE /api/menu/:id - Admin deletes a dish
 app.delete('/api/menu/:id', async (req, res) => {
   const itemId = req.params.id;
