@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, RefreshCw, ShoppingBag, ArrowLeft, CheckCircle2, XCircle, AlertCircle, MapPin, Phone, Bike } from 'lucide-react';
+import { Clock, RefreshCw, ShoppingBag, ArrowLeft, CheckCircle2, XCircle, AlertCircle, MapPin, Phone } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useStudentAuth } from '../context/StudentAuthContext';
 
@@ -107,8 +107,9 @@ export default function OrderHistoryPage({ onBackToRestaurants, onTrackOrder }) 
     switch (status) {
       case 'CONFIRMED':
         return { label: 'Confirmed', bg: 'bg-amber-50 text-amber-800 border-amber-200 font-bold' };
+      case 'PREPARING':
       case 'ASSIGNED':
-        return { label: 'Assigned to Rider', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200 font-bold' };
+        return { label: 'In Kitchen', bg: 'bg-indigo-50 text-indigo-800 border-indigo-200 font-bold' };
       case 'OUT_FOR_DELIVERY':
       case 'OUT FOR DELIVERY':
         return { label: 'Out for Delivery', bg: 'bg-blue-50 text-blue-800 border-blue-200 font-bold' };
@@ -235,17 +236,12 @@ export default function OrderHistoryPage({ onBackToRestaurants, onTrackOrder }) 
                           ))
                         : 'Food order'}
                     </div>
-                    {order.delivery_partner_name && (
-                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-800 text-[11px] font-semibold mt-1">
-                        <Bike size={12} className="text-indigo-600" />
-                        <span>Rider: <strong>{order.delivery_partner_name}</strong></span>
-                        {order.delivery_partner_phone && (
-                          <a href={`tel:${order.delivery_partner_phone}`} className="text-indigo-600 hover:underline font-mono">
-                            (+91 {order.delivery_partner_phone})
-                          </a>
-                        )}
-                      </div>
-                    )}
+                    <div className="pt-0.5">
+                      <a href="tel:9989955833" className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-800 text-[11px] font-semibold mt-1 no-underline hover:bg-orange-100">
+                        <Phone size={11} className="text-[#FF5722]" />
+                        <span>Kitchen Helpline: <strong>+91 9989955833</strong></span>
+                      </a>
+                    </div>
                   </div>
 
                   <div className="sm:text-right">

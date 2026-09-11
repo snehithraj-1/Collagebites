@@ -13,7 +13,6 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import StudentsModal from '../components/StudentsModal';
 import MenuManagerModal from '../components/MenuManagerModal';
 import AdminSideMenuDrawer from '../components/AdminSideMenuDrawer';
-import DeliveryPartnersModal from '../components/DeliveryPartnersModal';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function AdminDashboardPage() {
@@ -40,7 +39,6 @@ export default function AdminDashboardPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isStudentsModalOpen, setIsStudentsModalOpen] = useState(false);
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
-  const [isDeliveryPartnersModalOpen, setIsDeliveryPartnersModalOpen] = useState(false);
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
 
   // New Order Notifications & Audio Alert
@@ -161,9 +159,6 @@ export default function AdminDashboardPage() {
             const restName = o.restaurant_name || o.restaurantName || (restId === 'clg-bites-biryani-nation' ? 'CLG Bites' : 'Local Home Kitchen');
             const totalNum = Number(o.total_amount ?? o.totalAmount) || 0;
             const dropLoc = o.delivery_location || o.deliveryLocation || 'SRM University - Gate 3';
-            const dpName = o.delivery_partner_name || o.deliveryPartner?.name || null;
-            const dpPhone = o.delivery_partner_phone || o.deliveryPartner?.phone || null;
-            const dpId = o.delivery_partner_id || o.deliveryPartner?.id || null;
             const created = o.created_at || o.createdAt || new Date().toISOString();
 
             return {
@@ -182,9 +177,6 @@ export default function AdminDashboardPage() {
               totalAmount: totalNum,
               delivery_location: dropLoc,
               deliveryLocation: dropLoc,
-              delivery_partner_id: dpId,
-              delivery_partner_name: dpName,
-              delivery_partner_phone: dpPhone,
               created_at: created,
               createdAt: created
             };
@@ -424,66 +416,7 @@ export default function AdminDashboardPage() {
     } catch {}
   };
 
-  // Action: Assign Delivery Partner to Order (Stored in Neon DB & immediate UI reflection)
-  const handleAssignPartner = async (orderId, partner) => {
-    if (!orderId || !partner) return;
-    const partnerId = partner.id;
-    const partnerName = partner.name;
-    const partnerPhone = partner.phone;
 
-    // Optimistically update in state so Admin immediately sees the assigned rider
-    setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId
-          ? {
-              ...o,
-              status: 'ASSIGNED',
-              delivery_partner_id: partnerId,
-              delivery_partner_name: partnerName,
-              delivery_partner_phone: partnerPhone
-            }
-          : o
-      )
-    );
-
-    setInspectingOrder((prev) =>
-      prev && prev.id === orderId
-        ? {
-            ...prev,
-            status: 'ASSIGNED',
-            delivery_partner_id: partnerId,
-            delivery_partner_name: partnerName,
-            delivery_partner_phone: partnerPhone
-          }
-        : prev
-    );
-
-    try {
-      const res = await fetch('/api/orders/assign-partner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId,
-          partnerId,
-          partnerName,
-          partnerPhone
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.order) {
-          setOrders((prev) =>
-            prev.map((o) => (o.id === orderId ? { ...o, ...data.order } : o))
-          );
-          setInspectingOrder((prev) =>
-            prev && prev.id === orderId ? { ...prev, ...data.order } : prev
-          );
-        }
-      }
-    } catch (e) {
-      console.warn('[Assign Partner Error]:', e);
-    }
-  };
 
 
 
@@ -759,7 +692,6 @@ export default function AdminDashboardPage() {
             }
             onInspectOrder={(order) => setInspectingOrder(order)}
             onUpdateStatus={handleUpdateStatus}
-            onAssignPartner={handleAssignPartner}
             onCancelOrder={handleCancelOrder}
             onPromptDeleteOrder={(order) => setOrderToDelete(order)}
           />
@@ -773,7 +705,6 @@ export default function AdminDashboardPage() {
           order={inspectingOrder}
           onClose={() => setInspectingOrder(null)}
           onUpdateStatus={handleUpdateStatus}
-          onAssignPartner={handleAssignPartner}
           onCancelOrder={handleCancelOrder}
           onDeleteOrder={(order) => setOrderToDelete(order)}
         />
@@ -813,7 +744,6 @@ export default function AdminDashboardPage() {
         }}
         onOpenMenuManager={() => setIsMenuModalOpen(true)}
         onOpenStudentsModal={() => setIsStudentsModalOpen(true)}
-        onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
         onRefreshData={() => {
           loadOrders(false);
           loadRestaurants();
@@ -821,12 +751,6 @@ export default function AdminDashboardPage() {
         }}
         isRefreshing={isRefreshing}
         onLogout={logout}
-      />
-
-      {/* Delivery Partners & Rider Access Modal */}
-      <DeliveryPartnersModal
-        isOpen={isDeliveryPartnersModalOpen}
-        onClose={() => setIsDeliveryPartnersModalOpen(false)}
       />
 
 

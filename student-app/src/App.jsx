@@ -14,7 +14,6 @@ import OrderHistoryPage from './pages/OrderHistoryPage';
 import StudentProfilePage from './pages/StudentProfilePage';
 import StudentNotificationToast from './components/StudentNotificationToast';
 import BottomNav from './components/BottomNav';
-import RiderPortalPage from './pages/RiderPortalPage';
 
 function StudentAppInner() {
   const { isAuthenticated, loading } = useStudentAuth();
@@ -28,19 +27,7 @@ function StudentAppInner() {
   // Overall Ordering System Status from Supabase
   const [orderingEnabled, setOrderingEnabled] = useState(true);
 
-  // URL Hash / Query Route listener for Rider Portal (#delivery or ?portal=rider)
-  useEffect(() => {
-    const checkHash = () => {
-      const hash = window.location.hash.toLowerCase();
-      const params = new URLSearchParams(window.location.search);
-      if (hash.includes('delivery') || hash.includes('rider') || params.get('portal') === 'delivery' || params.get('portal') === 'rider') {
-        setCurrentView('rider');
-      }
-    };
-    checkHash();
-    window.addEventListener('hashchange', checkHash);
-    return () => window.removeEventListener('hashchange', checkHash);
-  }, []);
+
 
   // 1. Fetch and listen to System Settings (Neon PostgreSQL via Backend API)
   useEffect(() => {
@@ -128,18 +115,7 @@ function StudentAppInner() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Standalone Delivery Partner view (riders don't require student auth)
-  if (currentView === 'rider') {
-    return (
-      <RiderPortalPage
-        onBackToStudent={() => {
-          window.location.hash = '';
-          setCurrentView('restaurants');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-      />
-    );
-  }
+
 
   if (loading) {
     return (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle2, MapPin, ArrowRight, Home, Receipt, Phone, ShieldCheck, Printer, Clock, Bike, Volume2, CheckCheck, Sparkles, AlertCircle } from 'lucide-react';
+import { CheckCircle2, MapPin, ArrowRight, Home, Receipt, Phone, ShieldCheck, Printer, Clock, Store, Volume2, CheckCheck, Sparkles, AlertCircle } from 'lucide-react';
 import { playStudentChime, sendStudentNotification, unlockStudentAudio } from '../lib/notificationSound';
 
 export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
@@ -77,8 +77,8 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
   }, [order?.id]);
 
   const currentStatus = liveOrder.status || order.status || 'CONFIRMED';
-  const partnerName = liveOrder.delivery_partner_name || order.delivery_partner_name;
-  const partnerPhone = liveOrder.delivery_partner_phone || order.delivery_partner_phone;
+  const restaurantName = liveOrder.restaurant_name || order.restaurant_name || (order.restaurant_id === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen');
+  const kitchenPhone = '9989955833';
 
   const orderDate = liveOrder.created_at || order.created_at
     ? new Date(liveOrder.created_at || order.created_at).toLocaleString('en-IN', {
@@ -270,75 +270,47 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
           </div>
         </div>
 
-        {/* Assigned Delivery Partner Details */}
-        {partnerName ? (
-          <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50/90 via-blue-50/60 to-white border border-indigo-200 shadow-sm text-xs space-y-3 animate-fade-in">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/25 shrink-0">
-                  <Bike size={18} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-[#0F172A] text-sm font-['Outfit']">
-                      {partnerName}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200">
-                      Campus Rider
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-500 font-medium block">
-                    Campus Delivery Partner assigned to your order
+        {/* Official Kitchen Contact & Delivery Info */}
+        <div className="p-4 rounded-xl bg-gradient-to-r from-orange-50 via-amber-50 to-white border border-orange-200 shadow-sm text-xs space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#FF5722] text-white flex items-center justify-center shadow-md shadow-orange-500/25 shrink-0">
+                <Store size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-[#0F172A] text-sm font-['Outfit']">
+                    {restaurantName}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                    Official Kitchen
                   </span>
                 </div>
+                <span className="text-[11px] text-slate-500 font-medium block">
+                  Direct Kitchen Helpline for Order #{order.id}
+                </span>
               </div>
-
-              <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border shrink-0 ${
-                currentStatus === 'DELIVERED'
-                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                  : currentStatus === 'OUT_FOR_DELIVERY'
-                  ? 'bg-blue-100 text-blue-800 border-blue-300 animate-pulse'
-                  : 'bg-indigo-100 text-indigo-800 border-indigo-300'
-              }`}>
-                {currentStatus === 'DELIVERED' ? 'Delivered' : currentStatus === 'OUT_FOR_DELIVERY' ? 'Out For Delivery' : 'Rider Assigned'}
-              </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2.5 border-t border-indigo-100">
-              <div className="flex items-center gap-1.5 text-slate-600 text-xs">
-                <MapPin size={13} className="text-indigo-600 shrink-0" />
-                <span>Handover Location: <strong className="text-slate-900">{order.delivery_location || 'SRM University - Gate 3'}</strong></span>
-              </div>
-
-              {partnerPhone && (
-                <a
-                  href={`tel:${partnerPhone}`}
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer text-decoration-none"
-                >
-                  <Phone size={12} />
-                  <span>Call Rider (+91 {partnerPhone})</span>
-                </a>
-              )}
-            </div>
+            <a
+              href={`tel:${kitchenPhone}`}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold text-xs shadow-md shadow-orange-500/20 transition-all cursor-pointer no-underline active:scale-95"
+            >
+              <Phone size={13} />
+              <span>Call Kitchen (+91 {kitchenPhone})</span>
+            </a>
           </div>
-        ) : (
-          currentStatus !== 'CANCELLED' && currentStatus !== 'DELIVERED' && (
-            <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs flex items-center justify-between gap-2 text-amber-900">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                  <Bike size={16} className="animate-pulse" />
-                </div>
-                <div>
-                  <span className="font-bold text-xs block text-amber-950">Assigning Delivery Partner...</span>
-                  <span className="text-[11px] text-amber-800/80 block">A campus delivery runner will be assigned to bring your parcel to Gate 3</span>
-                </div>
-              </div>
-              <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 shrink-0">
-                In Queue
-              </span>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2.5 border-t border-orange-100 text-slate-600 text-xs">
+            <div className="flex items-center gap-1.5">
+              <MapPin size={13} className="text-[#FF5722] shrink-0" />
+              <span>Delivery Handover: <strong className="text-slate-900">{order.delivery_location || 'SRM University - Gate 3'}</strong></span>
             </div>
-          )
-        )}
+            <span className="text-slate-500 text-[11px]">
+              Direct Helpline: <strong className="text-slate-800 font-mono">+91 {kitchenPhone}</strong>
+            </span>
+          </div>
+        </div>
 
         {/* Itemized Dishes List */}
         <div className="space-y-2">

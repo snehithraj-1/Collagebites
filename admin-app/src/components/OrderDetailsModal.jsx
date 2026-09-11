@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, User, MapPin, Phone, Mail, Clock, ShieldCheck, Ban, Trash2, 
-  CheckCircle2, Check, Printer, Building, FileText, Bike
+  CheckCircle2, Check, Printer, Building, FileText
 } from 'lucide-react';
 
 // Safe date/time formatter that never throws Invalid Option or Invalid Date
@@ -59,25 +59,9 @@ export default function OrderDetailsModal({
   order,
   onClose,
   onUpdateStatus,
-  onAssignPartner,
   onCancelOrder,
   onDeleteOrder
 }) {
-  const [partners, setPartners] = useState([]);
-
-  useEffect(() => {
-    async function loadPartners() {
-      try {
-        const res = await fetch('/api/delivery-partners');
-        if (res.ok) {
-          const json = await res.json();
-          const list = Array.isArray(json) ? json : (json.partners || json.data || []);
-          if (Array.isArray(list)) setPartners(list);
-        }
-      } catch (e) {}
-    }
-    loadPartners();
-  }, []);
 
   if (!order) return null;
 
@@ -223,64 +207,35 @@ export default function OrderDetailsModal({
             )}
           </div>
 
-          {/* Delivery Partner Details */}
+          {/* Kitchen & Delivery Handover Details */}
           <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5 print:border-slate-300 print:bg-slate-50">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between print:text-slate-600">
               <span className="flex items-center gap-1.5">
-                <Bike size={13} className="text-indigo-400" />
-                Delivery Partner
+                <Building size={13} className="text-orange-400" />
+                Kitchen & Delivery Contact
               </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                order.delivery_partner_name 
-                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                  : 'bg-slate-800 text-slate-400'
-              }`}>
-                {order.delivery_partner_name ? 'Assigned' : 'Unassigned'}
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                Official Helpline
               </span>
             </div>
-            {order.delivery_partner_name ? (
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-white text-xs sm:text-sm print:text-black">
-                    {order.delivery_partner_name}
-                  </div>
-                  {order.delivery_partner_phone && (
-                    <a
-                      href={`tel:${order.delivery_partner_phone}`}
-                      className="font-mono text-[11px] text-indigo-300 hover:underline flex items-center gap-1 mt-0.5"
-                    >
-                      <Phone size={11} />
-                      <span>{order.delivery_partner_phone}</span>
-                    </a>
-                  )}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-bold text-white text-xs sm:text-sm print:text-black">
+                  {order.restaurant_name || (order.restaurant_id === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen')}
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 block">Collection Point:</span>
-                  <span className="font-bold text-white text-xs">SRM AP Gate 3</span>
-                </div>
+                <a
+                  href="tel:9989955833"
+                  className="font-mono text-[11px] text-orange-400 hover:underline flex items-center gap-1 mt-0.5 font-bold"
+                >
+                  <Phone size={11} />
+                  <span>+91 9989955833</span>
+                </a>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="text-xs text-slate-400 italic">
-                  No rider assigned yet.
-                </div>
-                <div className="flex items-center gap-2 print:hidden">
-                  <select
-                    defaultValue=""
-                    onChange={(e) => {
-                      const p = partners.find(x => x.id === e.target.value);
-                      if (p && onAssignPartner) onAssignPartner(order.id, p);
-                    }}
-                    className="bg-slate-900 border border-indigo-500/50 hover:border-indigo-500 text-indigo-300 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer"
-                  >
-                    <option value="" disabled>+ Assign Active Campus Rider</option>
-                    {partners.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="text-right">
+                <span className="text-[10px] text-slate-400 block">Delivery Handover:</span>
+                <span className="font-bold text-white text-xs">SRM University - Gate 3</span>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Ordered Dishes Itemized List */}

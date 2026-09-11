@@ -4,12 +4,8 @@ const endpoints = [
   { name: 'Backend API Health', port: 5000, path: '/api/health' },
   { name: 'Backend Orders API', port: 5000, path: '/api/orders' },
   { name: 'Backend Restaurants API', port: 5000, path: '/api/restaurants' },
-  { name: 'Backend Delivery Partners', port: 5000, path: '/api/delivery-partners' },
   { name: 'Student Portal', port: 5173, path: '/' },
-  { name: 'Super Admin Portal', port: 5174, path: '/' },
-  { name: 'LHK Kitchen Portal', port: 5175, path: '/' },
-  { name: 'CLG Kitchen Portal', port: 5176, path: '/' },
-  { name: 'Rider Portal', port: 5177, path: '/' }
+  { name: 'Super Admin Portal', port: 5174, path: '/' }
 ];
 
 async function run() {

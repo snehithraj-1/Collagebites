@@ -17,12 +17,11 @@ import {
   X,
   Database,
   Smartphone,
-  Hash,
-  Bike
+  Hash
 } from 'lucide-react';
 import { useStudentAuth } from '../context/StudentAuthContext';
 
-export default function StudentProfilePage({ onBackToHome, onViewOrders, onNavigateToRider }) {
+export default function StudentProfilePage({ onBackToHome, onViewOrders }) {
   const { profile, updateProfile, logout } = useStudentAuth();
 
   const [isEditing, setIsEditing] = useState(false);
