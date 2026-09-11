@@ -298,12 +298,14 @@ async function initNeonSchema() {
       CREATE TABLE IF NOT EXISTS system_settings (
         id VARCHAR(50) PRIMARY KEY,
         ordering_enabled BOOLEAN DEFAULT true,
+        platform_enabled BOOLEAN DEFAULT true,
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `;
+    await sql`ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS platform_enabled BOOLEAN DEFAULT true;`;
     await sql`
-      INSERT INTO system_settings (id, ordering_enabled, updated_at)
-      VALUES ('global', true, NOW())
+      INSERT INTO system_settings (id, ordering_enabled, platform_enabled, updated_at)
+      VALUES ('global', true, true, NOW())
       ON CONFLICT (id) DO NOTHING;
     `;
 
@@ -1131,8 +1133,11 @@ app.post('/api/orders', async (req, res) => {
   // Two-Tier Availability Server Guard: Platform status & Restaurant status
   if (sql) {
     try {
-      const settings = await sql`SELECT platform_enabled, ordering_enabled FROM system_settings WHERE id = 'global' LIMIT 1;`;
-      if (settings && settings.length > 0 && settings[0].platform_enabled === false) {
+      const settings = await sql`SELECT * FROM system_settings WHERE id = 'global' LIMIT 1;`;
+      const isAllowed = settings && settings.length > 0
+        ? (settings[0].ordering_enabled !== false && settings[0].platform_enabled !== false)
+        : true;
+      if (!isAllowed) {
         return res.status(403).json({
           success: false,
           error: 'CampusBites ordering is temporarily paused by university administration. Please try again later.'
