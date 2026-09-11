@@ -8,34 +8,36 @@ import { neon } from '@neondatabase/serverless';
 import nodemailer from 'nodemailer';
 import { AUTHENTIC_MENU_ITEMS, AUTHENTIC_RESTAURANTS } from './authenticMenuData.js';
 
-// Bulletproof DNS resilience for Neon serverless PostgreSQL
+// Bulletproof DNS resilience for Neon serverless PostgreSQL on local Windows
 // Falls back to Google (8.8.8.8) and Cloudflare (1.1.1.1) when local Wi-Fi router refuses query
-const originalDnsLookup = dns.lookup;
-const fallbackResolver = new dns.promises.Resolver();
-fallbackResolver.setServers(['8.8.8.8', '1.1.1.1']);
+if (!process.env.VERCEL) {
+  const originalDnsLookup = dns.lookup;
+  const fallbackResolver = new dns.promises.Resolver();
+  fallbackResolver.setServers(['8.8.8.8', '1.1.1.1']);
 
-dns.lookup = function (hostname, options, callback) {
-  if (typeof options === 'function') {
-    callback = options;
-    options = {};
-  }
-  originalDnsLookup(hostname, options, (err, address, family) => {
-    if (!err && address) {
-      return callback(null, address, family);
+  dns.lookup = function (hostname, options, callback) {
+    if (typeof options === 'function') {
+      callback = options;
+      options = {};
     }
-    fallbackResolver.resolve4(hostname).then((addrs) => {
-      if (addrs && addrs.length > 0) {
-        if (options && options.all) {
-          return callback(null, addrs.map((a) => ({ address: a, family: 4 })));
-        }
-        return callback(null, addrs[0], 4);
+    originalDnsLookup(hostname, options, (err, address, family) => {
+      if (!err && address) {
+        return callback(null, address, family);
       }
-      callback(err, address, family);
-    }).catch(() => {
-      callback(err, address, family);
+      fallbackResolver.resolve4(hostname).then((addrs) => {
+        if (addrs && addrs.length > 0) {
+          if (options && options.all) {
+            return callback(null, addrs.map((a) => ({ address: a, family: 4 })));
+          }
+          return callback(null, addrs[0], 4);
+        }
+        callback(err, address, family);
+      }).catch(() => {
+        callback(err, address, family);
+      });
     });
-  });
-};
+  };
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,25 +49,29 @@ app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-// Database file path for offline cache (located outside watched server directory)
-const DATA_DIR = path.resolve(__dirname, '../.data');
+// Database file path for offline cache (located outside watched server directory, /tmp on Vercel)
+const DATA_DIR = process.env.VERCEL ? '/tmp/.data' : path.resolve(__dirname, '../.data');
 const DB_FILE = path.resolve(DATA_DIR, 'orders_db.json');
-const UPLOADS_DIR = path.resolve(__dirname, '../uploads');
+const UPLOADS_DIR = process.env.VERCEL ? '/tmp/uploads' : path.resolve(__dirname, '../uploads');
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+} catch (fsErr) {
+  console.warn('[Storage Warning]:', fsErr.message);
 }
 
 // Migrate legacy cache file if exists
-const legacyDbFile = path.resolve(__dirname, 'data', 'orders_db.json');
-if (fs.existsSync(legacyDbFile) && !fs.existsSync(DB_FILE)) {
-  try {
+try {
+  const legacyDbFile = path.resolve(__dirname, 'data', 'orders_db.json');
+  if (fs.existsSync(legacyDbFile) && !fs.existsSync(DB_FILE)) {
     fs.copyFileSync(legacyDbFile, DB_FILE);
-  } catch (e) {}
-}
+  }
+} catch (e) {}
 
 // Serve uploaded images statically
 app.use('/uploads', express.static(UPLOADS_DIR));
@@ -132,7 +138,7 @@ function getDatabaseUrl() {
   } catch (e) {}
 
   if (!url) {
-    url = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
+    url = process.env.DATABASE_URL || process.env.POSTGRES_URL || 'postgresql://neondb_owner:npg_3O6tHydAMuSg@ep-soft-flower-a5yk954q-pooler.us-east-2.aws.neon.tech/clgbites?sslmode=require&channel_binding=require';
   }
 
   if (url) {
