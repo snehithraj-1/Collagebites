@@ -410,13 +410,14 @@ export default function MenuManagerModal({ isOpen, onClose }) {
           };
           const stats = getRestStats(currentRest.id);
           const isBusy = bulkUpdatingRest === currentRest.id;
-          const isToggledOn = stats.isAllAvailable;
+          // Switch is ON if any dishes are in stock; OFF if all sold out
+          const isMenuInStock = stats.available > 0;
 
           return (
             <div className="p-3 sm:px-6 bg-slate-950/90 border-b border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
               <div className="flex items-center gap-3">
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-colors ${
                     stats.isAllSoldOut
                       ? 'bg-rose-500/10 border-rose-500/30 text-rose-400'
                       : stats.isAllAvailable
@@ -432,7 +433,7 @@ export default function MenuManagerModal({ isOpen, onClose }) {
                       {currentRest.name} Menu Stock
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold border transition-colors ${
                         stats.isAllSoldOut
                           ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
                           : stats.isAllAvailable
@@ -444,7 +445,7 @@ export default function MenuManagerModal({ isOpen, onClose }) {
                     </span>
                     {stats.isAllSoldOut && (
                       <span className="px-1.5 py-0.5 rounded bg-rose-500/30 text-rose-200 text-[9px] font-black uppercase tracking-wider">
-                        Sold Out
+                        All Sold Out
                       </span>
                     )}
                     {stats.isAllAvailable && (
@@ -460,43 +461,44 @@ export default function MenuManagerModal({ isOpen, onClose }) {
               </div>
 
               {/* Toggle Controls: Master Switch + Quick 1-Click Buttons */}
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                {/* Toggle Switch */}
-                <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5">
+              <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+                {/* Master Toggle Switch */}
+                <div 
+                  onClick={() => !isBusy && handleBulkAvailability(currentRest.id, !isMenuInStock)}
+                  className={`flex items-center gap-2.5 bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl px-3.5 py-2 cursor-pointer transition-all select-none ${
+                    isBusy ? 'opacity-50 pointer-events-none' : ''
+                  }`}
+                  title={`Click to mark all dishes ${isMenuInStock ? 'SOLD OUT' : 'IN STOCK'}`}
+                >
                   <span
-                    className={`text-xs font-bold ${
-                      isToggledOn
-                        ? 'text-emerald-400'
-                        : stats.isAllSoldOut
+                    className={`text-xs font-bold transition-colors ${
+                      stats.isAllSoldOut
                         ? 'text-rose-400'
-                        : 'text-slate-300'
+                        : stats.isAllAvailable
+                        ? 'text-emerald-400'
+                        : 'text-amber-400'
                     }`}
                   >
-                    {isToggledOn ? 'In Stock' : stats.isAllSoldOut ? 'Sold Out' : 'Partial'}
+                    {stats.isAllSoldOut ? 'Sold Out' : stats.isAllAvailable ? 'In Stock' : `${stats.available}/${stats.total} Stock`}
                   </span>
-                  <button
-                    onClick={() => handleBulkAvailability(currentRest.id, !isToggledOn)}
-                    disabled={isBusy}
-                    title={`Toggle all dishes for ${currentRest.name}: ${
-                      isToggledOn ? 'Mark All Sold Out' : 'Mark All In Stock'
-                    }`}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
-                      isToggledOn ? 'bg-emerald-500' : 'bg-slate-700'
+                  <div
+                    className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                      isMenuInStock ? 'bg-emerald-500' : 'bg-slate-700'
                     }`}
                   >
                     <span
                       className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                        isToggledOn ? 'translate-x-5' : 'translate-x-0'
+                        isMenuInStock ? 'translate-x-5' : 'translate-x-0'
                       }`}
                     />
-                  </button>
+                  </div>
                 </div>
 
                 {/* Quick Button: All In Stock */}
                 <button
                   onClick={() => handleBulkAvailability(currentRest.id, true)}
                   disabled={isBusy || stats.isAllAvailable}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 ${
+                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 ${
                     stats.isAllAvailable
                       ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30'
                       : 'bg-slate-900 hover:bg-emerald-600 text-emerald-400 hover:text-white border-slate-700 hover:border-emerald-500'
@@ -511,7 +513,7 @@ export default function MenuManagerModal({ isOpen, onClose }) {
                 <button
                   onClick={() => handleBulkAvailability(currentRest.id, false)}
                   disabled={isBusy || stats.isAllSoldOut}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 ${
+                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 ${
                     stats.isAllSoldOut
                       ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-600/30'
                       : 'bg-slate-900 hover:bg-rose-600 text-rose-400 hover:text-white border-slate-700 hover:border-rose-500'

@@ -2,10 +2,40 @@ import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
+import dns from 'dns';
 import { fileURLToPath } from 'url';
 import { neon } from '@neondatabase/serverless';
 import nodemailer from 'nodemailer';
 import { AUTHENTIC_MENU_ITEMS, AUTHENTIC_RESTAURANTS } from './authenticMenuData.js';
+
+// Bulletproof DNS resilience for Neon serverless PostgreSQL
+// Falls back to Google (8.8.8.8) and Cloudflare (1.1.1.1) when local Wi-Fi router refuses query
+const originalDnsLookup = dns.lookup;
+const fallbackResolver = new dns.promises.Resolver();
+fallbackResolver.setServers(['8.8.8.8', '1.1.1.1']);
+
+dns.lookup = function (hostname, options, callback) {
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
+  originalDnsLookup(hostname, options, (err, address, family) => {
+    if (!err && address) {
+      return callback(null, address, family);
+    }
+    fallbackResolver.resolve4(hostname).then((addrs) => {
+      if (addrs && addrs.length > 0) {
+        if (options && options.all) {
+          return callback(null, addrs.map((a) => ({ address: a, family: 4 })));
+        }
+        return callback(null, addrs[0], 4);
+      }
+      callback(err, address, family);
+    }).catch(() => {
+      callback(err, address, family);
+    });
+  });
+};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
