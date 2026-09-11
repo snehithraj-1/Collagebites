@@ -28,4 +28,6 @@ pnpm-debug.log*
 .archive/
 server/data/
 server/uploads/
+.data/
+uploads/
 .neon

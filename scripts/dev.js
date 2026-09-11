@@ -64,8 +64,13 @@ function startProcess(name, cmd, args, colorCode) {
   return proc;
 }
 
-// 1. Shared Backend API (Port 5000) with auto-reload
-const backend = startProcess('BACKEND  :5000', nodeCmd, ['--watch', 'server/server.js'], '32');
+// 1. Shared Backend API (Port 5000) with auto-reload (only watching server code files)
+const backend = startProcess(
+  'BACKEND  :5000',
+  nodeCmd,
+  ['--watch-path=server/server.js', '--watch-path=server/authenticMenuData.js', 'server/server.js'],
+  '32'
+);
 
 // 2. Student Dining Portal (Port 5173)
 const student = startProcess('STUDENT  :5173', npxCmd, ['vite', 'student-app', '--config', 'student-app/vite.config.js', '--port', '5173', '--host'], '38;5;208');
