@@ -5,6 +5,29 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 
+// Explicitly load .env file into process.env for all spawned child processes
+import fs from 'fs';
+try {
+  const envPath = path.resolve(rootDir, '.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    envContent.split(/\r?\n/).forEach((line) => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx !== -1) {
+          const key = trimmed.substring(0, eqIdx).trim();
+          let val = trimmed.substring(eqIdx + 1).trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          process.env[key] = val;
+        }
+      }
+    });
+  }
+} catch (e) {}
+
 console.log('================================================================');
 console.log('  CampusBites — Starting Dedicated Portals + Shared Backend API ');
 console.log('================================================================');

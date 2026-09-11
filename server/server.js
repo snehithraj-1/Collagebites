@@ -81,18 +81,30 @@ console.log(`[Gmail Service] Configured with sender: ${emailUser} (Pool & IPv4 A
 // 1. NEON POSTGRESQL CONNECTION & SCHEMA INITIALIZATION
 // ----------------------------------------------------
 function getDatabaseUrl() {
-  let url = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
-  if (!url) {
-    try {
-      const envPath = path.resolve(__dirname, '../.env');
-      if (fs.existsSync(envPath)) {
-        const envText = fs.readFileSync(envPath, 'utf8');
-        const match = envText.match(/DATABASE_URL=(.+)/);
-        if (match) url = match[1].trim();
+  let url = '';
+  try {
+    const envPath = path.resolve(__dirname, '../.env');
+    if (fs.existsSync(envPath)) {
+      const envText = fs.readFileSync(envPath, 'utf8');
+      const match = envText.match(/^\s*DATABASE_URL\s*=\s*(.+)$/m);
+      if (match && match[1]) {
+        url = match[1].trim();
       }
-    } catch (e) {}
+    }
+  } catch (e) {}
+
+  if (!url) {
+    url = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
   }
-  return url.trim();
+
+  if (url) {
+    url = url.trim();
+    if (url.startsWith('DATABASE_URL=')) url = url.replace(/^DATABASE_URL=/, '').trim();
+    if ((url.startsWith('"') && url.endsWith('"')) || (url.startsWith("'") && url.endsWith("'"))) {
+      url = url.slice(1, -1).trim();
+    }
+  }
+  return url;
 }
 
 const DATABASE_URL = getDatabaseUrl();
@@ -1892,58 +1904,6 @@ app.post('/api/system-settings/platform', async (req, res) => {
   res.json({ success: true, platform_enabled: isEnabled, message: `Platform ${isEnabled ? 'Activated' : 'Paused'}` });
 });
 
-// GET /api/restaurants - Fetch restaurants and their active is_open statuses
-app.get('/api/restaurants', async (req, res) => {
-  if (sql) {
-    try {
-      const rows = await sql`SELECT * FROM restaurants ORDER BY created_at ASC;`;
-      if (rows && rows.length > 0) {
-        return res.json({ success: true, restaurants: rows, source: 'neon' });
-      }
-    } catch (err) {
-      console.warn('[Neon Fetch Restaurants Error]:', err.message);
-    }
-  }
-
-  const local = readLocalDb();
-  res.json({
-    success: true,
-    restaurants: local.restaurants || [
-      { id: 'local-home-kitchen', name: 'Local Home Kitchen', is_open: true },
-      { id: 'clg-bites-biryani-nation', name: 'CLG Bites', is_open: true }
-    ],
-    source: 'local_cache'
-  });
-});
-
-// POST /api/restaurants/:id/toggle - Toggle individual restaurant is_open status
-app.post('/api/restaurants/:id/toggle', async (req, res) => {
-  const restaurantId = req.params.id;
-  const { is_open } = req.body || {};
-  const isOpen = Boolean(is_open);
-
-  if (sql) {
-    try {
-      await sql`
-        UPDATE restaurants 
-        SET is_open = ${isOpen}
-        WHERE id = ${restaurantId};
-      `;
-      console.log(`[Restaurant Status] ${restaurantId} toggled to is_open = ${isOpen}`);
-    } catch (err) {
-      console.error('[Restaurant Toggle Error]:', err.message);
-    }
-  }
-
-  const local = readLocalDb();
-  if (Array.isArray(local.restaurants)) {
-    local.restaurants = local.restaurants.map(r => r.id === restaurantId ? { ...r, is_open: isOpen } : r);
-    writeLocalDb(local);
-  }
-
-  res.json({ success: true, restaurant_id: restaurantId, is_open: isOpen });
-});
-
 // 4. Assign or Unassign Delivery Partner to Order
 // Supports POST and PATCH on both /api/orders/assign-partner and /api/orders/:id/assign-partner
 const handleAssignDeliveryPartner = async (req, res) => {
@@ -2033,14 +1993,14 @@ app.get(['/api/settings', '/api/settings/ordering'], async (req, res) => {
 });
 
 // POST or PATCH /api/settings/ordering
-app.all(['/api/settings/ordering', '/api/settings/toggle'], async (req, res) => {
+app.all(['/api/settings', '/api/settings/ordering', '/api/settings/toggle'], async (req, res) => {
   if (req.method !== 'POST' && req.method !== 'PATCH') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  const { ordering_enabled } = req.body;
+  const { ordering_enabled } = req.body || {};
   const isEnabled = ordering_enabled !== false;
 
-  if (sql && isNeonReady) {
+  if (sql) {
     try {
       await sql`
         INSERT INTO system_settings (id, ordering_enabled, updated_at)
@@ -2056,6 +2016,7 @@ app.all(['/api/settings/ordering', '/api/settings/toggle'], async (req, res) => 
         UPDATE restaurants 
         SET is_open = ${isEnabled}, updated_at = NOW();
       `;
+      isNeonReady = true;
       console.log(`[Neon DB] Overall Campus Ordering System updated: ${isEnabled ? 'ACTIVE' : 'PAUSED'} (All restaurants synchronized to ${isEnabled ? 'OPEN' : 'CLOSED'})`);
     } catch (e) {
       console.warn('[Neon Settings Update Error]:', e.message);
@@ -2077,7 +2038,7 @@ app.all(['/api/settings/ordering', '/api/settings/toggle'], async (req, res) => 
 app.get('/api/restaurants', async (req, res) => {
   let isGlobalOrderingEnabled = true;
 
-  if (sql && isNeonReady) {
+  if (sql) {
     try {
       const settingRows = await sql`SELECT ordering_enabled FROM system_settings WHERE id = 'global';`;
       if (settingRows && settingRows.length > 0) {
@@ -2086,6 +2047,7 @@ app.get('/api/restaurants', async (req, res) => {
 
       let rows = await sql`SELECT * FROM restaurants ORDER BY id ASC;`;
       if (rows && rows.length > 0) {
+        isNeonReady = true;
         // If overall campus ordering is closed, all restaurants are strictly closed!
         if (!isGlobalOrderingEnabled) {
           rows = rows.map(r => ({ ...r, is_open: false }));
@@ -2106,15 +2068,22 @@ app.get('/api/restaurants', async (req, res) => {
   res.json({ success: true, restaurants: list, source: 'local_cache' });
 });
 
-// PATCH /api/restaurants/:id or /api/restaurants/:id/toggle
-app.all(['/api/restaurants/:id', '/api/restaurants/:id/toggle'], async (req, res) => {
-  const restId = req.params.id;
-  const { is_open } = req.body;
+// POST, PATCH, PUT /api/restaurants/toggle, /api/restaurants/:id/toggle, /api/restaurants/:id, /api/restaurants
+app.all(['/api/restaurants/toggle', '/api/restaurants/:id/toggle', '/api/restaurants/:id', '/api/restaurants'], async (req, res) => {
+  if (req.method === 'GET') {
+    return; // Handled by app.get('/api/restaurants')
+  }
 
+  const restId = req.params.id || req.body?.id || req.body?.restaurantId || req.body?.restaurant_id;
+  if (!restId) {
+    return res.status(400).json({ success: false, error: 'Restaurant ID is required.' });
+  }
+
+  const { is_open } = req.body || {};
   let targetState = Boolean(is_open);
   let updatedRest = null;
 
-  if (sql && isNeonReady) {
+  if (sql) {
     try {
       if (typeof is_open === 'undefined') {
         const curr = await sql`SELECT is_open FROM restaurants WHERE id = ${restId} OR id LIKE ${restId + '%'} LIMIT 1;`;
@@ -2132,6 +2101,7 @@ app.all(['/api/restaurants/:id', '/api/restaurants/:id/toggle'], async (req, res
 
       if (result && result.length > 0) {
         updatedRest = result[0];
+        isNeonReady = true;
         console.log(`[Neon DB] Restaurant ${updatedRest.name} (${restId}) is now: ${targetState ? 'OPEN' : 'CLOSED'}`);
       }
     } catch (e) {
@@ -2150,7 +2120,7 @@ app.all(['/api/restaurants/:id', '/api/restaurants/:id/toggle'], async (req, res
   }
   writeLocalDb(local);
 
-  res.json({ success: true, restaurant: updatedRest || { id: restId, is_open: targetState } });
+  res.json({ success: true, restaurantId: restId, is_open: targetState, restaurant: updatedRest || { id: restId, is_open: targetState } });
 });
 
 // ----------------------------------------------------

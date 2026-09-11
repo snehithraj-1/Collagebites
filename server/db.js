@@ -6,25 +6,27 @@ import { getVerifiedItemPrice } from './menuCatalog.js';
 
 // Resolve database URL from process.env or .env file with sanitization
 export function getDatabaseUrl() {
-  let url = process.env.DATABASE_URL 
-         || process.env.POSTGRES_URL 
-         || process.env.VITE_DATABASE_URL 
-         || process.env.DATABASE_PUBLIC_URL 
-         || '';
+  let url = '';
+
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const envPath = path.resolve(__dirname, '../.env');
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf8');
+      const match = content.match(/^\s*DATABASE_URL\s*=\s*(.+)$/m);
+      if (match && match[1]) url = match[1].trim();
+    }
+  } catch (e) {
+    // Ignore and fallback
+  }
 
   if (!url) {
-    try {
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-      const envPath = path.resolve(__dirname, '../.env');
-      if (fs.existsSync(envPath)) {
-        const content = fs.readFileSync(envPath, 'utf8');
-        const match = content.match(/DATABASE_URL=(.+)/);
-        if (match) url = match[1].trim();
-      }
-    } catch (e) {
-      // Ignore and fallback
-    }
+    url = process.env.DATABASE_URL 
+       || process.env.POSTGRES_URL 
+       || process.env.VITE_DATABASE_URL 
+       || process.env.DATABASE_PUBLIC_URL 
+       || '';
   }
 
   if (url) {

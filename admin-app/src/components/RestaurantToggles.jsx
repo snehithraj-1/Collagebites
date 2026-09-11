@@ -21,14 +21,21 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
         is_open: nextState 
       });
 
-      let res = await fetch('/api/restaurants/toggle', {
+      let res = await fetch(`/api/restaurants/${encodeURIComponent(restaurant.id)}/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: payload
       });
 
       if (!res.ok) {
-        // Redundant fallback to /api/restaurants directly
+        res = await fetch('/api/restaurants/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload
+        });
+      }
+      
+      if (!res.ok) {
         await fetch('/api/restaurants', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
