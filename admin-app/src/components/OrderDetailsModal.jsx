@@ -239,43 +239,24 @@ export default function OrderDetailsModal({
               </span>
             </div>
             {order.delivery_partner_name ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-white text-xs sm:text-sm print:text-black">
-                      {order.delivery_partner_name}
-                    </div>
-                    {order.delivery_partner_phone && (
-                      <a
-                        href={`tel:${order.delivery_partner_phone}`}
-                        className="font-mono text-[11px] text-indigo-300 hover:underline flex items-center gap-1 mt-0.5"
-                      >
-                        <Phone size={11} />
-                        <span>{order.delivery_partner_phone}</span>
-                      </a>
-                    )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-white text-xs sm:text-sm print:text-black">
+                    {order.delivery_partner_name}
                   </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-slate-400 block">Collection Point:</span>
-                    <span className="font-bold text-white text-xs">SRM AP Gate 3</span>
-                  </div>
+                  {order.delivery_partner_phone && (
+                    <a
+                      href={`tel:${order.delivery_partner_phone}`}
+                      className="font-mono text-[11px] text-indigo-300 hover:underline flex items-center gap-1 mt-0.5"
+                    >
+                      <Phone size={11} />
+                      <span>{order.delivery_partner_phone}</span>
+                    </a>
+                  )}
                 </div>
-
-                <div className="flex items-center gap-2 pt-1 border-t border-slate-800/80 print:hidden">
-                  <span className="text-[10px] text-slate-400">Reassign:</span>
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      const p = partners.find(x => x.id === e.target.value);
-                      if (p && onAssignPartner) onAssignPartner(order.id, p);
-                    }}
-                    className="bg-slate-900 border border-slate-700 hover:border-indigo-500 text-indigo-300 text-[11px] rounded-lg px-2 py-1 focus:outline-none cursor-pointer"
-                  >
-                    <option value="" disabled>Select Different Rider...</option>
-                    {partners.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>
-                    ))}
-                  </select>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block">Collection Point:</span>
+                  <span className="font-bold text-white text-xs">SRM AP Gate 3</span>
                 </div>
               </div>
             ) : (

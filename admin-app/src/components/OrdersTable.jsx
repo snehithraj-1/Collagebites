@@ -338,31 +338,19 @@ export default function OrdersTable({
                     {/* Delivery Partner */}
                     <td className="py-3 px-4">
                       {(order.delivery_partner_name || order.deliveryPartner?.name) ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-xs">
-                            <Bike size={14} className="text-indigo-400 shrink-0" />
-                            <div className="truncate max-w-[140px]">
-                              <div className="font-bold text-white truncate">{order.delivery_partner_name || order.deliveryPartner?.name}</div>
-                              {(order.delivery_partner_phone || order.deliveryPartner?.phone) && (
-                                <a
-                                  href={`tel:${order.delivery_partner_phone || order.deliveryPartner?.phone}`}
-                                  className="text-[10px] text-indigo-300 hover:underline font-mono block"
-                                >
-                                  {order.delivery_partner_phone || order.deliveryPartner?.phone}
-                                </a>
-                              )}
-                            </div>
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <Bike size={14} className="text-indigo-400 shrink-0" />
+                          <div className="truncate max-w-[140px]">
+                            <div className="font-bold text-white truncate">{order.delivery_partner_name || order.deliveryPartner?.name}</div>
+                            {(order.delivery_partner_phone || order.deliveryPartner?.phone) && (
+                              <a
+                                href={`tel:${order.delivery_partner_phone || order.deliveryPartner?.phone}`}
+                                className="text-[10px] text-indigo-300 hover:underline font-mono block"
+                              >
+                                {order.delivery_partner_phone || order.deliveryPartner?.phone}
+                              </a>
+                            )}
                           </div>
-                          <select
-                            value=""
-                            onChange={(e) => handleAssignPartner(order.id, e.target.value)}
-                            className="bg-slate-950 border border-slate-800 hover:border-indigo-500 text-slate-400 hover:text-white text-[10px] rounded px-1.5 py-0.5 focus:outline-none cursor-pointer"
-                          >
-                            <option value="" disabled>Change Rider</option>
-                            {deliveryPartners.map(p => (
-                              <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>
-                            ))}
-                          </select>
                         </div>
                       ) : (
                         <select
@@ -519,7 +507,7 @@ export default function OrdersTable({
                     Delivery Rider:
                   </span>
                   {(order.delivery_partner_name || order.deliveryPartner?.name) ? (
-                    <div className="text-right space-y-1">
+                    <div className="text-right">
                       <span className="font-bold text-white text-xs block">{order.delivery_partner_name || order.deliveryPartner?.name}</span>
                       {(order.delivery_partner_phone || order.deliveryPartner?.phone) && (
                         <a
@@ -529,16 +517,6 @@ export default function OrdersTable({
                           {order.delivery_partner_phone || order.deliveryPartner?.phone}
                         </a>
                       )}
-                      <select
-                        value=""
-                        onChange={(e) => handleAssignPartner(order.id, e.target.value)}
-                        className="bg-slate-900 border border-slate-700 text-slate-400 text-[10px] rounded px-1.5 py-0.5 focus:outline-none cursor-pointer"
-                      >
-                        <option value="" disabled>Change Rider</option>
-                        {deliveryPartners.map(p => (
-                          <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>
-                        ))}
-                      </select>
                     </div>
                   ) : (
                     <select
