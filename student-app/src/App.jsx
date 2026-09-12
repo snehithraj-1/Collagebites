@@ -246,7 +246,7 @@ function StudentAppInner() {
       <footer className="bg-white border-t border-[#F1EAE4] py-8 text-xs text-[#64748B]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <div className="flex items-center gap-2">
-            <span className="text-base font-black text-[#0F172A] font-['Outfit']">CampusBites</span>
+            <span className="text-base font-black text-[#0F172A] font-['Outfit']">Srm : College Bites</span>
             <span>•</span>
             <span>Student Food Ordering Portal</span>
           </div>

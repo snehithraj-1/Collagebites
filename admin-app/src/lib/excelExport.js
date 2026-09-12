@@ -1,5 +1,5 @@
 /**
- * Excel / CSV Export Utility for CampusBites Admin
+ * Excel / CSV Export Utility for Srm : College Bites Admin
  * Formats orders data into Excel-compatible CSV with UTF-8 BOM,
  * ensuring proper parsing of Indian phone numbers, item lists, and dates.
  */
@@ -152,7 +152,7 @@ export function exportOrdersToExcel(orders, {
 
     const cleanRestaurant = String(restaurantName || 'Orders').replace(/[^a-zA-Z0-9]/g, '_');
     const dateTag = new Date().toISOString().slice(0, 10);
-    const fileName = `CampusBites_${cleanRestaurant}_${timeframe}_${dateTag}.csv`;
+    const fileName = `Srm_College_Bites_${cleanRestaurant}_${timeframe}_${dateTag}.csv`;
 
     const link = document.createElement('a');
     link.href = url;

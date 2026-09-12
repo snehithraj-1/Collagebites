@@ -144,11 +144,11 @@ export function AdminAuthProvider({ children }) {
     } catch (apiErr) {
       // Direct credential fallback check
       const lowerInput = cleanInput.toLowerCase();
-      if ((lowerInput === 'collagebites1@gmail.com' || lowerInput === 'collagebites@gmail.com' || lowerInput === 'rajsrmap2@gmail.com' || lowerInput === 'superadmin' || lowerInput === 'admin@campusbites.com') && (cleanPassword === 'Clgbites123' || cleanPassword === 'Snehith@007' || cleanPassword === 'admin123')) {
+      if ((lowerInput === 'collagebites1@gmail.com' || lowerInput === 'collagebites@gmail.com' || lowerInput === 'rajsrmap2@gmail.com' || lowerInput === 'superadmin' || lowerInput === 'admin@collegebites.com' || lowerInput === 'admin@campusbites.com') && (cleanPassword === 'Clgbites123' || cleanPassword === 'Snehith@007' || cleanPassword === 'admin123')) {
         const superProfile = {
           id: 'admin-super',
           username: 'collagebites1@gmail.com',
-          name: 'Collage Bites (Super Admin)',
+          name: 'Srm : College Bites (Super Admin)',
           email: 'collagebites1@gmail.com',
           role: 'super_admin',
           restaurant_id: null,
@@ -160,12 +160,12 @@ export function AdminAuthProvider({ children }) {
         return { success: true, user: superProfile };
       }
 
-      if ((lowerInput === 'lhk_admin' || lowerInput === 'lhk@campusbites.com') && cleanPassword === 'LHK@Campus2026') {
+      if ((lowerInput === 'lhk_admin' || lowerInput === 'lhk@collegebites.com' || lowerInput === 'lhk@campusbites.com') && cleanPassword === 'LHK@Campus2026') {
         const lhkProfile = {
           id: 'admin-lhk',
           username: 'lhk_admin',
           name: 'Local Home Kitchen Staff',
-          email: 'lhk@campusbites.com',
+          email: 'lhk@collegebites.com',
           role: 'restaurant_admin',
           restaurant_id: 'local-home-kitchen',
           created_at: new Date().toISOString()
@@ -176,12 +176,12 @@ export function AdminAuthProvider({ children }) {
         return { success: true, user: lhkProfile };
       }
 
-      if ((lowerInput === 'clgbites_admin' || lowerInput === 'clg@campusbites.com') && cleanPassword === 'CLG@Campus2026') {
+      if ((lowerInput === 'clgbites_admin' || lowerInput === 'clg@collegebites.com' || lowerInput === 'clg@campusbites.com') && cleanPassword === 'CLG@Campus2026') {
         const clgProfile = {
           id: 'admin-clg',
           username: 'clgbites_admin',
           name: 'CLG Bites Staff',
-          email: 'clg@campusbites.com',
+          email: 'clg@collegebites.com',
           role: 'restaurant_admin',
           restaurant_id: 'clg-bites-biryani-nation',
           created_at: new Date().toISOString()

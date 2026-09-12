@@ -1,5 +1,5 @@
 /**
- * Web Push & Notification Helper for CampusBites
+ * Web Push & Notification Helper for Srm : College Bites
  * Requests permission at contextual moments (e.g. after order confirmation)
  * and dispatches system notifications via the Service Worker or Notification API.
  */

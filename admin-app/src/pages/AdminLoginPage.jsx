@@ -33,7 +33,7 @@ export default function AdminLoginPage() {
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-black font-['Outfit'] tracking-tight">
-          CampusBites Admin Portal
+          Srm : College Bites Admin Portal
         </h1>
         <p className="mt-1 text-xs text-slate-400 font-medium">
           Central Order & Kitchen Operations Console (SRM University AP)

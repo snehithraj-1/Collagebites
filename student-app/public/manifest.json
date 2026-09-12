@@ -1,6 +1,6 @@
 {
-  "name": "CampusBites — SRM Student Dining",
-  "short_name": "CampusBites",
+  "name": "Srm : College Bites — Student Dining",
+  "short_name": "Srm : College Bites",
   "description": "Fast hostel food ordering and delivery portal for SRM University-AP students.",
   "start_url": "/",
   "display": "standalone",

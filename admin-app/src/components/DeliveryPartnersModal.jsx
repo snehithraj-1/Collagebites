@@ -120,7 +120,7 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
   };
 
   const handleCopyCredentials = (partner) => {
-    const text = `CampusBites Rider Credentials:\nName: ${partner.name}\nMobile: +91 ${partner.phone}\nPIN: ${partner.pin || '1234'}\nPortal: http://localhost:5173/#delivery`;
+    const text = `Srm : College Bites Rider Credentials:\nName: ${partner.name}\nMobile: +91 ${partner.phone}\nPIN: ${partner.pin || '1234'}\nPortal: http://localhost:5173/#delivery`;
     navigator.clipboard.writeText(text);
     setCopiedId(partner.id);
     setTimeout(() => setCopiedId(null), 2500);

@@ -178,7 +178,7 @@ export default function OrderConfirmationModal({
           requestPushPermission();
         }
         showPushNotification(
-          'CampusBites — Order Confirmed!',
+          'Srm : College Bites — Order Confirmed!',
           `Your order #${orderId} for ${restaurant?.name || 'Campus Kitchen'} (₹${totalAmount}) has been confirmed!`
         );
       } catch (e) {}

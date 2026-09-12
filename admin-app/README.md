@@ -1,4 +1,4 @@
-# CampusBites Admin Management Portal
+# Srm : College Bites Admin Management Portal
 
 Central administrative console for managing live food orders, restaurant status, dishes/menus, student accounts, and system controls for SRM University AP campus dining.
 

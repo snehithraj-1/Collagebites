@@ -1,6 +1,6 @@
 // Export orders to CSV / Excel spreadsheet format
 
-export function exportOrdersToCSV(orders, filename = 'campusbites_orders') {
+export function exportOrdersToCSV(orders, filename = 'srm_college_bites_orders') {
   if (!orders || orders.length === 0) {
     alert('No orders available to export.');
     return;

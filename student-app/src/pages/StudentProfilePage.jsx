@@ -544,7 +544,7 @@ export default function StudentProfilePage({ onBackToHome, onViewOrders }) {
                 SRM University AP — Gate 3 Security Dispatch Point
               </span>
               <p className="text-[11px] text-[#64748B] leading-relaxed">
-                CampusBites is exclusively customized for SRM University AP. Freshly packed food from campus kitchens is handed over directly to you at Gate 3.
+                Srm : College Bites is exclusively customized for SRM University AP. Freshly packed food from campus kitchens is handed over directly to you at Gate 3.
               </p>
             </div>
           </div>

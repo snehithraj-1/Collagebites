@@ -1,4 +1,4 @@
-// Authentic Menus for CampusBites: Local Home Kitchen & Clg Bites Biryani Nation
+// Authentic Menus for Srm : College Bites: Local Home Kitchen & Clg Bites Biryani Nation
 
 export const AUTHENTIC_RESTAURANTS = [
   {

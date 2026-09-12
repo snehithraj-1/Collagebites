@@ -62,7 +62,7 @@ export default function AdminSideMenuDrawer({
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                CampusBites Operations Hub
+                Srm : College Bites Operations Hub
               </p>
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function AdminSideMenuDrawer({
                 {profile?.name || 'Administrator'}
               </h4>
               <p className="text-xs text-slate-400 font-mono truncate">
-                {profile?.email || 'admin@campusbites.internal'}
+                {profile?.email || 'admin@collegebites.internal'}
               </p>
             </div>
           </div>
@@ -237,7 +237,7 @@ export default function AdminSideMenuDrawer({
           </button>
 
           <p className="text-center text-[10px] text-slate-500 font-mono">
-            CampusBites v1.2 • SRM University Gate 3 Dispatch
+            Srm : College Bites v1.2 • SRM University Gate 3 Dispatch
           </p>
         </div>
 

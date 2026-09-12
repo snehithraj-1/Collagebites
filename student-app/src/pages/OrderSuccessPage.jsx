@@ -187,7 +187,7 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#F1EAE4] pb-5">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-black text-[#0F172A] font-['Outfit']">CampusBites</span>
+              <span className="text-lg font-black text-[#0F172A] font-['Outfit']">Srm : College Bites</span>
               <span className="px-2 py-0.5 rounded bg-[#FFF0EB] text-[#FF5722] text-[10px] font-black uppercase">
                 Invoice
               </span>

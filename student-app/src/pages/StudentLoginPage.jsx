@@ -108,7 +108,7 @@ export default function StudentLoginPage() {
           CB
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight font-['Outfit']">
-          CampusBites
+          Srm : College Bites
         </h1>
         <p className="mt-1 text-xs sm:text-sm text-[#64748B] font-medium">
           SRM-AP Student Food Ordering & Hostel Delivery

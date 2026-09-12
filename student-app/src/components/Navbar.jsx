@@ -22,7 +22,7 @@ export default function Navbar({ currentView, onNavigate }) {
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-lg font-black text-[#0F172A] tracking-tight font-['Outfit']">
-                CampusBites
+                Srm : College Bites
               </span>
             </div>
             <div className="flex items-center gap-1 text-[11px] text-[#64748B] font-medium">

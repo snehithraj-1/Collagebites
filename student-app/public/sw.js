@@ -1,5 +1,5 @@
-// CampusBites Service Worker for PWA & Push Notifications
-const CACHE_NAME = 'campusbites-v1';
+// Srm : College Bites Service Worker for PWA & Push Notifications
+const CACHE_NAME = 'srm-college-bites-v1';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -16,12 +16,12 @@ self.addEventListener('push', (event) => {
     data = event.data ? event.data.json() : {};
   } catch (e) {
     data = {
-      title: 'CampusBites',
+      title: 'Srm : College Bites',
       body: event.data ? event.data.text() : 'Your food order status has been updated.'
     };
   }
 
-  const title = data.title || 'CampusBites Dining';
+  const title = data.title || 'Srm : College Bites';
   const options = {
     body: data.body || 'Your order has been confirmed.',
     icon: '/icon-192.svg',

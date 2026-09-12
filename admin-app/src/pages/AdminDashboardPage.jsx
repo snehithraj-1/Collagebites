@@ -453,7 +453,7 @@ export default function AdminDashboardPage() {
                       : assignedRestaurantId === 'clg-bites-biryani-nation'
                       ? 'CLG Bites Portal'
                       : `${profile?.name || 'Kitchen Staff'} Portal`
-                    : 'CampusBites Admin Portal'}
+                    : 'Srm : College Bites Admin Portal'}
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase border bg-orange-500/20 text-orange-400 border-orange-500/30">
                   {isRestaurantAdmin ? 'Kitchen Staff' : 'Master Console'}

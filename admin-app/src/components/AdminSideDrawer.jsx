@@ -50,7 +50,7 @@ export default function AdminSideDrawer({
               <h3 className="text-base font-black text-white font-['Outfit'] tracking-tight">
                 Control Hub
               </h3>
-              <p className="text-[11px] text-slate-400">CampusBites Dispatch Console</p>
+              <p className="text-[11px] text-slate-400">Srm : College Bites Dispatch Console</p>
             </div>
           </div>
 
@@ -80,7 +80,7 @@ export default function AdminSideDrawer({
               {profile?.name || 'Administrator'}
             </h4>
             <p className="text-[11px] text-slate-400 font-mono truncate">
-              {profile?.email || profile?.username || 'admin@campusbites.com'}
+              {profile?.email || profile?.username || 'admin@collegebites.com'}
             </p>
             <span className="inline-block px-2 py-0.5 mt-1 rounded-md bg-orange-500/20 text-[#FF5722] text-[10px] font-extrabold uppercase border border-orange-500/30">
               {profile?.role === 'super_admin' ? 'Super Admin' : 'Kitchen Staff'}
@@ -236,7 +236,7 @@ export default function AdminSideDrawer({
             <span>Sign Out of Admin Control</span>
           </button>
           <p className="text-center text-[10px] text-slate-500 font-mono">
-            CampusBites v2.0 • SRM University AP Dispatch
+            Srm : College Bites v2.0 • SRM University AP Dispatch
           </p>
         </div>
       </div>
