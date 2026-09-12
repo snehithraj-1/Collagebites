@@ -30,9 +30,9 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
 
     const poll = async () => {
       try {
-        let res = await fetch(`/api/orders?id=${encodeURIComponent(order.id)}&_t=${Date.now()}`);
+        let res = await fetch(`/api/orders/${encodeURIComponent(order.id)}?_t=${Date.now()}`);
         if (!res.ok) {
-          res = await fetch(`/api/orders/${encodeURIComponent(order.id)}?_t=${Date.now()}`);
+          res = await fetch(`/api/orders?id=${encodeURIComponent(order.id)}&_t=${Date.now()}`);
         }
         if (res.status === 404) {
           consecutive404Ref.current += 1;
@@ -45,11 +45,19 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
         if (res.ok) {
           consecutive404Ref.current = 0;
           const data = await res.json();
-          if (data.success && data.order && isMounted) {
-            const newStatus = data.order.status;
+          const targetOrder = data.order || (data.id === order.id ? data : null) || (Array.isArray(data.orders) ? data.orders.find(o => o.id === order.id) : null);
+          if (targetOrder && isMounted) {
+            const newStatus = targetOrder.status;
             const prevStatus = prevStatusRef.current;
 
-            setLiveOrder(data.order);
+            setLiveOrder(targetOrder);
+
+            // Sync updated status to localStorage so OrderHistoryPage immediately reflects it
+            try {
+              const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
+              const updated = stored.map((o) => (o.id === order.id ? { ...o, status: newStatus } : o));
+              localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
+            } catch {}
 
             // Detect real-time status transitions from Admin / Kitchen
             if (prevStatus && prevStatus !== newStatus) {
@@ -57,7 +65,7 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
 
               if (newStatus === 'COMPLETED' || newStatus === 'DELIVERED') {
                 playStudentChime('DELIVERED');
-                const msg = `Your meal from ${data.order.restaurant_name || 'Kitchen'} has been completed! Enjoy your food.`;
+                const msg = `Your meal from ${targetOrder.restaurant_name || 'Kitchen'} has been completed! Enjoy your food.`;
                 setStageAlert({
                   type: 'COMPLETED',
                   title: 'Order Completed! 🎉',

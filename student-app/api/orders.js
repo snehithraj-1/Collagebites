@@ -230,12 +230,26 @@ export default async function handler(req, res) {
   if (req.method === 'POST' && (req.query.action === 'status' || (req.body && req.body.orderId && req.body.status))) {
     try {
       const { orderId, status } = req.body;
-      const cleanStatus = status === 'DELIVERED' ? 'DELIVERED' : (status === 'CANCELLED' ? 'CANCELLED' : 'CONFIRMED');
-      await sql`
-        UPDATE orders
-        SET status = ${cleanStatus}, updated_at = NOW()
-        WHERE id = ${orderId} OR id LIKE ${orderId + '%'};
-      `;
+      const cleanStatus = (status === 'COMPLETED' || status === 'DELIVERED') ? 'COMPLETED' : (status === 'CANCELLED' ? 'CANCELLED' : 'CONFIRMED');
+      if (cleanStatus === 'COMPLETED') {
+        await sql`
+          UPDATE orders
+          SET status = ${cleanStatus}, completed_at = NOW(), updated_at = NOW()
+          WHERE id = ${orderId} OR id LIKE ${orderId + '%'};
+        `;
+      } else if (cleanStatus === 'CANCELLED') {
+        await sql`
+          UPDATE orders
+          SET status = ${cleanStatus}, cancelled_at = NOW(), updated_at = NOW()
+          WHERE id = ${orderId} OR id LIKE ${orderId + '%'};
+        `;
+      } else {
+        await sql`
+          UPDATE orders
+          SET status = ${cleanStatus}, updated_at = NOW()
+          WHERE id = ${orderId} OR id LIKE ${orderId + '%'};
+        `;
+      }
       return res.status(200).json({ success: true, orderId, status: cleanStatus });
     } catch (err) {
       console.error('[Orders Status Update Error]:', err.message);

@@ -1036,7 +1036,7 @@ function invalidateOrdersCache() {
   ordersCacheTime = 0;
 }
 
-// GET /api/orders - Fetch orders (supports ?restaurant_id=... and token-based kitchen isolation)
+// GET /api/orders - Fetch orders (supports ?id=..., ?studentEmail=..., ?restaurant_id=... and token-based kitchen isolation)
 app.get('/api/orders', async (req, res) => {
   let authUser = null;
   const authHeader = req.headers.authorization;
@@ -1049,12 +1049,117 @@ app.get('/api/orders', async (req, res) => {
     } catch (e) {}
   }
 
+  // 1. Single order query by ID: /api/orders?id=... or /api/orders?orderId=...
+  const queryOrderId = req.query.id || req.query.orderId;
+  if (queryOrderId) {
+    if (sql) {
+      try {
+        const rows = await sql`
+          SELECT * FROM orders 
+          WHERE id = ${queryOrderId} OR id LIKE ${queryOrderId + '%'} 
+          LIMIT 1;
+        `;
+        if (rows.length > 0) {
+          const r = rows[0];
+          const parsed = {
+            ...r,
+            total_amount: Number(r.total_amount),
+            items: typeof r.items === 'string' ? JSON.parse(r.items) : r.items
+          };
+          return res.json({
+            ...parsed,
+            success: true,
+            order: parsed,
+            source: 'neon'
+          });
+        }
+      } catch (err) {
+        console.warn('[Neon Single Order Error]:', err.message);
+      }
+    }
+
+    const local = readLocalDb();
+    const found = (local.orders || []).find((o) => o.id === queryOrderId || (o.id && o.id.startsWith(queryOrderId)));
+    if (found) {
+      return res.json({
+        ...found,
+        success: true,
+        order: found,
+        source: 'local_cache'
+      });
+    }
+    return res.status(404).json({ success: false, error: 'Order not found' });
+  }
+
   let restaurantId = req.query.restaurant_id || req.query.restaurant;
   // Strict cross-restaurant isolation for kitchen admins
   if (!restaurantId && authUser?.restaurant_id && authUser.role !== 'super_admin') {
     restaurantId = authUser.restaurant_id;
   }
 
+  // 2. Student orders query: /api/orders?studentEmail=... or /api/orders?user_id=...
+  const studentEmail = (req.query.studentEmail || req.query.email || req.query.student_email || '').trim().toLowerCase();
+  const studentPhone = (req.query.student_phone || req.query.phone || '').replace(/\D/g, '').slice(-10);
+  const userId = (req.query.user_id || req.query.student_id || '').trim();
+
+  if (studentEmail || studentPhone || userId) {
+    if (sql) {
+      try {
+        let rows;
+        if (studentEmail && restaurantId && restaurantId !== 'all') {
+          rows = await sql`
+            SELECT * FROM orders 
+            WHERE LOWER(student_email) = ${studentEmail} AND restaurant_id = ${restaurantId}
+            ORDER BY created_at DESC;
+          `;
+        } else if (studentEmail) {
+          rows = await sql`
+            SELECT * FROM orders 
+            WHERE LOWER(student_email) = ${studentEmail} 
+               OR user_id = ${userId || studentEmail}
+               OR (LENGTH(${studentPhone}) >= 10 AND RIGHT(REGEXP_REPLACE(COALESCE(student_phone, ''), '[^0-9]', '', 'g'), 10) = ${studentPhone})
+            ORDER BY created_at DESC;
+          `;
+        } else if (userId) {
+          rows = await sql`
+            SELECT * FROM orders 
+            WHERE user_id = ${userId} OR student_id = ${userId}
+            ORDER BY created_at DESC;
+          `;
+        } else {
+          rows = await sql`
+            SELECT * FROM orders 
+            WHERE LENGTH(${studentPhone}) >= 10 AND RIGHT(REGEXP_REPLACE(COALESCE(student_phone, ''), '[^0-9]', '', 'g'), 10) = ${studentPhone}
+            ORDER BY created_at DESC;
+          `;
+        }
+        const parsedOrders = rows.map((r) => ({
+          ...r,
+          total_amount: Number(r.total_amount),
+          items: typeof r.items === 'string' ? JSON.parse(r.items) : r.items
+        }));
+        if (req.query.format === 'array') return res.json(parsedOrders);
+        return res.json({ success: true, orders: parsedOrders, source: 'neon' });
+      } catch (err) {
+        console.warn('[Neon Student Orders Error]:', err.message);
+      }
+    }
+
+    const local = readLocalDb();
+    const filtered = (local.orders || []).filter((o) => {
+      const oEmail = (o.student_email || '').toLowerCase();
+      const oPhone = (o.student_phone || '').replace(/\D/g, '').slice(-10);
+      const oUid = (o.user_id || '').toLowerCase();
+      return (studentEmail && oEmail === studentEmail) ||
+             (userId && oUid === userId.toLowerCase()) ||
+             (studentPhone && oPhone === studentPhone);
+    });
+    filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    if (req.query.format === 'array') return res.json(filtered);
+    return res.json({ success: true, orders: filtered, source: 'local_cache' });
+  }
+
+  // 3. General orders query (for Restaurant Admin / Super Admin)
   if (sql) {
     try {
       let rows;

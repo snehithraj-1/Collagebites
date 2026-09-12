@@ -15,18 +15,25 @@ export default function OrderHistoryPage({ onBackToRestaurants, onTrackOrder }) 
 
     try {
       // 1. Try to fetch from Shared Central API / Vercel Serverless API
-      const email = profile?.email || profile?.id || '';
-      let res = await fetch(`/api/orders?studentEmail=${encodeURIComponent(email)}&_t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-      });
-      if (!res.ok) {
-        res = await fetch(`/api/orders/student/${encodeURIComponent(email)}?_t=${Date.now()}`, {
+      const email = (profile?.email || '').trim();
+      const phone = (profile?.phone || '').trim();
+      const userId = (profile?.id || '').trim();
+      const identifier = email || phone || userId || '';
+
+      let res = null;
+      if (identifier) {
+        res = await fetch(`/api/orders/student/${encodeURIComponent(identifier)}?_t=${Date.now()}`, {
           cache: 'no-store',
           headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
         });
       }
-      if (res.ok) {
+      if (!res || !res.ok) {
+        res = await fetch(`/api/orders?studentEmail=${encodeURIComponent(email || identifier)}&_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
+      }
+      if (res && res.ok) {
         const json = await res.json();
         const ordersList = Array.isArray(json) ? json : (json.orders || []);
         if (Array.isArray(ordersList)) {

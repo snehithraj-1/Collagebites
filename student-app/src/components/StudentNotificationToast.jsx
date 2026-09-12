@@ -134,14 +134,15 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
         // 3. Specifically poll activeOrderId if provided
         if (activeOrderId && !ordersMap.has(activeOrderId)) {
           try {
-            let singleRes = await fetch(`/api/orders?id=${encodeURIComponent(activeOrderId)}`);
+            let singleRes = await fetch(`/api/orders/${encodeURIComponent(activeOrderId)}`);
             if (!singleRes.ok) {
-              singleRes = await fetch(`/api/orders/${encodeURIComponent(activeOrderId)}`);
+              singleRes = await fetch(`/api/orders?id=${encodeURIComponent(activeOrderId)}`);
             }
             if (singleRes.ok) {
               const singleData = await singleRes.json();
-              if (singleData.success && singleData.order) {
-                ordersMap.set(singleData.order.id, singleData.order);
+              const singleOrder = singleData.order || (singleData.id === activeOrderId ? singleData : null) || (Array.isArray(singleData.orders) ? singleData.orders.find(o => o.id === activeOrderId) : null);
+              if (singleOrder) {
+                ordersMap.set(singleOrder.id, singleOrder);
               }
             }
           } catch {}
@@ -155,9 +156,9 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
           orders.forEach((o) => {
             const ageMs = Date.now() - new Date(o.created_at || Date.now()).getTime();
             // If order was completed over 30 mins ago, treat as already notified
-            if (o.status === 'DELIVERED' && ageMs > 30 * 60 * 1000) {
+            if ((o.status === 'COMPLETED' || o.status === 'DELIVERED') && ageMs > 30 * 60 * 1000) {
+              saveNotifiedStage(o.id, 'COMPLETED');
               saveNotifiedStage(o.id, 'DELIVERED');
-              saveNotifiedStage(o.id, 'OUT_FOR_DELIVERY');
             }
           });
           isFirstPollRef.current = false;
@@ -168,31 +169,30 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
           const alreadyNotified = notifiedStages[order.id] || [];
           const orderStatus = order.status || 'CONFIRMED';
 
-          // 1. Delivered transition
-          if (orderStatus === 'DELIVERED' && !alreadyNotified.includes('DELIVERED')) {
+          // 1. Completed / Delivered transition
+          if ((orderStatus === 'COMPLETED' || orderStatus === 'DELIVERED') && !alreadyNotified.includes('COMPLETED') && !alreadyNotified.includes('DELIVERED')) {
+            saveNotifiedStage(order.id, 'COMPLETED');
             saveNotifiedStage(order.id, 'DELIVERED');
 
-            // Sync updated status & partner details to localStorage
+            // Sync updated status to localStorage
             try {
               const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
               const updated = stored.map((o) =>
                 o.id === order.id ? { 
                   ...o, 
-                  status: 'DELIVERED',
-                  delivery_partner_name: order.delivery_partner_name || o.delivery_partner_name,
-                  delivery_partner_phone: order.delivery_partner_phone || o.delivery_partner_phone
+                  status: 'COMPLETED'
                 } : o
               );
               localStorage.setItem('cb_shared_orders', JSON.stringify(updated));
             } catch {}
 
             if (isMounted) {
-              const desc = `Your food parcel from ${order.restaurant_name || 'Kitchen'} has arrived at SRM University Gate 3. Please collect your food!`;
+              const desc = `Your meal from ${order.restaurant_name || 'Kitchen'} has been completed! Enjoy your food.`;
 
               setActiveToast({
                 order,
-                status: 'DELIVERED',
-                title: 'Food Delivered! 🎉',
+                status: 'COMPLETED',
+                title: 'Order Completed! 🎉',
                 desc,
                 icon: CheckCheck,
                 bg: 'bg-white border-2 border-emerald-500 text-emerald-950 shadow-emerald-500/30',
@@ -201,14 +201,12 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
 
               playStudentChime('DELIVERED');
               sendStudentNotification(
-                'Food Delivered! 🎉',
+                'Order Completed! 🎉',
                 `Order #${order.id}: ${desc}`
               );
             }
             break; // Show this toast first
           }
-
-
         }
       } catch (err) {
         // Silent catch for network hiccups
