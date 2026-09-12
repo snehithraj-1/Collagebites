@@ -111,7 +111,7 @@ export default function OrdersTable({
   };
 
   return (
-    <div className="space-y-4">
+    <div id="admin-orders-section" className="space-y-4 scroll-mt-20">
       
       {/* Top Header: Restaurant Switcher Tabs & Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
@@ -123,12 +123,12 @@ export default function OrdersTable({
             <span className="text-xs font-black text-white font-['Outfit']">
               {restaurantName} Staff Portal
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold uppercase border border-emerald-500/30">
+            <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold uppercase border border-emerald-500/30 font-['Outfit']">
               Isolated
             </span>
           </div>
         ) : onSelectRestaurantTab ? (
-          <div className="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800 overflow-x-auto scrollbar-none">
+          <div className="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800 overflow-x-auto scrollbar-none font-['Outfit']">
             <button
               onClick={() => onSelectRestaurantTab('local-home-kitchen')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border-none whitespace-nowrap ${
@@ -191,10 +191,10 @@ export default function OrdersTable({
           </select>
 
           {/* 1-Click Instant Export to Excel */}
-          <div className="inline-flex items-center rounded-xl bg-emerald-600 shadow-xs overflow-hidden">
+          <div className="inline-flex items-center rounded-xl bg-emerald-600 shadow-xs overflow-hidden font-['Outfit']">
             <button
               onClick={handleQuickExport}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors cursor-pointer border-none"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors cursor-pointer border-none font-['Outfit']"
               title="Instantly download Excel spreadsheet for all currently visible orders"
             >
               <Download size={13} />
@@ -387,14 +387,14 @@ export default function OrdersTable({
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <div>
-                    <span className="font-mono font-black text-sm text-[#FF5722]">
+                    <span className="font-['Outfit'] font-black text-sm text-[#FF5722]">
                       #{order.id}
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono ml-2">
                       {timeFormatted}
                     </span>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase border ${getStatusBadge(order.status)}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase border font-['Outfit'] ${getStatusBadge(order.status)}`}>
                     {order.status || 'CONFIRMED'}
                   </span>
                 </div>
@@ -402,21 +402,21 @@ export default function OrdersTable({
                 {/* Customer Details */}
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-slate-500 text-[10px] block">Student:</span>
-                    <span className="font-bold text-white text-xs block truncate">{order.student_name || 'Student'}</span>
+                    <span className="text-slate-500 text-[10px] block font-['Outfit'] font-bold uppercase">Student:</span>
+                    <span className="font-bold text-white text-xs block truncate font-['Outfit']">{order.student_name || 'Student'}</span>
                     <span className="text-slate-400 text-[11px] font-mono block">{order.student_phone || '—'}</span>
                   </div>
 
                   <div>
-                    <span className="text-slate-500 text-[10px] block">Total Amount:</span>
-                    <span className="font-mono font-black text-emerald-400 text-sm block">₹{order.total_amount}</span>
+                    <span className="text-slate-500 text-[10px] block font-['Outfit'] font-bold uppercase">Total Amount:</span>
+                    <span className="font-['Outfit'] font-black text-emerald-400 text-sm block">₹{order.total_amount}</span>
                     <span className="text-slate-400 text-[10px] block truncate">{order.restaurant_name || restaurantName}</span>
                   </div>
                 </div>
 
                 {/* Items Summary */}
                 <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-300">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 font-['Outfit']">
                     Items:
                   </div>
                   <div className="space-y-0.5">
@@ -426,7 +426,7 @@ export default function OrdersTable({
                       itemsArr.map((i, idx) => (
                         <div key={idx} className="flex justify-between text-xs">
                           <span className="truncate pr-2">{i.name}</span>
-                          <span className="font-mono font-bold text-slate-100 shrink-0">x{i.quantity || 1}</span>
+                          <span className="font-['Outfit'] font-bold text-slate-100 shrink-0">x{i.quantity || 1}</span>
                         </div>
                       ))
                     )}
@@ -437,7 +437,7 @@ export default function OrdersTable({
                 <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-800">
                   <button
                     onClick={() => onInspectOrder && onInspectOrder(order)}
-                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1 cursor-pointer border-none"
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1 cursor-pointer border-none font-['Outfit']"
                   >
                     <Eye size={12} />
                     <span>View</span>
@@ -446,7 +446,7 @@ export default function OrdersTable({
                   {onUpdateStatus && (order.status === 'CONFIRMED' || order.status === 'ASSIGNED' || order.status === 'OUT_FOR_DELIVERY' || order.status === 'OUT FOR DELIVERY') && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'DELIVERED')}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 cursor-pointer border-none shadow-xs"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 cursor-pointer border-none shadow-xs font-['Outfit']"
                     >
                       <CheckCircle2 size={12} />
                       <span>Deliver</span>

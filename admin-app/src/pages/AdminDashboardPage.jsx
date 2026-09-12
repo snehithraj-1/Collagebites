@@ -13,10 +13,13 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import StudentsModal from '../components/StudentsModal';
 import MenuManagerModal from '../components/MenuManagerModal';
 import AdminSideMenuDrawer from '../components/AdminSideMenuDrawer';
+import AdminBottomNav from '../components/AdminBottomNav';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function AdminDashboardPage() {
   const { profile, logout, isSuperAdmin, isRestaurantAdmin, assignedRestaurantId } = useAdminAuth();
+
+  const [activeNavTab, setActiveNavTab] = useState('overview');
 
   const [orders, setOrders] = useState([]);
   const [restaurants, setRestaurants] = useState(DEFAULT_RESTAURANTS);
@@ -437,41 +440,41 @@ export default function AdminDashboardPage() {
       
       {/* Top Admin Navbar */}
       <header className="sticky top-0 z-40 bg-[#0F172A]/95 backdrop-blur-md border-b border-slate-800 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 min-h-[64px] sm:min-h-[72px] h-auto py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Identity */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg border bg-gradient-to-tr from-[#FF5722] to-amber-600 shadow-orange-500/20 border-orange-400/30">
-              {isRestaurantAdmin ? '🍳' : '🛡️'}
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-base sm:text-xl shadow-md border bg-gradient-to-tr from-[#FF5722] to-[#F4511E] shadow-orange-500/20 border-orange-400/30 shrink-0 font-['Outfit'] font-black">
+              {isRestaurantAdmin ? '🍳' : 'CB'}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg sm:text-xl font-black text-white font-['Outfit'] tracking-tight">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap">
+                <span className="text-sm sm:text-lg lg:text-xl font-black text-white font-['Outfit'] tracking-tight truncate block">
                   {isRestaurantAdmin
                     ? assignedRestaurantId === 'local-home-kitchen'
-                      ? 'Local Home Kitchen Portal'
+                      ? 'Local Home Kitchen'
                       : assignedRestaurantId === 'clg-bites-biryani-nation'
-                      ? 'CLG Bites Portal'
-                      : `${profile?.name || 'Kitchen Staff'} Portal`
-                    : 'Srm : College Bites Admin Portal'}
+                      ? 'CLG Bites'
+                      : `${profile?.name || 'Kitchen Staff'}`
+                    : 'Srm : College Bites'}
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase border bg-orange-500/20 text-orange-400 border-orange-500/30">
-                  {isRestaurantAdmin ? 'Kitchen Staff' : 'Master Console'}
+                <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-extrabold uppercase border bg-orange-500/20 text-orange-400 border-orange-500/30 shrink-0 font-['Outfit']">
+                  {isRestaurantAdmin ? 'Kitchen' : 'Admin'}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>
+              <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-slate-400 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="truncate">
                   {isRestaurantAdmin
                     ? 'Isolated Kitchen Orders & Acceptance'
-                    : 'All Orders & Kitchens Management'}
+                    : 'Live Operations & Kitchens Console'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Right Header Controls: Clean, Uncluttered with Three-Lines Menu Drawer */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Right Header Controls: Mobile-Integrated & Clean */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Quick Audio Alert Chime Toggle */}
             <button
               onClick={() => {
@@ -482,15 +485,15 @@ export default function AdminDashboardPage() {
                   playAdminChime('test');
                 }
               }}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`p-2 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 font-['Outfit'] ${
                 soundEnabled
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
                   : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'
               }`}
               title="Click to Test or Toggle Sound Chime"
             >
-              {soundEnabled ? <Volume2 size={15} className="text-emerald-400 animate-pulse" /> : <VolumeX size={15} />}
-              <span>{soundEnabled ? '🔔 Sound: ON (Test)' : '🔕 Sound: OFF'}</span>
+              {soundEnabled ? <Volume2 size={16} className="text-emerald-400 animate-pulse shrink-0" /> : <VolumeX size={16} className="shrink-0" />}
+              <span className="hidden sm:inline">{soundEnabled ? 'Sound: ON' : 'Sound: OFF'}</span>
             </button>
 
             {/* Quick Sync Button */}
@@ -500,16 +503,16 @@ export default function AdminDashboardPage() {
                 loadRestaurants();
                 loadSystemSettings();
               }}
-              className="p-2 sm:p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
+              className="p-2 sm:p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer shrink-0"
               title="Sync & Refresh Live Data"
             >
-              <RefreshCw size={15} className={isRefreshing ? 'animate-spin text-blue-400' : ''} />
+              <RefreshCw size={16} className={isRefreshing ? 'animate-spin text-[#FF5722]' : ''} />
             </button>
 
-            {/* THREE-LINES (☰) / THREE-DOTS (⋮) SIDE MENU BUTTON */}
+            {/* THREE-LINES (☰) SIDE MENU BUTTON */}
             <button
               onClick={() => setIsSideMenuOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-blue-500/25 active:scale-95 border-none"
+              className="px-2.5 sm:px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#FF5722] to-[#F4511E] hover:from-orange-600 hover:to-orange-700 text-white font-black text-xs flex items-center gap-1.5 sm:gap-2 transition-all cursor-pointer shadow-md shadow-orange-500/20 active:scale-95 border-none shrink-0 font-['Outfit']"
               title="Open Operations Menu (Menu, Students, etc.)"
             >
               <Menu size={18} />
@@ -610,7 +613,7 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Main Content Dashboard */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6 animate-fade-in pb-24 md:pb-10">
         
         {/* 1. Metrics Counters */}
         <MetricsOverview
@@ -718,6 +721,14 @@ export default function AdminDashboardPage() {
         }}
         isRefreshing={isRefreshing}
         onLogout={logout}
+      />
+
+      {/* Mobile Integrated Bottom Navigation Bar */}
+      <AdminBottomNav
+        activeTab={activeNavTab}
+        onSelectTab={setActiveNavTab}
+        onOpenMenuModal={() => setIsMenuModalOpen(true)}
+        onOpenSideMenu={() => setIsSideMenuOpen(true)}
       />
 
     </div>

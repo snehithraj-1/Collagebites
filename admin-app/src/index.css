@@ -4,7 +4,18 @@
   --admin-bg: #0B1120;
   --admin-card: #111827;
   --admin-border: rgba(51, 65, 85, 0.7);
+  --primary: #FF5722;
+  --primary-hover: #F4511E;
+  --primary-light: #FFF0EB;
   --spring-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 html {
@@ -51,7 +62,7 @@ button:active:not(:disabled), .interactive-tap:active:not(:disabled) {
   transform: scale(0.965);
 }
 
-h1, h2, h3, h4, .font-heading {
+h1, h2, h3, h4, h5, h6, .font-heading, .font-brand, .font-outfit {
   font-family: 'Outfit', sans-serif;
   letter-spacing: -0.02em;
 }

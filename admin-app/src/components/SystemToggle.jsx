@@ -45,9 +45,9 @@ export default function SystemToggle({ orderingEnabled, onToggleSuccess }) {
   };
 
   return (
-    <div className="admin-card p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-5 border-slate-700/80">
+    <div id="admin-system-controls" className="admin-card p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5 border-slate-700/80 scroll-mt-20">
       <div className="flex items-start gap-3.5">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl shadow-lg ${
+        <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl shadow-lg ${
           orderingEnabled
             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
             : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
@@ -55,11 +55,11 @@ export default function SystemToggle({ orderingEnabled, onToggleSuccess }) {
           {orderingEnabled ? '🟢' : '🔴'}
         </div>
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-base sm:text-lg font-black text-white font-['Outfit']">
               Overall Campus Ordering System
             </h3>
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider font-['Outfit'] ${
               orderingEnabled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
             }`}>
               {orderingEnabled ? 'SYSTEM ACTIVE' : 'PAUSED'}
@@ -76,7 +76,7 @@ export default function SystemToggle({ orderingEnabled, onToggleSuccess }) {
       <button
         onClick={handleToggle}
         disabled={isUpdating}
-        className={`px-6 py-3 rounded-2xl text-xs sm:text-sm font-black transition-all cursor-pointer border flex items-center justify-center gap-2 shadow-lg self-start sm:self-auto disabled:opacity-50 ${
+        className={`w-full sm:w-auto px-5 py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-black font-['Outfit'] tracking-wide transition-all cursor-pointer border flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 ${
           orderingEnabled
             ? 'bg-rose-950/70 hover:bg-rose-900 text-rose-200 border-rose-700 hover:border-rose-600 shadow-rose-950/40'
             : 'bg-emerald-950/70 hover:bg-emerald-900 text-emerald-200 border-emerald-700 hover:border-emerald-600 shadow-emerald-950/40'

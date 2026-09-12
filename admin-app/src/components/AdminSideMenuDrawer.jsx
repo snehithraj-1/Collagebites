@@ -49,7 +49,7 @@ export default function AdminSideMenuDrawer({
         {/* Drawer Header */}
         <div className="p-5 sm:p-6 border-b border-slate-800 flex items-center justify-between bg-[#111C34]">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xl shadow-lg shadow-blue-500/20 border border-blue-400/30">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#FF5722] to-[#F4511E] flex items-center justify-center text-white text-xl shadow-lg shadow-orange-500/20 border border-orange-400/30">
               🛡️
             </div>
             <div>
@@ -57,11 +57,11 @@ export default function AdminSideMenuDrawer({
                 <span className="text-base font-black text-white font-['Outfit'] tracking-tight">
                   Control Center
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-extrabold uppercase border border-blue-500/30">
+                <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 text-[10px] font-extrabold uppercase border border-orange-500/30 font-['Outfit']">
                   Admin
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-slate-400 font-['Outfit']">
                 Srm : College Bites Operations Hub
               </p>
             </div>
@@ -81,9 +81,9 @@ export default function AdminSideMenuDrawer({
           
           {/* Admin Identity Card */}
           <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-xl pointer-events-none" />
+            <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full blur-xl pointer-events-none" />
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 font-['Outfit']">
                 Logged In Administrator
               </span>
               <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-mono font-bold">
@@ -93,7 +93,7 @@ export default function AdminSideMenuDrawer({
             </div>
 
             <div className="pt-0.5">
-              <h4 className="text-sm font-extrabold text-white">
+              <h4 className="text-sm font-extrabold text-white font-['Outfit']">
                 {profile?.name || 'Administrator'}
               </h4>
               <p className="text-xs text-slate-400 font-mono truncate">

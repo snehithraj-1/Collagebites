@@ -51,15 +51,15 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-extrabold text-white font-['Outfit'] flex items-center gap-2">
-          <Store size={18} className="text-blue-400" />
+          <Store size={18} className="text-[#FF5722]" />
           <span>{assignedRestaurantId ? 'Kitchen Availability & Acceptance' : 'Individual Restaurant Controls'}</span>
         </h3>
-        <span className="text-xs text-slate-400">
+        <span className="text-xs text-slate-400 font-['Outfit']">
           Syncs instantly to Student Portal
         </span>
       </div>
 
-      <div className={`grid grid-cols-1 ${assignedRestaurantId ? 'md:grid-cols-1 max-w-xl' : 'md:grid-cols-2'} gap-4`}>
+      <div className={`grid grid-cols-1 ${assignedRestaurantId ? 'md:grid-cols-1 max-w-xl' : 'md:grid-cols-2'} gap-3 sm:gap-4`}>
         {visibleRestaurants.map((restaurant) => {
           const isMasterOpen = orderingEnabled !== false;
           const isOpen = isMasterOpen && (restaurant.is_open !== false);
@@ -68,10 +68,10 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
           return (
             <div
               key={restaurant.id}
-              className="admin-card p-5 flex items-center justify-between gap-4 border-slate-700/70"
+              className="admin-card p-3.5 sm:p-5 flex items-center justify-between gap-3 sm:gap-4 border-slate-700/70"
             >
-              <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden flex-shrink-0">
+              <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden shrink-0 shadow-md">
                   <img
                     src={restaurant.image_url || 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=400&q=80'}
                     alt={restaurant.name}
@@ -83,8 +83,8 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
                   <h4 className="font-extrabold text-sm sm:text-base text-white truncate font-['Outfit']">
                     {restaurant.name}
                   </h4>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                  <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5">
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider font-['Outfit'] ${
                       isOpen
                         ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                         : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
@@ -102,7 +102,7 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
               <button
                 onClick={() => handleToggle(restaurant)}
                 disabled={isBusy}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-1.5 flex-shrink-0 disabled:opacity-50 ${
+                className={`px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl text-xs font-black font-['Outfit'] transition-all cursor-pointer border flex items-center gap-1.5 shrink-0 disabled:opacity-50 ${
                   isOpen
                     ? 'bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border-rose-800'
                     : 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border-emerald-800'
