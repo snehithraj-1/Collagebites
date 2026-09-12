@@ -113,6 +113,9 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
               const sPhone = String(o.student_phone || '').replace(/\D/g, '').slice(-10);
               const pPhone = String(profile?.phone || guestPhone || '').replace(/\D/g, '').slice(-10);
               const isPhoneMatch = Boolean(pPhone && sPhone && sPhone === pPhone);
+              const pEmail = (profile?.email || '').trim().toLowerCase();
+              const sEmail = (o.student_email || '').trim().toLowerCase();
+              const isEmailMatch = Boolean(pEmail && sEmail && sEmail === pEmail);
               
               if (isLocalMatch || isEmailMatch || isPhoneMatch) {
                 ordersMap.set(o.id, o);
@@ -124,7 +127,10 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
         // 3. Specifically poll activeOrderId if provided
         if (activeOrderId && !ordersMap.has(activeOrderId)) {
           try {
-            const singleRes = await fetch(`/api/orders/${encodeURIComponent(activeOrderId)}`);
+            let singleRes = await fetch(`/api/orders?id=${encodeURIComponent(activeOrderId)}`);
+            if (!singleRes.ok) {
+              singleRes = await fetch(`/api/orders/${encodeURIComponent(activeOrderId)}`);
+            }
             if (singleRes.ok) {
               const singleData = await singleRes.json();
               if (singleData.success && singleData.order) {

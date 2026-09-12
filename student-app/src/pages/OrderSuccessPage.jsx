@@ -21,6 +21,7 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
   }, []);
 
   const [orderDeleted, setOrderDeleted] = useState(false);
+  const consecutive404Ref = useRef(0);
 
   // Poll for order status updates from Central API
   useEffect(() => {
@@ -29,14 +30,20 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
 
     const poll = async () => {
       try {
-        const res = await fetch(`/api/orders/${order.id}?_t=${Date.now()}`);
+        let res = await fetch(`/api/orders?id=${encodeURIComponent(order.id)}&_t=${Date.now()}`);
+        if (!res.ok) {
+          res = await fetch(`/api/orders/${encodeURIComponent(order.id)}?_t=${Date.now()}`);
+        }
         if (res.status === 404) {
-          if (isMounted) {
+          consecutive404Ref.current += 1;
+          // Only show deleted if persistently 404 for 5 consecutive polls (10+ seconds)
+          if (consecutive404Ref.current >= 5 && isMounted) {
             setOrderDeleted(true);
           }
           return;
         }
         if (res.ok) {
+          consecutive404Ref.current = 0;
           const data = await res.json();
           if (data.success && data.order && isMounted) {
             const newStatus = data.order.status;
@@ -44,7 +51,7 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
 
             setLiveOrder(data.order);
 
-            // Detect real-time status transitions from Rider Portal
+            // Detect real-time status transitions from Admin / Kitchen
             if (prevStatus && prevStatus !== newStatus) {
               prevStatusRef.current = newStatus;
 
@@ -67,7 +74,7 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
     };
 
     poll();
-    const interval = setInterval(poll, 2000);
+    const interval = setInterval(poll, 2500);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -83,7 +90,7 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
         <h2 className="text-xl font-bold text-slate-900 font-['Outfit']">Order Cancelled or Removed</h2>
         <p className="text-sm text-slate-600">This order has been cleared or cancelled by the restaurant management.</p>
         <button
-          onClick={onBackHome}
+          onClick={onGoHome}
           className="mt-4 px-6 py-2.5 bg-[#EE4D2D] text-white font-bold rounded-xl shadow hover:bg-[#D43D1F] transition cursor-pointer"
         >
           Back to Campus Dining
@@ -103,7 +110,13 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
       })
     : new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 
-  const orderItems = liveOrder.items || order.items || liveOrder.order_items || order.order_items || [];
+  let orderItems = [];
+  try {
+    const raw = liveOrder.items || order.items || liveOrder.order_items || order.order_items || [];
+    orderItems = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+  } catch {
+    orderItems = [];
+  }
   const subtotal = Math.max(0, (Number(liveOrder.total_amount || order.total_amount) || 0) - 5);
 
   const handlePrint = () => {
@@ -126,7 +139,7 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
             : 'bg-blue-600 text-white border-blue-400'
         }`}>
           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0 text-xl">
-            {stageAlert.type === 'DELIVERED' ? <CheckCheck size={22} /> : <Bike size={22} className="animate-bounce" />}
+            {stageAlert.type === 'DELIVERED' ? <CheckCheck size={22} /> : <CheckCircle2 size={22} className="animate-bounce" />}
           </div>
           <div className="flex-1">
             <h3 className="font-black text-base font-['Outfit']">{stageAlert.title}</h3>

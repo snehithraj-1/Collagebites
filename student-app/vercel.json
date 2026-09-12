@@ -2,6 +2,14 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/orders/student/:identifier",
+      "destination": "/api/orders?studentEmail=:identifier"
+    },
+    {
+      "source": "/api/orders/:id",
+      "destination": "/api/orders?id=:id"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

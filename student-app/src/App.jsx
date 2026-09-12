@@ -14,6 +14,7 @@ import OrderHistoryPage from './pages/OrderHistoryPage';
 import StudentProfilePage from './pages/StudentProfilePage';
 import StudentNotificationToast from './components/StudentNotificationToast';
 import BottomNav from './components/BottomNav';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function StudentAppInner() {
   const { isAuthenticated, loading } = useStudentAuth();
@@ -262,10 +263,12 @@ function StudentAppInner() {
 
 export default function App() {
   return (
-    <StudentAuthProvider>
-      <CartProvider>
-        <StudentAppInner />
-      </CartProvider>
-    </StudentAuthProvider>
+    <ErrorBoundary>
+      <StudentAuthProvider>
+        <CartProvider>
+          <StudentAppInner />
+        </CartProvider>
+      </StudentAuthProvider>
+    </ErrorBoundary>
   );
 }
