@@ -74,7 +74,7 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
   };
 
   return (
-    <div className="fixed inset-0 z-[60] overflow-hidden animate-fade-in">
+    <div className="fixed inset-x-0 top-0 cart-drawer-wrapper z-40 overflow-hidden animate-fade-in">
       {/* Backdrop */}
       <div 
         onClick={() => setIsCartOpen(false)}
@@ -83,7 +83,7 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
 
       {/* Drawer with Spring Slide Animation */}
       <div className="absolute inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
-        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col h-full max-h-[100dvh] animate-drawer-right">
+        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col h-full animate-drawer-right">
           
           {/* Header */}
           <div className="p-5 border-b border-[#F1EAE4] flex items-center justify-between bg-[#FAF8F5] shrink-0">
@@ -287,10 +287,7 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
 
           {/* Checkout Footer */}
           {items.length > 0 && (
-            <div 
-              className="p-4 border-t border-slate-200 bg-white space-y-2 shrink-0"
-              style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))' }}
-            >
+            <div className="p-3.5 sm:p-4 border-t border-slate-200 bg-white space-y-2 shrink-0 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
               <button
                 onClick={handleStartCheckout}
                 disabled={!orderingEnabled || !isRestaurantOpen}

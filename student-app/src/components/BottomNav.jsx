@@ -7,20 +7,21 @@ export default function BottomNav({ currentView, onNavigate }) {
   const { totalItemsCount, setIsCartOpen, isCartOpen } = useCart();
   const { profile } = useStudentAuth();
 
-  // Hide BottomNav when cart drawer is open to prevent overlapping with checkout footer and inputs
-  if (isCartOpen) return null;
-
-  const isHomeActive = currentView === 'restaurants' || currentView === 'menu';
-  const isOrdersActive = currentView === 'history' || currentView === 'success';
-  const isProfileActive = currentView === 'profile';
+  const isCartActive = isCartOpen;
+  const isHomeActive = !isCartOpen && (currentView === 'restaurants' || currentView === 'menu');
+  const isOrdersActive = !isCartOpen && (currentView === 'history' || currentView === 'success');
+  const isProfileActive = !isCartOpen && (currentView === 'profile');
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-sm transition-all pb-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-sm transition-all pb-safe">
       <div className="max-w-md mx-auto px-4 h-15 flex items-center justify-around relative">
         
         {/* 1. Home Tab */}
         <button
-          onClick={() => onNavigate('restaurants')}
+          onClick={() => {
+            setIsCartOpen(false);
+            onNavigate('restaurants');
+          }}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition-all cursor-pointer border-none bg-transparent group relative active:scale-95 ${
             isHomeActive ? 'text-[#FF5722]' : 'text-slate-500 hover:text-slate-900'
           }`}
@@ -42,13 +43,21 @@ export default function BottomNav({ currentView, onNavigate }) {
 
         {/* 2. Cart Tab */}
         <button
-          onClick={() => setIsCartOpen(true)}
-          className="flex-1 flex flex-col items-center justify-center py-1 transition-all cursor-pointer border-none bg-transparent group relative active:scale-95 text-slate-500 hover:text-slate-900"
-          title="Open Food Cart"
+          onClick={() => setIsCartOpen((prev) => !prev)}
+          className={`flex-1 flex flex-col items-center justify-center py-1 transition-all cursor-pointer border-none bg-transparent group relative active:scale-95 ${
+            isCartActive ? 'text-[#FF5722]' : 'text-slate-500 hover:text-slate-900'
+          }`}
+          title="Toggle Food Cart"
         >
+          {isCartActive && (
+            <span className="absolute top-0 w-8 h-0.5 rounded-full bg-[#FF5722]" />
+          )}
           <div className="relative">
             <ShoppingBag
               size={20}
+              className={`transition-transform duration-200 ${
+                isCartActive ? 'stroke-[2.5]' : ''
+              }`}
             />
             {totalItemsCount > 0 && (
               <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#FF5722] text-white text-[9px] font-bold flex items-center justify-center">
@@ -56,14 +65,17 @@ export default function BottomNav({ currentView, onNavigate }) {
               </span>
             )}
           </div>
-          <span className="text-[10px] mt-1 font-bold">
+          <span className={`text-[10px] mt-1 font-bold ${isCartActive ? 'font-extrabold' : ''}`}>
             Cart
           </span>
         </button>
 
         {/* 3. My Orders Tab */}
         <button
-          onClick={() => onNavigate('history')}
+          onClick={() => {
+            setIsCartOpen(false);
+            onNavigate('history');
+          }}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition-all cursor-pointer border-none bg-transparent group relative active:scale-95 ${
             isOrdersActive ? 'text-[#FF5722]' : 'text-[#64748B] hover:text-[#0F172A]'
           }`}
@@ -85,7 +97,10 @@ export default function BottomNav({ currentView, onNavigate }) {
 
         {/* 4. Profile Tab (Swiggy style) */}
         <button
-          onClick={() => onNavigate('profile')}
+          onClick={() => {
+            setIsCartOpen(false);
+            onNavigate('profile');
+          }}
           className={`flex-1 flex flex-col items-center justify-center py-1 transition-all cursor-pointer border-none bg-transparent group relative active:scale-95 ${
             isProfileActive ? 'text-[#FF5722]' : 'text-[#64748B] hover:text-[#0F172A]'
           }`}

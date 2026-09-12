@@ -24,6 +24,16 @@
   bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 16px);
 }
 
+.cart-drawer-wrapper {
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .cart-drawer-wrapper {
+    bottom: 0px;
+  }
+}
+
 html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
