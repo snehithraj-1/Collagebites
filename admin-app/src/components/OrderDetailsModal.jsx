@@ -92,7 +92,7 @@ export default function OrderDetailsModal({
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
               } print:border-black print:text-black`}>
-                {order.status || 'CONFIRMED'}
+                {isDelivered ? 'DELIVERED' : (isCancelled ? 'CANCELLED' : 'CONFIRMED')}
               </span>
             </div>
             <div className="text-xs text-slate-400 mt-1 flex items-center gap-1.5 print:text-slate-600">

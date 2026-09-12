@@ -208,6 +208,38 @@ export default async function handler(req, res) {
     }
   }
 
+  // POST /api/orders/status or query action=status
+  if (req.method === 'POST' && (req.query.action === 'status' || (req.body && req.body.orderId && req.body.status))) {
+    try {
+      const { orderId, status } = req.body;
+      const cleanStatus = status === 'DELIVERED' ? 'DELIVERED' : (status === 'CANCELLED' ? 'CANCELLED' : 'CONFIRMED');
+      await sql`
+        UPDATE orders
+        SET status = ${cleanStatus}, updated_at = NOW()
+        WHERE id = ${orderId} OR id LIKE ${orderId + '%'};
+      `;
+      return res.status(200).json({ success: true, orderId, status: cleanStatus });
+    } catch (err) {
+      console.error('[Orders Status Update Error]:', err.message);
+      return res.status(500).json({ error: 'Failed to update order status: ' + err.message });
+    }
+  }
+
+  // POST /api/orders/delete or query action=delete
+  if (req.method === 'POST' && (req.query.action === 'delete' || (req.body && req.body.orderId && !req.body.items && !req.body.student_name && !req.body.studentName))) {
+    try {
+      const { orderId } = req.body;
+      await sql`
+        DELETE FROM orders
+        WHERE id = ${orderId} OR id LIKE ${orderId + '%'};
+      `;
+      return res.status(200).json({ success: true, deletedOrderId: orderId });
+    } catch (err) {
+      console.error('[Orders Delete Error]:', err.message);
+      return res.status(500).json({ error: 'Failed to delete order: ' + err.message });
+    }
+  }
+
   // POST /api/orders (Create Order)
   if (req.method === 'POST') {
     try {

@@ -3,8 +3,8 @@ import { ShoppingBag, CheckCircle2, XCircle, Store, Power } from 'lucide-react';
 
 export default function MetricsOverview({ orders, restaurants, orderingEnabled }) {
   const totalOrders = orders.length;
-  const confirmedOrders = orders.filter((o) => o.status === 'CONFIRMED' || !['CANCELLED', 'EXPIRED'].includes(o.status)).length;
-  const cancelledOrders = orders.filter((o) => ['CANCELLED', 'EXPIRED'].includes(o.status)).length;
+  const confirmedOrders = orders.filter((o) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED').length;
+  const deliveredOrders = orders.filter((o) => o.status === 'DELIVERED').length;
   const activeRestaurants = restaurants.filter((r) => r.is_open !== false).length;
 
   return (
@@ -25,26 +25,26 @@ export default function MetricsOverview({ orders, restaurants, orderingEnabled }
 
       {/* 2. Confirmed Orders */}
       <div className="admin-card p-3 sm:p-5 flex items-center gap-3">
-        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 border border-emerald-500/30">
+        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 border border-amber-500/30">
           <CheckCircle2 size={18} />
         </div>
         <div>
           <div className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider font-['Outfit']">Confirmed</div>
-          <div className="text-xl sm:text-2xl font-black font-['Outfit'] tracking-tight text-emerald-400 mt-0.5">
+          <div className="text-xl sm:text-2xl font-black font-['Outfit'] tracking-tight text-amber-400 mt-0.5">
             {confirmedOrders}
           </div>
         </div>
       </div>
 
-      {/* 3. Cancelled Orders */}
+      {/* 3. Delivered Orders */}
       <div className="admin-card p-3 sm:p-5 flex items-center gap-3">
-        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center flex-shrink-0 border border-rose-500/30">
-          <XCircle size={18} />
+        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 border border-emerald-500/30">
+          <CheckCircle2 size={18} />
         </div>
         <div>
-          <div className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider font-['Outfit']">Cancelled</div>
-          <div className="text-xl sm:text-2xl font-black font-['Outfit'] tracking-tight text-rose-400 mt-0.5">
-            {cancelledOrders}
+          <div className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-wider font-['Outfit']">Delivered</div>
+          <div className="text-xl sm:text-2xl font-black font-['Outfit'] tracking-tight text-emerald-400 mt-0.5">
+            {deliveredOrders}
           </div>
         </div>
       </div>

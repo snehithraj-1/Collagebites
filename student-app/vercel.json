@@ -2,6 +2,14 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/orders/status",
+      "destination": "/api/orders?action=status"
+    },
+    {
+      "source": "/api/orders/delete",
+      "destination": "/api/orders?action=delete"
+    },
+    {
       "source": "/api/orders/student/:identifier",
       "destination": "/api/orders?studentEmail=:identifier"
     },
