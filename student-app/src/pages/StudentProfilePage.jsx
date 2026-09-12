@@ -407,7 +407,7 @@ export default function StudentProfilePage({ onBackToHome, onViewOrders }) {
                 <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#F1EAE4] flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Student Email Address
+                      Email Address
                     </span>
                     <span className="text-xs sm:text-sm font-bold font-mono text-slate-700 mt-0.5 block truncate">
                       {profile?.email}
@@ -481,7 +481,7 @@ export default function StudentProfilePage({ onBackToHome, onViewOrders }) {
                 {/* Email Read-only Display */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 block">
-                    Registered Student Email (Account Key)
+                    Registered Email Address (Account Key)
                   </label>
                   <input
                     type="email"

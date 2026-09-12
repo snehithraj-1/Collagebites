@@ -47,7 +47,7 @@ export default function StudentLoginPage() {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!cleanEmail || !emailRegex.test(cleanEmail)) {
-      setMessage({ type: 'error', text: 'Please enter a valid student email address.' });
+      setMessage({ type: 'error', text: 'Please enter a valid email address.' });
       return;
     }
 
@@ -161,7 +161,7 @@ export default function StudentLoginPage() {
                   type="tel"
                   required
                   maxLength={10}
-                  placeholder="10-digit phone number (e.g. 9989955833)"
+                  placeholder="Enter 10-digit phone number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                   disabled={isLoading}
@@ -175,7 +175,7 @@ export default function StudentLoginPage() {
               <div>
                 <label className="block text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-1 flex items-center gap-1.5">
                   <Mail size={13} className="text-[#FF5722]" />
-                  <span>Student Email Address *</span>
+                  <span>Email Address *</span>
                 </label>
                 <input
                   type="email"
