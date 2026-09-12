@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bike, X, Plus, Trash2, Key, Phone, User, Store, ShieldCheck, Check, Copy, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
-export default function DeliveryPartnersModal({ isOpen, onClose }) {
+export default function DeliveryPartnersModal({ isOpen, onClose, assignedRestaurantId = null }) {
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -11,7 +11,7 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('1234');
-  const [restaurantId, setRestaurantId] = useState('all');
+  const [restaurantId, setRestaurantId] = useState(assignedRestaurantId || 'all');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Show/hide PIN toggles
@@ -37,11 +37,14 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
 
   useEffect(() => {
     if (isOpen) {
+      if (assignedRestaurantId) {
+        setRestaurantId(assignedRestaurantId);
+      }
       fetchPartners();
       setError('');
       setSuccessMessage('');
     }
-  }, [isOpen]);
+  }, [isOpen, assignedRestaurantId]);
 
   const handleGeneratePin = () => {
     const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
@@ -71,6 +74,7 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
     }
 
     setIsSubmitting(true);
+    const effectiveRestaurantId = assignedRestaurantId || restaurantId;
     try {
       const res = await fetch('/api/delivery-partners', {
         method: 'POST',
@@ -79,7 +83,7 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
           name: name.trim(),
           phone: cleanPhone,
           pin: cleanPin,
-          restaurant_id: restaurantId
+          restaurant_id: effectiveRestaurantId
         })
       });
 
@@ -89,7 +93,7 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
         setName('');
         setPhone('');
         setPin('1234');
-        setRestaurantId('all');
+        setRestaurantId(assignedRestaurantId || 'all');
         fetchPartners();
       } else {
         setError(data.error || 'Failed to create delivery partner credentials.');
@@ -267,13 +271,21 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
                 <div className="relative">
                   <Store size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                   <select
-                    value={restaurantId}
+                    value={assignedRestaurantId || restaurantId}
+                    disabled={Boolean(assignedRestaurantId)}
                     onChange={(e) => setRestaurantId(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    className="w-full pl-8 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
                   >
-                    <option value="all">All Kitchens (Campus Fleet)</option>
-                    <option value="local-home-kitchen">Local Home Kitchen</option>
-                    <option value="clg-bites-biryani-nation">CLG Bites Biryani Nation</option>
+                    {!assignedRestaurantId && <option value="all">All Kitchens (Campus Fleet)</option>}
+                    {(!assignedRestaurantId || assignedRestaurantId === 'local-home-kitchen') && (
+                      <option value="local-home-kitchen">Local Home Kitchen</option>
+                    )}
+                    {(!assignedRestaurantId || assignedRestaurantId === 'clg-bites-biryani-nation') && (
+                      <option value="clg-bites-biryani-nation">CLG Bites Biryani Nation</option>
+                    )}
+                    {(!assignedRestaurantId || assignedRestaurantId === 'vilasa-cafe') && (
+                      <option value="vilasa-cafe">Vilasa Café</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -292,30 +304,36 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
           </form>
 
           {/* Active Partners List */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-xs text-slate-400 uppercase tracking-wider">
-                Existing Delivery Partners ({partners.length})
-              </span>
-              <span className="text-[10px] text-slate-500">
-                Gate 3 Security Handover Personnel
-              </span>
-            </div>
+          {(() => {
+            const visiblePartners = assignedRestaurantId
+              ? partners.filter(p => p.restaurant_id === assignedRestaurantId)
+              : partners;
 
-            {loading ? (
-              <div className="p-8 text-center text-slate-500">Loading delivery partners...</div>
-            ) : partners.length === 0 ? (
-              <div className="p-6 rounded-xl bg-slate-950/40 border border-slate-800 text-center text-slate-500">
-                No delivery partners configured yet. Add your first rider above.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {partners.map((p) => {
-                  const isPinVisible = Boolean(visiblePins[p.id]);
-                  const pinDisplay = p.pin || '1234';
+            return (
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-slate-400 uppercase tracking-wider">
+                    Existing Delivery Partners ({visiblePartners.length})
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    Gate 3 Security Handover Personnel
+                  </span>
+                </div>
 
-                  return (
-                    <div
+                {loading ? (
+                  <div className="p-8 text-center text-slate-500">Loading delivery partners...</div>
+                ) : visiblePartners.length === 0 ? (
+                  <div className="p-6 rounded-xl bg-slate-950/40 border border-slate-800 text-center text-slate-500">
+                    No delivery partners configured for this kitchen yet. Add your first rider above.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {visiblePartners.map((p) => {
+                      const isPinVisible = Boolean(visiblePins[p.id]);
+                      const pinDisplay = p.pin || '1234';
+
+                      return (
+                        <div
                       key={p.id}
                       className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-700 transition-colors"
                     >
@@ -331,6 +349,8 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
                                 ? 'Local Home Kitchen'
                                 : p.restaurant_id === 'clg-bites-biryani-nation'
                                 ? 'CLG Bites'
+                                : p.restaurant_id === 'vilasa-cafe'
+                                ? 'Vilasa Café'
                                 : 'Campus Fleet'}
                             </span>
                           </div>
@@ -380,6 +400,8 @@ export default function DeliveryPartnersModal({ isOpen, onClose }) {
               </div>
             )}
           </div>
+        );
+      })()}
 
         </div>
 

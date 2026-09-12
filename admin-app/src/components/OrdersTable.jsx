@@ -145,6 +145,16 @@ export default function OrdersTable({
               CLG Bites
             </button>
             <button
+              onClick={() => onSelectRestaurantTab('vilasa-cafe')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border-none whitespace-nowrap ${
+                activeRestaurantTab === 'vilasa-cafe'
+                  ? 'bg-[#FF5722] text-white shadow-xs'
+                  : 'bg-transparent text-slate-400 hover:text-white'
+              }`}
+            >
+              Vilasa Café
+            </button>
+            <button
               onClick={() => onSelectRestaurantTab('all')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border-none whitespace-nowrap ${
                 activeRestaurantTab === 'all'

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Search, Plus, Minus, ShoppingBag, MapPin, Clock, CheckCircle2, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Search, Plus, Minus, ShoppingBag, MapPin, Clock, CheckCircle2, ChevronRight, AlertCircle, Phone } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { DEFAULT_MENU_ITEMS } from '../lib/campusSeedData';
 import { useCart } from '../context/CartContext';
@@ -97,10 +97,25 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
     };
   }, [restaurant.id]);
 
-  // Extract normalized categories
+  const ORDERED_CATEGORIES = [
+    'Veg Starters',
+    'Egg Starters',
+    'Non-Veg Starters',
+    'Veg Biryanis',
+    'Non-Veg Biryanis',
+    'Noodles',
+    'Fried Rice',
+    'Veg Curries',
+    'Non-Veg Curries',
+    'Breads & Frankies'
+  ];
+
+  // Extract normalized categories in exact sequence
   const categories = useMemo(() => {
-    const set = new Set(menuItems.map((i) => i.category).filter(Boolean));
-    return ['ALL', ...Array.from(set)];
+    const rawSet = new Set(menuItems.map((i) => i.category).filter(Boolean));
+    const ordered = ORDERED_CATEGORIES.filter((c) => rawSet.has(c));
+    const extra = Array.from(rawSet).filter((c) => !ORDERED_CATEGORIES.includes(c));
+    return ['ALL', ...ordered, ...extra];
   }, [menuItems]);
 
   // Filtered dishes
@@ -151,6 +166,15 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
                 <MapPin size={13} className="text-[#FF5722]" />
                 {restaurant.location || 'Beside Ayyappa PG Hostel'}
               </span>
+              {restaurant.phone && (
+                <>
+                  <span>•</span>
+                  <a href={`tel:${restaurant.phone}`} className="flex items-center gap-1 font-mono text-slate-700 hover:text-[#FF5722]">
+                    <Phone size={12} className="text-[#FF5722]" />
+                    <span>{restaurant.phone}</span>
+                  </a>
+                </>
+              )}
               <span>•</span>
               <span className="flex items-center gap-1">
                 <Clock size={13} className="text-[#64748B]" />
@@ -173,6 +197,18 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
             />
           </div>
         </div>
+
+        {/* Closed / Disabled Notice */}
+        {!isOpen && (
+          <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs flex items-center gap-2">
+            <AlertCircle size={16} className="shrink-0 text-amber-600" />
+            <span>
+              {!orderingEnabled
+                ? 'Campus ordering is currently paused by platform administration. You can browse the menu, but placing orders is disabled.'
+                : `${restaurant.name} is currently CLOSED. You can view dishes and prices, but placing orders is disabled.`}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 2. Sticky Horizontally Scrollable Categories */}

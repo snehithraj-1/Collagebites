@@ -12,6 +12,7 @@ import OrderDetailsModal from '../components/OrderDetailsModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import StudentsModal from '../components/StudentsModal';
 import MenuManagerModal from '../components/MenuManagerModal';
+import DeliveryPartnersModal from '../components/DeliveryPartnersModal';
 import AdminSideMenuDrawer from '../components/AdminSideMenuDrawer';
 import AdminBottomNav from '../components/AdminBottomNav';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -42,6 +43,7 @@ export default function AdminDashboardPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isStudentsModalOpen, setIsStudentsModalOpen] = useState(false);
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
 
   // New Order Notifications & Audio Alert
@@ -455,6 +457,8 @@ export default function AdminDashboardPage() {
                       ? 'Local Home Kitchen'
                       : assignedRestaurantId === 'clg-bites-biryani-nation'
                       ? 'CLG Bites'
+                      : assignedRestaurantId === 'vilasa-cafe'
+                      ? 'Vilasa Café'
                       : `${profile?.name || 'Kitchen Staff'}`
                     : 'Srm : College Bites'}
                 </span>
@@ -658,6 +662,8 @@ export default function AdminDashboardPage() {
                 ? 'Local Home Kitchen'
                 : (isRestaurantAdmin && assignedRestaurantId === 'clg-bites-biryani-nation') || activeRestaurantTab === 'clg-bites-biryani-nation'
                 ? 'CLG Bites Biryani Nation'
+                : (isRestaurantAdmin && assignedRestaurantId === 'vilasa-cafe') || activeRestaurantTab === 'vilasa-cafe'
+                ? 'Vilasa Café'
                 : 'All Restaurants'
             }
             onInspectOrder={(order) => setInspectingOrder(order)}
@@ -699,6 +705,14 @@ export default function AdminDashboardPage() {
       <MenuManagerModal
         isOpen={isMenuModalOpen}
         onClose={() => setIsMenuModalOpen(false)}
+        assignedRestaurantId={isRestaurantAdmin ? assignedRestaurantId : null}
+      />
+
+      {/* Delivery Partners & Rider Management Modal */}
+      <DeliveryPartnersModal
+        isOpen={isDeliveryModalOpen}
+        onClose={() => setIsDeliveryModalOpen(false)}
+        assignedRestaurantId={isRestaurantAdmin ? assignedRestaurantId : null}
       />
 
       {/* Admin Three-Lines Operations Side Menu Drawer */}
@@ -714,6 +728,7 @@ export default function AdminDashboardPage() {
         }}
         onOpenMenuManager={() => setIsMenuModalOpen(true)}
         onOpenStudentsModal={() => setIsStudentsModalOpen(true)}
+        onOpenDeliveryPartnersModal={() => setIsDeliveryModalOpen(true)}
         onRefreshData={() => {
           loadOrders(false);
           loadRestaurants();

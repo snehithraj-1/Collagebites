@@ -19,11 +19,11 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-export default function MenuManagerModal({ isOpen, onClose }) {
+export default function MenuManagerModal({ isOpen, onClose, assignedRestaurantId = null }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRestaurant, setSelectedRestaurant] = useState('ALL');
+  const [selectedRestaurant, setSelectedRestaurant] = useState(assignedRestaurantId || 'ALL');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [stockFilter, setStockFilter] = useState('ALL'); // 'ALL' | 'IN_STOCK' | 'SOLD_OUT'
   const [togglingId, setTogglingId] = useState(null);
@@ -57,9 +57,12 @@ export default function MenuManagerModal({ isOpen, onClose }) {
 
   useEffect(() => {
     if (isOpen) {
+      if (assignedRestaurantId) {
+        setSelectedRestaurant(assignedRestaurantId);
+      }
       loadMenu();
     }
-  }, [isOpen]);
+  }, [isOpen, assignedRestaurantId]);
 
   // Extract unique categories
   const categories = useMemo(() => {
@@ -75,8 +78,9 @@ export default function MenuManagerModal({ isOpen, onClose }) {
         !searchQuery ||
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchRest =
-        selectedRestaurant === 'ALL' || item.restaurant_id === selectedRestaurant;
+      const matchRest = assignedRestaurantId
+        ? item.restaurant_id === assignedRestaurantId
+        : (selectedRestaurant === 'ALL' || item.restaurant_id === selectedRestaurant);
       const matchCat =
         selectedCategory === 'ALL' || item.category === selectedCategory;
       const matchStock =
@@ -85,7 +89,7 @@ export default function MenuManagerModal({ isOpen, onClose }) {
         (stockFilter === 'SOLD_OUT' && !inStock);
       return matchSearch && matchRest && matchCat && matchStock;
     });
-  }, [items, searchQuery, selectedRestaurant, selectedCategory, stockFilter]);
+  }, [items, searchQuery, selectedRestaurant, selectedCategory, stockFilter, assignedRestaurantId]);
 
   const totalDishes = items.length;
   const soldOutCount = items.filter((i) => i.is_available === false || i.is_available === 'false' || i.is_available === 0).length;
@@ -355,10 +359,12 @@ export default function MenuManagerModal({ isOpen, onClose }) {
             </div>
 
             <button
-              onClick={() =>
+              onClick={() => {
+                const effectiveRest = assignedRestaurantId || (selectedRestaurant !== 'ALL' ? selectedRestaurant : 'local-home-kitchen');
+                const effectiveName = effectiveRest === 'vilasa-cafe' ? 'Vilasa Café' : (effectiveRest === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen');
                 setEditingItem({
-                  restaurant_id: selectedRestaurant !== 'ALL' ? selectedRestaurant : 'local-home-kitchen',
-                  restaurant_name: selectedRestaurant === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen',
+                  restaurant_id: effectiveRest,
+                  restaurant_name: effectiveName,
                   category: 'Biryani',
                   name: '',
                   description: '',
@@ -367,8 +373,8 @@ export default function MenuManagerModal({ isOpen, onClose }) {
                   is_veg: true,
                   is_available: true,
                   preparation_time: '15-20 mins'
-                })
-              }
+                });
+              }}
               className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
             >
               <Plus size={16} />
@@ -403,13 +409,21 @@ export default function MenuManagerModal({ isOpen, onClose }) {
           <div className="flex items-center gap-2">
             <Store size={14} className="text-slate-400" />
             <select
-              value={selectedRestaurant}
+              value={assignedRestaurantId || selectedRestaurant}
+              disabled={Boolean(assignedRestaurantId)}
               onChange={(e) => setSelectedRestaurant(e.target.value)}
-              className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-amber-500 cursor-pointer"
+              className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-amber-500 cursor-pointer disabled:opacity-75"
             >
-              <option value="ALL">All Kitchens ({items.length})</option>
-              <option value="local-home-kitchen">Local Home Kitchen</option>
-              <option value="clg-bites-biryani-nation">Clg Bites Biryani Nation</option>
+              {!assignedRestaurantId && <option value="ALL">All Kitchens ({items.length})</option>}
+              {(!assignedRestaurantId || assignedRestaurantId === 'local-home-kitchen') && (
+                <option value="local-home-kitchen">Local Home Kitchen</option>
+              )}
+              {(!assignedRestaurantId || assignedRestaurantId === 'clg-bites-biryani-nation') && (
+                <option value="clg-bites-biryani-nation">Clg Bites Biryani Nation</option>
+              )}
+              {(!assignedRestaurantId || assignedRestaurantId === 'vilasa-cafe') && (
+                <option value="vilasa-cafe">Vilasa Café</option>
+              )}
             </select>
           </div>
 
@@ -703,21 +717,31 @@ export default function MenuManagerModal({ isOpen, onClose }) {
                     Kitchen / Restaurant *
                   </label>
                   <select
-                    value={editingItem.restaurant_id || 'local-home-kitchen'}
+                    value={editingItem.restaurant_id || (assignedRestaurantId || 'local-home-kitchen')}
+                    disabled={Boolean(assignedRestaurantId)}
                     onChange={(e) =>
                       setEditingItem({
                         ...editingItem,
                         restaurant_id: e.target.value,
                         restaurant_name:
-                          e.target.value === 'clg-bites-biryani-nation'
+                          e.target.value === 'vilasa-cafe'
+                            ? 'Vilasa Café'
+                            : e.target.value === 'clg-bites-biryani-nation'
                             ? 'Clg Bites Biryani Nation'
                             : 'Local Home Kitchen'
                       })
                     }
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white cursor-pointer focus:outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white cursor-pointer focus:outline-none focus:border-amber-500 disabled:opacity-75"
                   >
-                    <option value="local-home-kitchen">Local Home Kitchen</option>
-                    <option value="clg-bites-biryani-nation">Clg Bites Biryani Nation</option>
+                    {(!assignedRestaurantId || assignedRestaurantId === 'local-home-kitchen') && (
+                      <option value="local-home-kitchen">Local Home Kitchen</option>
+                    )}
+                    {(!assignedRestaurantId || assignedRestaurantId === 'clg-bites-biryani-nation') && (
+                      <option value="clg-bites-biryani-nation">Clg Bites Biryani Nation</option>
+                    )}
+                    {(!assignedRestaurantId || assignedRestaurantId === 'vilasa-cafe') && (
+                      <option value="vilasa-cafe">Vilasa Café</option>
+                    )}
                   </select>
                 </div>
 

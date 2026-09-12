@@ -1179,7 +1179,7 @@ export const DEFAULT_MENU_ITEMS = [
     "restaurant_id": "vilasa-cafe",
     "restaurant_name": "Vilasa Café",
     "category": "Egg Starters",
-    "name": "Omlet",
+    "name": "Omelet",
     "description": "Classic pan-fried fluffy 2-egg omelette loaded with diced onions, green chillies and black pepper.",
     "price": 80,
     "is_veg": false,
@@ -1665,7 +1665,7 @@ export const DEFAULT_MENU_ITEMS = [
     "category": "Fried Rice",
     "name": "Veg Schezwan Fried Rice",
     "description": "Spicy Schezwan sauce tossed fried rice with crunchy vegetables and fiery red chillies.",
-    "price": 140,
+    "price": 170,
     "is_veg": true,
     "image_url": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=600&q=80"
   },
@@ -1841,7 +1841,7 @@ export const DEFAULT_MENU_ITEMS = [
     "category": "Veg Curries",
     "name": "Tomato Curry",
     "description": "Homestyle tangy and spiced ripe tomato gravy tempered with mustard, cumin and curry leaves.",
-    "price": 120,
+    "price": 180,
     "is_veg": true,
     "image_url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80"
   },

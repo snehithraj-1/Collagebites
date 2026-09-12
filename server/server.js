@@ -286,8 +286,20 @@ async function initNeonSchema() {
       );
     `;
 
-    // Drop delivery_partners table completely (feature removed)
-    await sql`DROP TABLE IF EXISTS delivery_partners CASCADE;`;
+    // 6. Ensure delivery_partners table
+    await sql`
+      CREATE TABLE IF NOT EXISTS delivery_partners (
+        id VARCHAR(50) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(50) NOT NULL,
+        pin VARCHAR(20) DEFAULT '1234',
+        restaurant_id VARCHAR(100) DEFAULT 'all',
+        is_active BOOLEAN DEFAULT true,
+        total_deliveries INT DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
 
     // Note: menu_items is managed via Admin Portal or SQL console; never auto-reseed over user deletions!
 
@@ -990,6 +1002,19 @@ app.post('/api/auth/admin-login', async (req, res) => {
       return res.json({ success: true, token: makeAdminToken(clgProfile), user: clgProfile, message: 'CLG Bites Admin authenticated' });
     }
 
+    if ((inputIdentifier === 'vilasa_admin' || inputIdentifier === 'vilasa@campusbites.com' || inputIdentifier === 'vilasa') && (cleanPassword === 'Vilasa@Campus2026' || cleanPassword === 'vilasa123')) {
+      const vilasaProfile = {
+        id: 'admin-vilasa',
+        username: 'vilasa_admin',
+        name: 'Vilasa Café Admin',
+        email: 'vilasa@campusbites.com',
+        role: 'restaurant_admin',
+        restaurant_id: 'vilasa-cafe',
+        created_at: new Date().toISOString()
+      };
+      return res.json({ success: true, token: makeAdminToken(vilasaProfile), user: vilasaProfile, message: 'Vilasa Café Admin authenticated' });
+    }
+
     console.warn(`[Admin Auth Rejected] Invalid credentials attempt: ${inputIdentifier}`);
     return res.status(401).json({
       success: false,
@@ -1381,6 +1406,8 @@ const handleOrderStatusUpdate = async (req, res) => {
   const validStatuses = [
     'CONFIRMED',
     'PREPARING',
+    'ASSIGNED',
+    'OUT_FOR_DELIVERY',
     'DELIVERED',
     'CANCELLED'
   ];
@@ -1512,7 +1539,8 @@ app.delete('/api/orders/:id', handleOrderDelete);
 const SEED_DELIVERY_PARTNERS = [
   { id: 'dp-1', name: 'Raju (Gate 3 Fleet)', phone: '9876543210', pin: '1234', restaurant_id: 'all', is_active: true, total_deliveries: 42, created_at: new Date().toISOString() },
   { id: 'dp-2', name: 'Suresh (Home Kitchen Rider)', phone: '9876543211', pin: '1234', restaurant_id: 'local-home-kitchen', is_active: true, total_deliveries: 28, created_at: new Date().toISOString() },
-  { id: 'dp-3', name: 'Kiran (CLG Express)', phone: '9876543212', pin: '1234', restaurant_id: 'clg-bites-biryani-nation', is_active: true, total_deliveries: 35, created_at: new Date().toISOString() }
+  { id: 'dp-3', name: 'Kiran (CLG Express)', phone: '9876543212', pin: '1234', restaurant_id: 'clg-bites-biryani-nation', is_active: true, total_deliveries: 35, created_at: new Date().toISOString() },
+  { id: 'dp-4', name: 'Rajesh (Vilasa Rider)', phone: '9989955833', pin: '1234', restaurant_id: 'vilasa-cafe', is_active: true, total_deliveries: 15, created_at: new Date().toISOString() }
 ];
 
 // GET /api/delivery-partners
@@ -1663,6 +1691,146 @@ app.delete('/api/delivery-partners/:id', async (req, res) => {
 
   res.json({ success: true, message: 'Delivery partner credentials removed.' });
 });
+
+// Rider Endpoints (Phone + PIN Authentication & Delivery Operations)
+app.post('/api/rider/login', async (req, res) => {
+  try {
+    const { phone, pin } = req.body || {};
+    const cleanPhone = (phone || '').toString().replace(/\D/g, '').slice(-10);
+    const cleanPin = (pin || '').toString().trim();
+
+    if (!cleanPhone || cleanPhone.length < 10) {
+      return res.status(400).json({ success: false, error: 'Please enter a valid 10-digit mobile number.' });
+    }
+    if (!cleanPin) {
+      return res.status(400).json({ success: false, error: 'Please enter your security PIN.' });
+    }
+
+    if (sql) {
+      const rows = await sql`
+        SELECT id, name, phone, pin, restaurant_id, is_active, total_deliveries
+        FROM delivery_partners
+        WHERE RIGHT(REGEXP_REPLACE(phone, '[^0-9]', '', 'g'), 10) = ${cleanPhone}
+          AND pin = ${cleanPin}
+        LIMIT 1;
+      `;
+
+      if (rows && rows.length > 0) {
+        const partner = rows[0];
+        if (partner.is_active === false) {
+          return res.status(403).json({ success: false, error: 'Delivery partner account deactivated' });
+        }
+        return res.json({
+          success: true,
+          partner: {
+            id: partner.id,
+            name: partner.name,
+            phone: partner.phone,
+            restaurant_id: partner.restaurant_id || 'all',
+            total_deliveries: partner.total_deliveries || 0
+          }
+        });
+      }
+    }
+
+    const local = readLocalDb();
+    const p = (local.delivery_partners || SEED_DELIVERY_PARTNERS).find(
+      x => x.phone.slice(-10) === cleanPhone && String(x.pin || '1234') === cleanPin
+    );
+    if (p) {
+      return res.json({ success: true, partner: p });
+    }
+
+    return res.status(401).json({ success: false, error: 'Invalid delivery partner credentials' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/rider/orders', async (req, res) => {
+  try {
+    const riderId = req.query.riderId || req.query.rider_id;
+    const phone = req.query.phone;
+    const cleanPhone = phone ? phone.toString().replace(/\D/g, '').slice(-10) : '';
+
+    let rows = [];
+    if (sql) {
+      if (riderId && cleanPhone) {
+        rows = await sql`
+          SELECT * FROM orders
+          WHERE (delivery_partner_id = ${riderId} 
+             OR RIGHT(REGEXP_REPLACE(COALESCE(delivery_partner_phone, ''), '[^0-9]', '', 'g'), 10) = ${cleanPhone})
+          ORDER BY created_at DESC LIMIT 100;
+        `;
+      } else if (riderId) {
+        rows = await sql`SELECT * FROM orders WHERE delivery_partner_id = ${riderId} ORDER BY created_at DESC LIMIT 100;`;
+      } else if (cleanPhone) {
+        rows = await sql`
+          SELECT * FROM orders 
+          WHERE RIGHT(REGEXP_REPLACE(COALESCE(delivery_partner_phone, ''), '[^0-9]', '', 'g'), 10) = ${cleanPhone}
+          ORDER BY created_at DESC LIMIT 100;
+        `;
+      } else {
+        rows = await sql`SELECT * FROM orders WHERE status IN ('ASSIGNED', 'OUT_FOR_DELIVERY') ORDER BY created_at DESC LIMIT 50;`;
+      }
+    }
+    if (!rows || rows.length === 0) {
+      const local = readLocalDb();
+      rows = (local.orders || []).filter(o => {
+        if (riderId) return o.delivery_partner_id === riderId;
+        if (cleanPhone) return o.delivery_partner_phone?.slice(-10) === cleanPhone;
+        return ['ASSIGNED', 'OUT_FOR_DELIVERY'].includes(o.status);
+      });
+    }
+    res.json({ success: true, orders: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/rider/orders/status', async (req, res) => {
+  try {
+    const { orderId, status, riderId } = req.body || {};
+    if (!orderId || !status) {
+      return res.status(400).json({ success: false, error: 'orderId and status required' });
+    }
+    const cleanStatus = status.trim().toUpperCase();
+
+    if (sql) {
+      await sql`
+        UPDATE orders 
+        SET status = ${cleanStatus}, updated_at = NOW() 
+        WHERE id = ${orderId} OR id LIKE ${orderId + '%'};
+      `;
+      if (cleanStatus === 'DELIVERED') {
+        try {
+          if (riderId) {
+            await sql`UPDATE delivery_partners SET total_deliveries = COALESCE(total_deliveries, 0) + 1, updated_at = NOW() WHERE id = ${riderId};`;
+          } else {
+            const ord = await sql`SELECT delivery_partner_id FROM orders WHERE id = ${orderId} LIMIT 1;`;
+            if (ord && ord.length > 0 && ord[0].delivery_partner_id) {
+              await sql`UPDATE delivery_partners SET total_deliveries = COALESCE(total_deliveries, 0) + 1, updated_at = NOW() WHERE id = ${ord[0].delivery_partner_id};`;
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    const local = readLocalDb();
+    const ordIdx = (local.orders || []).findIndex(o => o.id === orderId);
+    if (ordIdx !== -1) {
+      local.orders[ordIdx].status = cleanStatus;
+      local.orders[ordIdx].updated_at = new Date().toISOString();
+      writeLocalDb(local);
+    }
+    invalidateOrdersCache();
+
+    res.json({ success: true, status: cleanStatus });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 // 6. GET /api/students - Admin views all registered students
 app.get('/api/students', async (req, res) => {
@@ -2230,7 +2398,7 @@ app.post('/api/menu', async (req, res) => {
 
   const itemId = data.id || `dish-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   const restaurantName = data.restaurant_name || 
-    (data.restaurant_id === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen');
+    (data.restaurant_id === 'vilasa-cafe' ? 'Vilasa Café' : (data.restaurant_id === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen'));
 
   const defaultImg = data.is_veg 
     ? 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80'

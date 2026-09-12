@@ -45,14 +45,22 @@ async function testMultiRoleFlow() {
     }).then(r => r.json());
     assert(clgAdminRes.success && clgAdminRes.user?.restaurant_id === 'clg-bites-biryani-nation', 'CLG Bites Admin Login (clgbites_admin)');
 
+    // 3B. Test Vilasa Café Admin Login
+    const vilasaAdminRes = await fetch(`${BASE_URL}/api/auth/admin-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: 'vilasa_admin', password: 'Vilasa@Campus2026' })
+    }).then(r => r.json());
+    assert(vilasaAdminRes.success && vilasaAdminRes.user?.restaurant_id === 'vilasa-cafe', 'Vilasa Café Admin Login (vilasa_admin)');
+
     // 4. Test Delivery Partner (Rider) Login via Phone + PIN
     console.log('\n--- 2. Testing Delivery Partner Authentication ---');
     const riderLoginRes = await fetch(`${BASE_URL}/api/rider/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: '8240756887', pin: '1234' })
+      body: JSON.stringify({ phone: '9989955833', pin: '1234' })
     }).then(r => r.json());
-    assert(riderLoginRes.success && Boolean(riderLoginRes.partner?.id), 'Delivery Partner Login via Phone & PIN (8240756887)');
+    assert(riderLoginRes.success && Boolean(riderLoginRes.partner?.id), 'Delivery Partner Login via Phone & PIN (9989955833)');
 
     // 5. Test Active Delivery Partners Endpoint
     console.log('\n--- 3. Testing Delivery Partners List ---');

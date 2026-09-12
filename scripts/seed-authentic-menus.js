@@ -78,7 +78,7 @@ async function seedDatabase() {
   console.log('\n🍛 Seeding Authentic Menu Items with Food Photography Images...');
   
   // Clean old menu items for these restaurants
-  await sql`DELETE FROM menu_items WHERE restaurant_id IN ('local-home-kitchen', 'clg-bites-biryani-nation', 'vilasa-cafe', 'campus-delight', 'campus-delight-dhaba');`;
+  await sql`DELETE FROM menu_items WHERE restaurant_id IN ('local-home-kitchen', 'clg-bites-biryani-nation', 'campus-delight', 'campus-delight-dhaba');`;
 
   let insertedCount = 0;
   for (const item of AUTHENTIC_MENU_ITEMS) {

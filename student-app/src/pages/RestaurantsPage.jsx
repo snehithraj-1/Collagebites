@@ -217,6 +217,13 @@ export default function RestaurantsPage({ onSelectRestaurant, orderingEnabled })
                       <span className="truncate">{restaurant.location || 'Neerukonda Village'}</span>
                     </div>
 
+                    {restaurant.phone && (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                        <Phone size={12} className="text-[#FF5722] shrink-0" />
+                        <span className="font-mono font-medium">{restaurant.phone}</span>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-2 text-xs text-slate-600">
                       <Clock size={12} className="shrink-0 text-slate-400" />
                       <span>Prep time: {restaurant.prep_time || '15-20 mins'}</span>
@@ -231,25 +238,24 @@ export default function RestaurantsPage({ onSelectRestaurant, orderingEnabled })
 
                   {/* Closed Banner if restaurant closed */}
                   {!isOpen && (
-                    <div className="p-2 rounded-lg bg-slate-100 text-slate-600 text-[11px] font-medium flex items-center gap-1.5">
-                      <AlertCircle size={13} className="shrink-0 text-slate-400" />
-                      <span>Currently not accepting orders</span>
+                    <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-medium flex items-center gap-1.5">
+                      <AlertCircle size={13} className="shrink-0 text-amber-600" />
+                      <span>Currently CLOSED • Menu browsing only</span>
                     </div>
                   )}
 
                   {/* Action CTA */}
                   <div className="pt-1">
                     <button
-                      onClick={() => isOpen && onSelectRestaurant(restaurant)}
-                      disabled={!isOpen}
+                      onClick={() => onSelectRestaurant(restaurant)}
                       className={`w-full py-2.5 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all border-none ${
                         isOpen
                           ? 'bg-[#FF5722] hover:bg-[#F4511E] text-white cursor-pointer shadow-xs active:scale-98'
-                          : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'bg-slate-800 hover:bg-slate-700 text-white cursor-pointer shadow-xs active:scale-98'
                       }`}
                     >
-                      <span>{isOpen ? 'View Menu' : 'Currently Unavailable'}</span>
-                      {isOpen && <ArrowRight size={14} />}
+                      <span>{isOpen ? 'View Menu & Order' : 'View Menu (Orders Closed)'}</span>
+                      <ArrowRight size={14} />
                     </button>
                   </div>
                 </div>

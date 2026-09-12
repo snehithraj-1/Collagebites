@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, User, MapPin, Phone, Mail, Clock, ShieldCheck, Ban, Trash2, 
   CheckCircle2, Check, Printer, Building, FileText, Bike
@@ -69,6 +69,67 @@ export default function OrderDetailsModal({
 
   const isCancelled = order.status === 'CANCELLED';
   const isDelivered = order.status === 'DELIVERED';
+
+  // Delivery partner assignment state
+  const [partners, setPartners] = useState([]);
+  const [selectedPartnerId, setSelectedPartnerId] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignedPartner, setAssignedPartner] = useState({
+    name: order.delivery_partner_name || null,
+    phone: order.delivery_partner_phone || null
+  });
+
+  useEffect(() => {
+    if (order) {
+      setAssignedPartner({
+        name: order.delivery_partner_name || null,
+        phone: order.delivery_partner_phone || null
+      });
+      setSelectedPartnerId(order.delivery_partner_id || '');
+      const restId = order.restaurant_id || 'all';
+      fetch(`/api/delivery-partners?restaurant_id=${encodeURIComponent(restId)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && Array.isArray(data.partners)) {
+            setPartners(data.partners);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [order]);
+
+  const handleAssignPartner = async () => {
+    if (!selectedPartnerId || !order?.id) return;
+    const p = partners.find((x) => x.id === selectedPartnerId);
+    if (!p) return;
+    setIsAssigning(true);
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(order.id)}/assign-partner`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          partnerId: p.id,
+          partnerName: p.name,
+          partnerPhone: p.phone
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAssignedPartner({ name: p.name, phone: p.phone });
+        if (onUpdateStatus) {
+          onUpdateStatus(order.id, 'ASSIGNED', {
+            delivery_partner_id: p.id,
+            delivery_partner_name: p.name,
+            delivery_partner_phone: p.phone
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Assign partner error:', e);
+    } finally {
+      setIsAssigning(false);
+    }
+  };
 
   const handlePrint = () => {
     window.print();
@@ -207,33 +268,34 @@ export default function OrderDetailsModal({
           </div>
 
           {/* Delivery Partner Details */}
-          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 print:border-slate-300 print:bg-slate-50">
+          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5 print:border-slate-300 print:bg-slate-50">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between print:text-slate-600">
               <span className="flex items-center gap-1.5">
                 <Bike size={13} className="text-indigo-400" />
                 Delivery Partner
               </span>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                order.delivery_partner_name 
+                assignedPartner.name 
                   ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
                   : 'bg-slate-800 text-slate-400'
               }`}>
-                {order.delivery_partner_name ? 'Assigned' : 'Unassigned'}
+                {assignedPartner.name ? 'Assigned' : 'Unassigned'}
               </span>
             </div>
-            {order.delivery_partner_name ? (
+
+            {assignedPartner.name ? (
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-bold text-white text-xs sm:text-sm print:text-black">
-                    {order.delivery_partner_name}
+                    {assignedPartner.name}
                   </div>
-                  {order.delivery_partner_phone && (
+                  {assignedPartner.phone && (
                     <a
-                      href={`tel:${order.delivery_partner_phone}`}
+                      href={`tel:${assignedPartner.phone}`}
                       className="font-mono text-[11px] text-indigo-300 hover:underline flex items-center gap-1 mt-0.5"
                     >
                       <Phone size={11} />
-                      <span>{order.delivery_partner_phone}</span>
+                      <span>{assignedPartner.phone}</span>
                     </a>
                   )}
                 </div>
@@ -242,9 +304,32 @@ export default function OrderDetailsModal({
                   <span className="font-bold text-white text-xs">SRM AP Gate 3</span>
                 </div>
               </div>
-            ) : (
-              <div className="text-xs text-slate-400 italic">
-                No rider assigned yet. Use the Orders Table to assign an active campus rider.
+            ) : null}
+
+            {/* Quick Assign / Reassign Rider Control */}
+            {!isDelivered && !isCancelled && (
+              <div className="pt-1.5 border-t border-slate-800/80 print:hidden flex items-center gap-2">
+                <select
+                  value={selectedPartnerId}
+                  onChange={(e) => setSelectedPartnerId(e.target.value)}
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="">-- Choose Rider --</option>
+                  {partners.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.phone})
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  disabled={!selectedPartnerId || isAssigning}
+                  onClick={handleAssignPartner}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs transition-colors cursor-pointer border-none whitespace-nowrap shadow-xs"
+                >
+                  {isAssigning ? 'Assigning...' : assignedPartner.name ? 'Reassign' : 'Assign Rider'}
+                </button>
               </div>
             )}
           </div>
