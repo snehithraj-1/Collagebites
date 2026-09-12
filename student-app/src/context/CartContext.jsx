@@ -93,6 +93,11 @@ export function CartProvider({ children }) {
 
   // Add Item to Cart
   const addToCart = (item, restaurantId) => {
+    if (item.is_available === false || item.is_available === 'false' || item.is_available === 0 || item.isAvailable === false || item.isAvailable === 'false') {
+      alert(`Sorry, "${item.name}" is currently sold out and unavailable to order.`);
+      return false;
+    }
+
     // If cart has items from a different restaurant, reset or confirm
     if (activeRestaurantId && activeRestaurantId !== restaurantId && items.length > 0) {
       const confirmReset = window.confirm(

@@ -2080,7 +2080,7 @@ app.get(['/api/menu', '/api/menu/:restaurantId'], async (req, res) => {
         price: Number(i.price),
         rating: Number(i.rating || 4.5),
         is_veg: Boolean(i.is_veg),
-        is_available: Boolean(i.is_available)
+        is_available: i.is_available !== false && i.is_available !== 'false' && i.is_available !== 0
       }));
 
       // If requested via REST parameter (/api/menu/:restaurantId), return array directly for legacy/direct test clients
@@ -2274,7 +2274,7 @@ app.put('/api/menu/:id', async (req, res) => {
           price = COALESCE(${data.price ? Number(data.price) : null}, price),
           category = COALESCE(${data.category}, category),
           is_veg = COALESCE(${data.is_veg !== undefined ? Boolean(data.is_veg) : null}, is_veg),
-          is_available = COALESCE(${data.is_available !== undefined ? Boolean(data.is_available) : null}, is_available),
+          is_available = COALESCE(${data.is_available !== undefined ? (data.is_available !== false && data.is_available !== 'false' && data.is_available !== 0) : null}, is_available),
           image_url = COALESCE(${data.image_url !== undefined ? data.image_url : null}, image_url),
           preparation_time = COALESCE(${data.preparation_time}, preparation_time),
           updated_at = NOW()
@@ -2304,23 +2304,44 @@ app.put('/api/menu/:id', async (req, res) => {
   res.json({ success: true, message: 'Dish updated successfully' });
 });
 
-// PATCH /api/menu/:id/availability - Fast 1-click toggle: In Stock vs Sold Out
-app.patch('/api/menu/:id/availability', async (req, res) => {
-  const itemId = req.params.id;
-  const { is_available } = req.body;
+// 1-Click Availability Toggle: Fast In Stock vs Sold Out (Supports PATCH, POST, PUT)
+const handleAvailabilityToggle = async (req, res) => {
+  const rawId = req.params.id || req.body?.id || req.body?.itemId || '';
+  const itemId = decodeURIComponent(String(rawId)).trim();
 
-  if (typeof is_available !== 'boolean') {
-    return res.status(400).json({ success: false, error: 'is_available (boolean) is required' });
+  if (!itemId) {
+    return res.status(400).json({ success: false, error: 'Dish ID is required' });
   }
 
+  // Parse availability flexibly from boolean, string, or number
+  let is_available;
+  const rawVal = req.body?.is_available !== undefined ? req.body.is_available :
+                 req.body?.isAvailable !== undefined ? req.body.isAvailable :
+                 req.body?.in_stock !== undefined ? req.body.in_stock :
+                 req.body?.inStock !== undefined ? req.body.inStock :
+                 req.body?.available;
+
+  if (rawVal === false || rawVal === 'false' || rawVal === 0 || rawVal === '0') {
+    is_available = false;
+  } else {
+    is_available = true;
+  }
+
+  let dbUpdated = false;
   if (sql) {
     try {
-      await sql`
+      const rows = await sql`
         UPDATE menu_items 
         SET is_available = ${is_available}, updated_at = NOW() 
-        WHERE id = ${itemId};
+        WHERE id = ${itemId} OR LOWER(id) = LOWER(${itemId})
+        RETURNING id, name, is_available;
       `;
-      console.log(`[Neon DB] Dish #${itemId} availability toggled to: ${is_available ? 'IN STOCK' : 'SOLD OUT'}`);
+      if (rows && rows.length > 0) {
+        dbUpdated = true;
+        console.log(`[Neon DB] Dish #${rows[0].id} (${rows[0].name}) availability set to: ${is_available ? 'IN STOCK' : 'SOLD OUT'}`);
+      } else {
+        console.warn(`[Neon DB Warning] Dish not found for availability toggle: ${itemId}`);
+      }
     } catch (err) {
       console.error('[Neon DB Availability Toggle Error]:', err.message);
     }
@@ -2328,13 +2349,28 @@ app.patch('/api/menu/:id/availability', async (req, res) => {
 
   const local = readLocalDb();
   local.menu_items = (local.menu_items || INITIAL_MENU_ITEMS).map(i => {
-    if (i.id === itemId) return { ...i, is_available, updated_at: new Date().toISOString() };
+    if (i.id === itemId || String(i.id).toLowerCase() === itemId.toLowerCase()) {
+      return { ...i, is_available, updated_at: new Date().toISOString() };
+    }
     return i;
   });
   writeLocalDb(local);
 
-  res.json({ success: true, id: itemId, is_available });
-});
+  return res.json({ 
+    success: true, 
+    id: itemId, 
+    is_available,
+    dbUpdated,
+    statusText: is_available ? 'IN STOCK' : 'SOLD OUT'
+  });
+};
+
+app.patch('/api/menu/:id/availability', handleAvailabilityToggle);
+app.post('/api/menu/:id/availability', handleAvailabilityToggle);
+app.put('/api/menu/:id/availability', handleAvailabilityToggle);
+app.post('/api/menu/availability', handleAvailabilityToggle);
+app.patch('/api/menu/availability', handleAvailabilityToggle);
+
 
 // PATCH & POST /api/menu/bulk-availability & /api/menu/restaurant/:restaurantId/availability
 // Admin assigns all dishes in a restaurant as IN STOCK or SOLD OUT

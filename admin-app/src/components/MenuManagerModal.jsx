@@ -25,7 +25,9 @@ export default function MenuManagerModal({ isOpen, onClose }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRestaurant, setSelectedRestaurant] = useState('ALL');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [stockFilter, setStockFilter] = useState('ALL'); // 'ALL' | 'IN_STOCK' | 'SOLD_OUT'
   const [togglingId, setTogglingId] = useState(null);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   // Add / Edit Modal state
   const [editingItem, setEditingItem] = useState(null); // null = closed, {} = add, { ...item } = edit
@@ -39,8 +41,9 @@ export default function MenuManagerModal({ isOpen, onClose }) {
     try {
       const res = await fetch('/api/menu');
       const data = await res.json();
-      if (data.success && Array.isArray(data.items)) {
-        setItems(data.items);
+      const list = Array.isArray(data) ? data : (data.items || data.menu || []);
+      if (Array.isArray(list) && list.length > 0) {
+        setItems(list);
       }
     } catch (err) {
       console.error('Failed to fetch menu items:', err);
@@ -61,9 +64,10 @@ export default function MenuManagerModal({ isOpen, onClose }) {
     return ['ALL', ...Array.from(set)];
   }, [items]);
 
-  // Filtered dishes
+  // Filtered dishes with robust stock filter
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
+      const inStock = item.is_available !== false && item.is_available !== 'false' && item.is_available !== 0;
       const matchSearch =
         !searchQuery ||
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -72,44 +76,125 @@ export default function MenuManagerModal({ isOpen, onClose }) {
         selectedRestaurant === 'ALL' || item.restaurant_id === selectedRestaurant;
       const matchCat =
         selectedCategory === 'ALL' || item.category === selectedCategory;
-      return matchSearch && matchRest && matchCat;
+      const matchStock =
+        stockFilter === 'ALL' ||
+        (stockFilter === 'IN_STOCK' && inStock) ||
+        (stockFilter === 'SOLD_OUT' && !inStock);
+      return matchSearch && matchRest && matchCat && matchStock;
     });
-  }, [items, searchQuery, selectedRestaurant, selectedCategory]);
+  }, [items, searchQuery, selectedRestaurant, selectedCategory, stockFilter]);
 
   const totalDishes = items.length;
-  const soldOutCount = items.filter((i) => !i.is_available).length;
+  const soldOutCount = items.filter((i) => i.is_available === false || i.is_available === 'false' || i.is_available === 0).length;
   const availableCount = totalDishes - soldOutCount;
 
-  // 1-Click Toggle Availability (Sold Out vs In Stock)
+  // 1-Click Toggle Availability (Sold Out vs In Stock) with multi-method resilience
   const handleToggleAvailability = async (item) => {
-    const nextStatus = !item.is_available;
+    const currentStatus = item.is_available !== false && item.is_available !== 'false' && item.is_available !== 0;
+    const nextStatus = !currentStatus;
     setTogglingId(item.id);
 
-    // Optimistic UI update
+    // Optimistic UI update immediately
     setItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, is_available: nextStatus } : i))
     );
 
     try {
-      const res = await fetch(`/api/menu/${item.id}/availability`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_available: nextStatus })
-      });
-      const data = await res.json();
-      if (!data.success) {
-        // Revert on error
-        setItems((prev) =>
-          prev.map((i) => (i.id === item.id ? { ...i, is_available: item.is_available } : i))
-        );
+      const payload = { is_available: nextStatus, id: item.id };
+      let success = false;
+
+      // 1. Try PATCH /api/menu/:id/availability
+      try {
+        const res = await fetch(`/api/menu/${encodeURIComponent(item.id)}/availability`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (data.success !== false) success = true;
+        }
+      } catch (patchErr) {
+        console.warn('PATCH toggle request failed, will retry with POST:', patchErr.message);
+      }
+
+      // 2. Fallback: POST /api/menu/:id/availability
+      if (!success) {
+        try {
+          const resPost = await fetch(`/api/menu/${encodeURIComponent(item.id)}/availability`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (resPost.ok) {
+            const dataPost = await resPost.json().catch(() => ({}));
+            if (dataPost.success !== false) success = true;
+          }
+        } catch (postErr) {
+          console.warn('POST toggle request failed, will retry generic endpoint:', postErr.message);
+        }
+      }
+
+      // 3. Fallback: generic POST /api/menu/availability
+      if (!success) {
+        const resAlt = await fetch('/api/menu/availability', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (resAlt.ok) {
+          const dataAlt = await resAlt.json().catch(() => ({}));
+          if (dataAlt.success !== false) success = true;
+        }
+      }
+
+      if (!success) {
+        throw new Error('Server returned an error when saving availability.');
       }
     } catch (e) {
-      // Revert on error
+      console.error('Failed to toggle dish availability:', e);
+      // Revert optimistic update only on total failure
       setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, is_available: item.is_available } : i))
+        prev.map((i) => (i.id === item.id ? { ...i, is_available: currentStatus } : i))
       );
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  // Bulk toggle availability for currently filtered restaurant or all
+  const handleBulkAvailability = async (targetStock) => {
+    const label = targetStock ? 'IN STOCK' : 'SOLD OUT';
+    const restName = selectedRestaurant === 'ALL' ? 'ALL restaurants' : (selectedRestaurant === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen');
+    if (!window.confirm(`Are you sure you want to mark ALL dishes for ${restName} as ${label}?`)) {
+      return;
+    }
+
+    setBulkUpdating(true);
+    // Optimistic UI update
+    setItems((prev) =>
+      prev.map((i) => {
+        if (selectedRestaurant === 'ALL' || i.restaurant_id === selectedRestaurant) {
+          return { ...i, is_available: targetStock };
+        }
+        return i;
+      })
+    );
+
+    try {
+      await fetch('/api/menu/bulk-availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          restaurant_id: selectedRestaurant === 'ALL' ? 'all' : selectedRestaurant,
+          is_available: targetStock
+        })
+      });
+    } catch (err) {
+      console.error('Failed bulk availability update:', err);
+      loadMenu();
+    } finally {
+      setBulkUpdating(false);
     }
   };
 
@@ -325,8 +410,65 @@ export default function MenuManagerModal({ isOpen, onClose }) {
             </select>
           </div>
 
+          {/* Stock Filter Pills: All | In Stock | Sold Out */}
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setStockFilter('ALL')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                stockFilter === 'ALL' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              All ({totalDishes})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStockFilter('IN_STOCK')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                stockFilter === 'IN_STOCK' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'text-slate-400 hover:text-emerald-400'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span>In Stock ({availableCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setStockFilter('SOLD_OUT')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                stockFilter === 'SOLD_OUT' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' : 'text-slate-400 hover:text-rose-400'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+              <span>Sold Out ({soldOutCount})</span>
+            </button>
+          </div>
+
+          {/* Quick Bulk Stock Actions */}
+          <div className="flex items-center gap-1.5 ml-auto">
+            <button
+              type="button"
+              disabled={bulkUpdating}
+              onClick={() => handleBulkAvailability(true)}
+              className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+              title="Mark all dishes in current kitchen filter as In Stock"
+            >
+              <Check size={12} />
+              <span>All In Stock</span>
+            </button>
+            <button
+              type="button"
+              disabled={bulkUpdating}
+              onClick={() => handleBulkAvailability(false)}
+              className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+              title="Mark all dishes in current kitchen filter as Sold Out"
+            >
+              <AlertCircle size={12} />
+              <span>All Sold Out</span>
+            </button>
+          </div>
+
           {/* Category Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto py-1 max-w-full no-scrollbar">
+          <div className="w-full flex items-center gap-1.5 overflow-x-auto py-1 max-w-full no-scrollbar pt-2 border-t border-slate-800/40">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -361,13 +503,17 @@ export default function MenuManagerModal({ isOpen, onClose }) {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredItems.map((item) => (
+              {filteredItems.map((item) => {
+                const inStock = item.is_available !== false && item.is_available !== 'false' && item.is_available !== 0;
+                const isToggling = togglingId === item.id;
+
+                return (
                 <div
                   key={item.id}
                   className={`relative p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${
-                    item.is_available
+                    inStock
                       ? 'bg-slate-800/40 border-slate-800 hover:border-slate-700 shadow-md'
-                      : 'bg-rose-950/10 border-rose-900/30 opacity-75'
+                      : 'bg-rose-950/15 border-rose-900/40 opacity-80'
                   }`}
                 >
                   <div>
@@ -384,37 +530,34 @@ export default function MenuManagerModal({ isOpen, onClose }) {
                             e.currentTarget.src = getFallbackImage(item.is_veg);
                           }}
                         />
-                        {/* Veg / Non-Veg Icon Tag */}
-                        <div
-                          className={`absolute top-1 left-1 w-4 h-4 rounded-md border flex items-center justify-center bg-white/95 shadow-sm ${
-                            item.is_veg ? 'border-emerald-600' : 'border-rose-600'
+                        <span
+                          className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                            item.is_veg
+                              ? 'bg-emerald-500 text-slate-950'
+                              : 'bg-rose-500 text-white'
                           }`}
-                          title={item.is_veg ? 'Vegetarian' : 'Non-Vegetarian'}
                         >
-                          <div
-                            className={`w-2 h-2 rounded-full ${
-                              item.is_veg ? 'bg-emerald-600' : 'bg-rose-600'
-                            }`}
-                          />
-                        </div>
+                          {item.is_veg ? 'Veg' : 'Non-Veg'}
+                        </span>
                       </div>
 
                       {/* Dish Details */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <h3 className="text-sm font-black text-white font-['Outfit'] leading-snug truncate" title={item.name}>
+                          <h4 className={`font-bold text-sm leading-snug line-clamp-1 font-['Outfit'] ${inStock ? 'text-white' : 'text-slate-400 line-through'}`}>
                             {item.name}
-                          </h3>
-                          <span className="text-base font-black text-amber-400 font-['Outfit'] shrink-0">
+                          </h4>
+                          <span className={`text-sm font-extrabold font-mono shrink-0 ${inStock ? 'text-amber-400' : 'text-slate-400'}`}>
                             ₹{item.price}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="px-2 py-0.5 rounded-md bg-slate-700/60 text-slate-300 text-[10px] font-bold">
+                        {/* Kitchen & Category */}
+                        <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-medium">
                             {item.category}
                           </span>
-                          <span className="text-[11px] text-slate-400 flex items-center gap-1 truncate">
+                          <span className="flex items-center gap-1 text-slate-400 text-[11px]">
                             <Store size={11} className="shrink-0" />
                             <span className="truncate">{item.restaurant_name || item.restaurant_id}</span>
                           </span>
@@ -441,16 +584,24 @@ export default function MenuManagerModal({ isOpen, onClose }) {
                     
                     {/* 1-Click Availability Toggle */}
                     <button
+                      type="button"
                       onClick={() => handleToggleAvailability(item)}
-                      disabled={togglingId === item.id}
+                      disabled={isToggling}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        item.is_available
+                        isToggling
+                          ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                          : inStock
                           ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30'
                           : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40'
                       }`}
-                      title={item.is_available ? 'Click to mark as Sold Out' : 'Click to mark as In Stock'}
+                      title={inStock ? 'Click to mark as Sold Out' : 'Click to mark as In Stock'}
                     >
-                      {item.is_available ? (
+                      {isToggling ? (
+                        <>
+                          <RefreshCw size={12} className="animate-spin text-amber-400" />
+                          <span>Saving...</span>
+                        </>
+                      ) : inStock ? (
                         <>
                           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                           <span>In Stock</span>
@@ -484,7 +635,8 @@ export default function MenuManagerModal({ isOpen, onClose }) {
                   </div>
 
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -746,6 +898,37 @@ export default function MenuManagerModal({ isOpen, onClose }) {
                     }`}
                   >
                     🔴 Non-Veg
+                  </button>
+                </div>
+              </div>
+
+              {/* Dish Live Availability Toggle in Form */}
+              <div className="flex items-center justify-between p-3 bg-slate-800/60 rounded-xl border border-slate-700/60">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-300">Stock Availability:</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingItem({ ...editingItem, is_available: true })}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      editingItem.is_available !== false
+                        ? 'bg-emerald-500 text-slate-950 shadow-xs'
+                        : 'bg-slate-700 text-slate-400'
+                    }`}
+                  >
+                    🟢 In Stock
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingItem({ ...editingItem, is_available: false })}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      editingItem.is_available === false
+                        ? 'bg-rose-500 text-white shadow-xs'
+                        : 'bg-slate-700 text-slate-400'
+                    }`}
+                  >
+                    🔴 Sold Out
                   </button>
                 </div>
               </div>

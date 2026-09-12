@@ -26,8 +26,9 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
         const res = await fetch(`/api/menu?restaurant_id=${encodeURIComponent(restaurant.id)}`);
         if (res.ok) {
           const data = await res.json();
-          if (isMounted && data.success && Array.isArray(data.items) && data.items.length > 0) {
-            setMenuItems(data.items);
+          const itemsList = Array.isArray(data) ? data : (data.items || data.menu || []);
+          if (isMounted && Array.isArray(itemsList) && itemsList.length > 0) {
+            setMenuItems(itemsList);
             setIsLoading(false);
             return;
           }
@@ -189,7 +190,7 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
           {filteredDishes.map((dish) => {
             const inCart = items.find((i) => i.id === dish.id);
             const qty = inCart ? inCart.quantity : 0;
-            const isSoldOut = dish.is_available === false;
+            const isSoldOut = dish.is_available === false || dish.is_available === 'false' || dish.is_available === 0 || dish.isAvailable === false || dish.isAvailable === 'false';
 
             return (
               <div

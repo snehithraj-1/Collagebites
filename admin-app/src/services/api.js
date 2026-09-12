@@ -113,12 +113,22 @@ export const api = {
   },
 
   async toggleItemAvailability(itemId, isAvailable) {
-    const res = await fetch(`/api/menu/${encodeURIComponent(itemId)}/availability`, {
+    const payload = JSON.stringify({ is_available: isAvailable, id: itemId });
+    try {
+      const res = await fetch(`/api/menu/${encodeURIComponent(itemId)}/availability`, {
+        method: 'PATCH',
+        headers: jsonHeaders,
+        body: payload
+      });
+      if (res.ok) return handleResponse(res);
+    } catch (e) {}
+
+    const res2 = await fetch(`/api/menu/${encodeURIComponent(itemId)}/availability`, {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify({ is_available: isAvailable })
+      body: payload
     });
-    return handleResponse(res);
+    return handleResponse(res2);
   },
 
   async bulkUpdateAvailability(itemIds, isAvailable) {
