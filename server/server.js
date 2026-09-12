@@ -259,6 +259,7 @@ async function initNeonSchema() {
       );
     `;
     await sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS image_url TEXT;`;
+    await sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS preparation_time VARCHAR(50) DEFAULT '15-20 mins';`;
     await sql`CREATE INDEX IF NOT EXISTS idx_menu_restaurant ON menu_items(restaurant_id);`;
     await sql`CREATE INDEX IF NOT EXISTS idx_menu_category ON menu_items(category);`;
 
@@ -288,33 +289,7 @@ async function initNeonSchema() {
     // Drop delivery_partners table completely (feature removed)
     await sql`DROP TABLE IF EXISTS delivery_partners CASCADE;`;
 
-    // Seed menu items if empty
-    const menuCount = await sql`SELECT count(*) as c FROM menu_items;`;
-    if (parseInt(menuCount[0]?.c || '0', 10) === 0) {
-      console.log('[Neon DB] Seeding default campus dishes into Neon DB...');
-      for (const item of INITIAL_MENU_ITEMS) {
-        await sql`
-          INSERT INTO menu_items (
-            id, restaurant_id, restaurant_name, name, description, price, category, is_veg, is_available, preparation_time, image_url
-          ) VALUES (
-            ${item.id},
-            ${item.restaurant_id},
-            ${item.restaurant_name},
-            ${item.name},
-            ${item.description},
-            ${item.price},
-            ${item.category},
-            ${item.is_veg},
-            ${item.is_available},
-            ${item.preparation_time},
-            ${item.image_url || null}
-          ) ON CONFLICT (id) DO UPDATE SET
-            image_url = EXCLUDED.image_url,
-            price = EXCLUDED.price;
-        `;
-      }
-      console.log('✅ [Neon DB] Default menu items seeded successfully!');
-    }
+    // Note: menu_items is managed via Admin Portal or SQL console; never auto-reseed over user deletions!
 
     // 7. Ensure system_settings table
     await sql`
@@ -1234,6 +1209,28 @@ app.post('/api/orders', async (req, res) => {
           error: `${restRows[0].name || 'This restaurant'} is currently closed and not accepting new orders.`
         });
       }
+
+      // Three-Tier Guard: Verify each individual dish is IN STOCK in Neon DB
+      if (Array.isArray(orderData.items) && orderData.items.length > 0) {
+        const itemIds = orderData.items.map(i => i.id || i.menu_item_id).filter(Boolean);
+        if (itemIds.length > 0) {
+          const dbItems = await sql`
+            SELECT id, name, is_available 
+            FROM menu_items 
+            WHERE id = ANY(${itemIds});
+          `;
+          for (const itm of orderData.items) {
+            const itmId = itm.id || itm.menu_item_id;
+            const match = dbItems.find(d => d.id === itmId || String(d.id).toLowerCase() === String(itmId).toLowerCase());
+            if (match && (match.is_available === false || match.is_available === 'false' || match.is_available === 0)) {
+              return res.status(400).json({
+                success: false,
+                error: `Item "${match.name || itm.name || 'Selected dish'}" is currently sold out and cannot be ordered. Please remove it from your cart to proceed.`
+              });
+            }
+          }
+        }
+      }
     } catch (guardErr) {
       console.warn('[Availability Guard Warning]:', guardErr.message);
     }
@@ -1457,10 +1454,31 @@ app.patch('/api/orders/status', handleOrderStatusUpdate);
 app.post('/api/orders/:id/status', handleOrderStatusUpdate);
 app.patch('/api/orders/:id/status', handleOrderStatusUpdate);
 
-// 5. Delete Order - Supports POST /api/orders/delete & DELETE /api/orders/:id
+// 5. Delete Order - Supports POST /api/orders/delete & DELETE /api/orders/:id & bulk delete
 const handleOrderDelete = async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const body = req.body || {};
-  const orderId = req.params.id || body.orderId || body.order_id || req.query.id;
+  const orderId = req.params.id || body.orderId || body.order_id || req.query.id || req.query.orderId;
+
+  if (orderId === 'all' || req.query.all === 'true') {
+    if (sql) {
+      try {
+        await sql`DELETE FROM order_items;`;
+        await sql`DELETE FROM orders;`;
+        console.log('[Neon DB] All orders permanently deleted');
+      } catch (err) {
+        console.warn('[Neon DB Delete All Error]:', err.message);
+      }
+    }
+    const local = readLocalDb();
+    local.orders = [];
+    writeLocalDb(local);
+    invalidateOrdersCache();
+    return res.json({ success: true, message: 'All orders permanently deleted.' });
+  }
 
   if (!orderId) {
     return res.status(400).json({ success: false, error: 'Order ID is required' });
@@ -2040,6 +2058,10 @@ app.all(['/api/restaurants/toggle', '/api/restaurants/:id/toggle', '/api/restaur
 
 // GET /api/menu & /api/menu/:restaurantId - List all menu items (flexible for portals & test clients)
 app.get(['/api/menu', '/api/menu/:restaurantId'], async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const restaurant_id = req.params.restaurantId || req.query.restaurant_id;
   const { available_only } = req.query;
 
@@ -2095,7 +2117,7 @@ app.get(['/api/menu', '/api/menu/:restaurantId'], async (req, res) => {
 
   // Fallback to local cache
   const local = readLocalDb();
-  let list = local.menu_items || INITIAL_MENU_ITEMS;
+  let list = Array.isArray(local.menu_items) ? local.menu_items : INITIAL_MENU_ITEMS;
   if (restaurant_id) list = list.filter(i => i.restaurant_id === restaurant_id);
   if (available_only === 'true') list = list.filter(i => i.is_available !== false);
 
@@ -2196,6 +2218,10 @@ app.post('/api/upload-image', async (req, res) => {
 
 // POST /api/menu - Admin adds new dish
 app.post('/api/menu', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const data = req.body;
   if (!data || !data.name || !data.price || !data.restaurant_id) {
     return res.status(400).json({ success: false, error: 'Name, price and restaurant_id are required.' });
@@ -2209,7 +2235,7 @@ app.post('/api/menu', async (req, res) => {
     ? 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80'
     : 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80';
 
-  const newItem = {
+  let newItem = {
     id: itemId,
     restaurant_id: data.restaurant_id,
     restaurant_name: restaurantName,
@@ -2228,7 +2254,7 @@ app.post('/api/menu', async (req, res) => {
 
   if (sql) {
     try {
-      await sql`
+      const rows = await sql`
         INSERT INTO menu_items (
           id, restaurant_id, restaurant_name, name, description, price, category, is_veg, is_available, image_url, preparation_time, rating
         ) VALUES (
@@ -2244,11 +2270,23 @@ app.post('/api/menu', async (req, res) => {
           ${newItem.image_url},
           ${newItem.preparation_time},
           ${newItem.rating}
-        );
+        )
+        RETURNING *;
       `;
+      if (rows && rows.length > 0) {
+        newItem = {
+          ...newItem,
+          ...rows[0],
+          price: Number(rows[0].price),
+          rating: Number(rows[0].rating || 4.5),
+          is_veg: Boolean(rows[0].is_veg),
+          is_available: rows[0].is_available !== false
+        };
+      }
       console.log(`[Neon DB] New dish created: ${newItem.name} (₹${newItem.price})`);
     } catch (err) {
       console.error('[Neon DB Dish Create Error]:', err.message);
+      return res.status(500).json({ success: false, error: 'Failed to create dish in database: ' + err.message });
     }
   }
 
@@ -2261,51 +2299,75 @@ app.post('/api/menu', async (req, res) => {
 
 // PUT /api/menu/:id - Admin updates a dish
 app.put('/api/menu/:id', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const itemId = req.params.id;
   const data = req.body;
+  let updatedDish = null;
 
   if (sql) {
     try {
-      await sql`
+      const rows = await sql`
         UPDATE menu_items 
         SET 
           name = COALESCE(${data.name}, name),
           description = COALESCE(${data.description}, description),
-          price = COALESCE(${data.price ? Number(data.price) : null}, price),
+          price = COALESCE(${data.price !== undefined ? Number(data.price) : null}, price),
           category = COALESCE(${data.category}, category),
           is_veg = COALESCE(${data.is_veg !== undefined ? Boolean(data.is_veg) : null}, is_veg),
           is_available = COALESCE(${data.is_available !== undefined ? (data.is_available !== false && data.is_available !== 'false' && data.is_available !== 0) : null}, is_available),
           image_url = COALESCE(${data.image_url !== undefined ? data.image_url : null}, image_url),
           preparation_time = COALESCE(${data.preparation_time}, preparation_time),
           updated_at = NOW()
-        WHERE id = ${itemId};
+        WHERE id = ${itemId} OR LOWER(id) = LOWER(${itemId})
+        RETURNING *;
       `;
-      console.log(`[Neon DB] Dish #${itemId} updated`);
+      if (rows && rows.length > 0) {
+        updatedDish = {
+          ...rows[0],
+          price: Number(rows[0].price),
+          rating: Number(rows[0].rating || 4.5),
+          is_veg: Boolean(rows[0].is_veg),
+          is_available: rows[0].is_available !== false
+        };
+        console.log(`[Neon DB] Dish #${itemId} (${rows[0].name}) updated successfully`);
+      } else {
+        console.warn(`[Neon DB Warning] Dish #${itemId} not found for update`);
+      }
     } catch (err) {
       console.error('[Neon DB Dish Update Error]:', err.message);
+      return res.status(500).json({ success: false, error: 'Database update failed: ' + err.message });
     }
   }
 
   const local = readLocalDb();
   local.menu_items = (local.menu_items || INITIAL_MENU_ITEMS).map(i => {
-    if (i.id === itemId) {
-      return {
+    if (i.id === itemId || String(i.id).toLowerCase() === itemId.toLowerCase()) {
+      const merged = {
         ...i,
         ...data,
         price: data.price !== undefined ? Number(data.price) : i.price,
         image_url: data.image_url !== undefined ? data.image_url : i.image_url,
         updated_at: new Date().toISOString()
       };
+      if (!updatedDish) updatedDish = merged;
+      return merged;
     }
     return i;
   });
   writeLocalDb(local);
 
-  res.json({ success: true, message: 'Dish updated successfully' });
+  res.json({ success: true, message: 'Dish updated successfully', item: updatedDish });
 });
 
 // 1-Click Availability Toggle: Fast In Stock vs Sold Out (Supports PATCH, POST, PUT)
 const handleAvailabilityToggle = async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const rawId = req.params.id || req.body?.id || req.body?.itemId || '';
   const itemId = decodeURIComponent(String(rawId)).trim();
 
@@ -2330,12 +2392,40 @@ const handleAvailabilityToggle = async (req, res) => {
   let dbUpdated = false;
   if (sql) {
     try {
-      const rows = await sql`
+      let rows = await sql`
         UPDATE menu_items 
         SET is_available = ${is_available}, updated_at = NOW() 
         WHERE id = ${itemId} OR LOWER(id) = LOWER(${itemId})
         RETURNING id, name, is_available;
       `;
+
+      // Fallback: If dish row didn't exist yet, look up in INITIAL_MENU_ITEMS and insert
+      if (!rows || rows.length === 0) {
+        const seed = INITIAL_MENU_ITEMS.find(s => s.id === itemId || s.id.toLowerCase() === itemId.toLowerCase());
+        if (seed) {
+          rows = await sql`
+            INSERT INTO menu_items (
+              id, restaurant_id, restaurant_name, name, description, price, category, is_veg, is_available, preparation_time, image_url
+            ) VALUES (
+              ${seed.id},
+              ${seed.restaurant_id},
+              ${seed.restaurant_name || (seed.restaurant_id === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen')},
+              ${seed.name},
+              ${seed.description},
+              ${Number(seed.price)},
+              ${seed.category},
+              ${seed.is_veg !== false},
+              ${is_available},
+              ${seed.preparation_time || '15-20 mins'},
+              ${seed.image_url || null}
+            ) ON CONFLICT (id) DO UPDATE SET
+              is_available = ${is_available},
+              updated_at = NOW()
+            RETURNING id, name, is_available;
+          `;
+        }
+      }
+
       if (rows && rows.length > 0) {
         dbUpdated = true;
         console.log(`[Neon DB] Dish #${rows[0].id} (${rows[0].name}) availability set to: ${is_available ? 'IN STOCK' : 'SOLD OUT'}`);
@@ -2344,6 +2434,7 @@ const handleAvailabilityToggle = async (req, res) => {
       }
     } catch (err) {
       console.error('[Neon DB Availability Toggle Error]:', err.message);
+      return res.status(500).json({ success: false, error: 'Database availability update failed: ' + err.message });
     }
   }
 
@@ -2375,6 +2466,10 @@ app.patch('/api/menu/availability', handleAvailabilityToggle);
 // PATCH & POST /api/menu/bulk-availability & /api/menu/restaurant/:restaurantId/availability
 // Admin assigns all dishes in a restaurant as IN STOCK or SOLD OUT
 const handleBulkMenuAvailability = async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const restaurant_id = req.params.restaurantId || req.body?.restaurant_id || req.body?.restaurantId;
   const is_available = req.body?.is_available !== false;
 
@@ -2405,6 +2500,7 @@ const handleBulkMenuAvailability = async (req, res) => {
       console.log(`[Neon DB] Bulk updated ${updatedCount} dishes for restaurant ${restaurant_id} to: ${is_available ? 'IN STOCK' : 'SOLD OUT'}`);
     } catch (err) {
       console.error('[Neon DB Bulk Menu Availability Error]:', err.message);
+      return res.status(500).json({ success: false, error: 'Bulk update failed: ' + err.message });
     }
   }
 
@@ -2419,11 +2515,11 @@ const handleBulkMenuAvailability = async (req, res) => {
   });
   writeLocalDb(local);
 
-  res.json({
+  return res.json({
     success: true,
     restaurant_id,
     is_available,
-    count: updatedCount || localUpdated,
+    updatedCount,
     message: `All dishes for ${restaurant_id === 'all' ? 'all kitchens' : restaurant_id} marked as ${is_available ? 'IN STOCK' : 'SOLD OUT'}`
   });
 };
@@ -2433,8 +2529,44 @@ app.patch('/api/menu/bulk-availability', handleBulkMenuAvailability);
 app.post('/api/menu/restaurant/:restaurantId/availability', handleBulkMenuAvailability);
 app.patch('/api/menu/restaurant/:restaurantId/availability', handleBulkMenuAvailability);
 
+// DELETE /api/menu - Admin clears all dishes or per restaurant
+app.delete('/api/menu', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
+  const restaurant_id = req.query.restaurant_id || req.body?.restaurant_id;
+
+  if (sql) {
+    try {
+      if (restaurant_id) {
+        await sql`DELETE FROM menu_items WHERE restaurant_id = ${restaurant_id};`;
+      } else {
+        await sql`DELETE FROM menu_items;`;
+      }
+      console.log(`[Neon DB] Menu cleared ${restaurant_id ? `for restaurant: ${restaurant_id}` : 'completely across all restaurants'}`);
+    } catch (err) {
+      console.error('[Neon DB Menu Clear Error]:', err.message);
+    }
+  }
+
+  const local = readLocalDb();
+  if (restaurant_id) {
+    local.menu_items = (local.menu_items || []).filter(i => i.restaurant_id !== restaurant_id);
+  } else {
+    local.menu_items = [];
+  }
+  writeLocalDb(local);
+
+  res.json({ success: true, message: 'Menu cleared successfully.' });
+});
+
 // DELETE /api/menu/:id - Admin deletes a dish
 app.delete('/api/menu/:id', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const itemId = req.params.id;
 
   if (sql) {
@@ -2447,7 +2579,7 @@ app.delete('/api/menu/:id', async (req, res) => {
   }
 
   const local = readLocalDb();
-  local.menu_items = (local.menu_items || INITIAL_MENU_ITEMS).filter(i => i.id !== itemId);
+  local.menu_items = (local.menu_items || []).filter(i => i.id !== itemId);
   writeLocalDb(local);
 
   res.json({ success: true, message: `Dish #${itemId} permanently deleted.` });

@@ -155,6 +155,32 @@ export function CartProvider({ children }) {
   const totalAmount = subtotal + platformFee + deliveryFee;
   const totalItemsCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
+  // Helper to re-validate items against live menu status
+  const validateCartAgainstMenu = (liveMenuItems) => {
+    if (!Array.isArray(liveMenuItems) || liveMenuItems.length === 0 || items.length === 0) return;
+    let hasChanges = false;
+    const updated = items.map((cartItem) => {
+      const live = liveMenuItems.find((m) => m.id === cartItem.id);
+      if (live) {
+        const isLiveAvailable = live.is_available !== false && live.is_available !== 'false' && live.is_available !== 0 && live.isAvailable !== false;
+        const livePrice = Number(live.price);
+        if (cartItem.is_available !== isLiveAvailable || cartItem.price !== livePrice) {
+          hasChanges = true;
+          return {
+            ...cartItem,
+            price: livePrice,
+            is_available: isLiveAvailable,
+            isAvailable: isLiveAvailable
+          };
+        }
+      }
+      return cartItem;
+    });
+    if (hasChanges) {
+      setItems(updated);
+    }
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -166,6 +192,7 @@ export function CartProvider({ children }) {
         updateQuantity,
         removeFromCart,
         clearCart,
+        validateCartAgainstMenu,
         deliveryDetails,
         setDeliveryDetails,
         subtotal,

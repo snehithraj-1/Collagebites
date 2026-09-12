@@ -39,7 +39,10 @@ export default function MenuManagerModal({ isOpen, onClose }) {
   const loadMenu = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/menu');
+      const res = await fetch(`/api/menu?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+      });
       const data = await res.json();
       const list = Array.isArray(data) ? data : (data.items || data.menu || []);
       if (Array.isArray(list) && list.length > 0) {

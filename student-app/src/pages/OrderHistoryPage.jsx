@@ -14,19 +14,34 @@ export default function OrderHistoryPage({ onBackToRestaurants, onTrackOrder }) 
     else setIsRefreshing(true);
 
     try {
-      // 1. Try to fetch from Shared Central API
-      const res = await fetch(`/api/orders/student/${encodeURIComponent(profile?.email || profile?.id || '')}`);
+      // 1. Try to fetch from Shared Central API / Vercel Serverless API
+      const email = profile?.email || profile?.id || '';
+      let res = await fetch(`/api/orders?studentEmail=${encodeURIComponent(email)}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+      });
+      if (!res.ok) {
+        res = await fetch(`/api/orders/student/${encodeURIComponent(email)}?_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
+      }
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.orders) && json.orders.length > 0) {
-          setOrders(json.orders);
+        const ordersList = Array.isArray(json) ? json : (json.orders || []);
+        if (Array.isArray(ordersList)) {
+          setOrders(ordersList);
+          // Sync localStorage so deleted orders NEVER resurrect!
+          try {
+            localStorage.setItem('cb_shared_orders', JSON.stringify(ordersList));
+          } catch {}
           setIsLoading(false);
           setIsRefreshing(false);
           return;
         }
       }
     } catch (apiErr) {
-      // Continue to Supabase / local
+      // Continue to Supabase / local only on network failure
     }
 
     if (isSupabaseConfigured() && supabase) {

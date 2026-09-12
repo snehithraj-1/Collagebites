@@ -11,7 +11,7 @@ const getFallbackImage = (isVeg) => {
 };
 
 export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
-  const { items, addToCart, updateQuantity, setIsCartOpen, totalItemsCount, totalAmount } = useCart();
+  const { items, addToCart, updateQuantity, setIsCartOpen, totalItemsCount, totalAmount, validateCartAgainstMenu } = useCart();
   const [menuItems, setMenuItems] = useState([]);
   const [activeCategory, setActiveCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,12 +23,26 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
 
     async function loadMenu() {
       try {
-        const res = await fetch(`/api/menu?restaurant_id=${encodeURIComponent(restaurant.id)}`);
+        const res = await fetch(`/api/menu?restaurant_id=${encodeURIComponent(restaurant.id)}&_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
         if (res.ok) {
           const data = await res.json();
           const itemsList = Array.isArray(data) ? data : (data.items || data.menu || []);
-          if (isMounted && Array.isArray(itemsList) && itemsList.length > 0) {
-            setMenuItems(itemsList);
+          if (isMounted && Array.isArray(itemsList)) {
+            const normalized = itemsList.map(i => {
+              const isAvail = i.is_available !== false && i.is_available !== 'false' && i.is_available !== 0 && i.isAvailable !== false;
+              return {
+                ...i,
+                price: Number(i.price),
+                is_veg: Boolean(i.is_veg),
+                is_available: isAvail,
+                isAvailable: isAvail
+              };
+            });
+            setMenuItems(normalized);
+            if (validateCartAgainstMenu) validateCartAgainstMenu(normalized);
             setIsLoading(false);
             return;
           }
@@ -45,7 +59,20 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
             .eq('restaurant_id', restaurant.id);
 
           if (!error && data && data.length > 0) {
-            if (isMounted) setMenuItems(data);
+            if (isMounted) {
+              const normalized = data.map(i => {
+                const isAvail = i.is_available !== false && i.is_available !== 'false' && i.is_available !== 0 && i.isAvailable !== false;
+                return {
+                  ...i,
+                  price: Number(i.price),
+                  is_veg: Boolean(i.is_veg),
+                  is_available: isAvail,
+                  isAvailable: isAvail
+                };
+              });
+              setMenuItems(normalized);
+              if (validateCartAgainstMenu) validateCartAgainstMenu(normalized);
+            }
             setIsLoading(false);
             return;
           }
@@ -61,10 +88,12 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
     }
 
     loadMenu();
-    const interval = setInterval(loadMenu, 5000);
+    const interval = setInterval(loadMenu, 3000);
+    window.addEventListener('focus', loadMenu);
     return () => {
       isMounted = false;
       clearInterval(interval);
+      window.removeEventListener('focus', loadMenu);
     };
   }, [restaurant.id]);
 
@@ -182,8 +211,14 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
         </div>
       ) : filteredDishes.length === 0 ? (
         <div className="py-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200 p-6 space-y-2">
-          <h4 className="font-bold text-sm text-slate-900">No dishes found</h4>
-          <p className="text-xs">Try searching for a different dish name or select another category.</p>
+          <h4 className="font-bold text-sm text-slate-900">
+            {menuItems.length === 0 ? 'No dishes currently available in this kitchen' : 'No dishes found'}
+          </h4>
+          <p className="text-xs">
+            {menuItems.length === 0
+              ? 'The kitchen menu is currently being refreshed. Please check back shortly or choose another kitchen.'
+              : 'Try searching for a different dish name or select another category.'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

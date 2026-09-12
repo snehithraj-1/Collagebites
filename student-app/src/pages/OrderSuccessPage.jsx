@@ -20,15 +20,22 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
     window.addEventListener('touchstart', unlock, { passive: true, once: true });
   }, []);
 
-  // Poll order status live every 2 seconds
+  const [orderDeleted, setOrderDeleted] = useState(false);
+
+  // Poll for order status updates from Central API
   useEffect(() => {
     if (!order?.id) return;
-
     let isMounted = true;
 
     const poll = async () => {
       try {
-        const res = await fetch(`/api/orders/${order.id}`);
+        const res = await fetch(`/api/orders/${order.id}?_t=${Date.now()}`);
+        if (res.status === 404) {
+          if (isMounted) {
+            setOrderDeleted(true);
+          }
+          return;
+        }
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.order && isMounted) {
@@ -66,6 +73,24 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
       clearInterval(interval);
     };
   }, [order?.id]);
+
+  if (orderDeleted) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-4">
+        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto border border-red-200 shadow-sm">
+          <AlertCircle size={32} />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 font-['Outfit']">Order Cancelled or Removed</h2>
+        <p className="text-sm text-slate-600">This order has been cleared or cancelled by the restaurant management.</p>
+        <button
+          onClick={onBackHome}
+          className="mt-4 px-6 py-2.5 bg-[#EE4D2D] text-white font-bold rounded-xl shadow hover:bg-[#D43D1F] transition cursor-pointer"
+        >
+          Back to Campus Dining
+        </button>
+      </div>
+    );
+  }
 
   const currentStatus = liveOrder.status || order.status || 'CONFIRMED';
   const restaurantName = liveOrder.restaurant_name || order.restaurant_name || (order.restaurant_id === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen');

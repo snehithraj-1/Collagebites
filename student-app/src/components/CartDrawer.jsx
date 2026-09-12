@@ -55,6 +55,14 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
       return;
     }
 
+    const unavailableItem = items.find(
+      (i) => i.is_available === false || i.is_available === 'false' || i.is_available === 0 || i.isAvailable === false || i.isAvailable === 'false'
+    );
+    if (unavailableItem) {
+      setValidationError(`"${unavailableItem.name}" is currently sold out. Please remove it from your cart before proceeding.`);
+      return;
+    }
+
     if (!deliveryDetails.phone || !deliveryDetails.phone.trim()) {
       setValidationError('Please enter your mobile phone number for delivery contact.');
       return;
@@ -134,14 +142,21 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
               <>
                 {/* Items List */}
                 <div className="space-y-3 divide-y divide-[#F1EAE4]">
-                  {items.map((item) => (
-                    <div key={item.id} className="pt-3 first:pt-0 flex items-center justify-between gap-3">
+                  {items.map((item) => {
+                    const isItemSoldOut = item.is_available === false || item.is_available === 'false' || item.is_available === 0 || item.isAvailable === false || item.isAvailable === 'false';
+                    return (
+                    <div key={item.id} className={`pt-3 first:pt-0 flex items-center justify-between gap-3 p-2 rounded-xl transition-all ${isItemSoldOut ? 'bg-rose-50/70 border border-rose-200' : ''}`}>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className={`w-2 h-2 rounded-full ${item.is_veg ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                          <h5 className="font-bold text-xs sm:text-sm text-[#0F172A] truncate">
+                          <h5 className={`font-bold text-xs sm:text-sm truncate ${isItemSoldOut ? 'text-rose-700 line-through' : 'text-[#0F172A]'}`}>
                             {item.name}
                           </h5>
+                          {isItemSoldOut && (
+                            <span className="px-1.5 py-0.2 bg-rose-600 text-white rounded text-[9px] font-black uppercase tracking-wider">
+                              Sold Out
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs font-mono text-[#FF5722] font-extrabold mt-0.5">
                           ₹{item.price * item.quantity}
@@ -178,7 +193,8 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
                         <Trash2 size={15} />
                       </button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Delivery Drop Address Form */}

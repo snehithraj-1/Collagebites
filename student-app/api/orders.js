@@ -7,16 +7,110 @@ const sql = neon(DATABASE_URL);
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
+  // DELETE /api/orders or POST /api/orders/delete
+  const isDeleteRequest = req.method === 'DELETE' || 
+    (req.method === 'POST' && (
+      req.url.includes('delete') || 
+      req.body?.action === 'delete' || 
+      (req.body?.orderId && !req.body?.items)
+    ));
+
+  if (isDeleteRequest) {
+    const orderId = req.query.id || req.query.orderId || req.body?.orderId || req.body?.id;
+    if (orderId === 'all' || req.query.all === 'true') {
+      try {
+        await sql`DELETE FROM order_items;`;
+        await sql`DELETE FROM orders;`;
+        return res.status(200).json({ success: true, message: 'All orders permanently deleted.' });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    if (!orderId) {
+      return res.status(400).json({ success: false, error: 'Order ID is required' });
+    }
+
+    try {
+      await sql`DELETE FROM order_items WHERE order_id = ${orderId};`;
+      await sql`DELETE FROM orders WHERE id = ${orderId} OR id LIKE ${orderId + '%'};`;
+      return res.status(200).json({ success: true, message: `Order #${orderId} permanently deleted.` });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // PATCH /api/orders (Status update)
+  const isStatusUpdate = req.method === 'PATCH' || 
+    (req.method === 'POST' && (
+      req.url.includes('status') || 
+      req.body?.action === 'status' || 
+      (req.body?.status && !req.body?.items)
+    ));
+
+  if (isStatusUpdate) {
+    const orderId = req.params?.id || req.query.id || req.query.orderId || req.body?.orderId || req.body?.id;
+    const status = req.body?.status;
+
+    if (!orderId || !status) {
+      return res.status(400).json({ success: false, error: 'Order ID and status are required' });
+    }
+
+    try {
+      const result = await sql`
+        UPDATE orders 
+        SET status = ${status}, updated_at = NOW() 
+        WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
+        RETURNING *;
+      `;
+      if (result && result.length > 0) {
+        return res.status(200).json({ success: true, order: result[0] });
+      }
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   // GET /api/orders
   if (req.method === 'GET') {
     try {
+      const orderId = req.query.id || req.query.orderId;
+      if (orderId) {
+        const singleRow = await sql`
+          SELECT * FROM orders 
+          WHERE id = ${orderId} OR id LIKE ${orderId + '%'} 
+          LIMIT 1;
+        `;
+        if (singleRow && singleRow.length > 0) {
+          const r = singleRow[0];
+          let itemsList = [];
+          try {
+            itemsList = typeof r.items === 'string' ? JSON.parse(r.items) : (r.items || []);
+          } catch {
+            itemsList = [];
+          }
+          const orderObj = {
+            ...r,
+            id: r.id,
+            total_amount: Number(r.total_amount),
+            items: itemsList
+          };
+          return res.status(200).json({ success: true, order: orderObj });
+        }
+        return res.status(404).json({ success: false, error: 'Order not found' });
+      }
+
       const studentEmail = req.query.studentEmail || req.query.email || req.query.student_email;
       const restaurantId = req.query.restaurantId || req.query.restaurant_id || req.query.restaurant;
       let rows = [];
@@ -114,7 +208,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // POST /api/orders
+  // POST /api/orders (Create Order)
   if (req.method === 'POST') {
     try {
       const body = req.body || {};

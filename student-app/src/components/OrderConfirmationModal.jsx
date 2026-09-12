@@ -118,6 +118,7 @@ export default function OrderConfirmationModal({
 
     try {
       // 1. Post to Shared Central Backend API (bridges port 5173 and 5174 and writes to Neon DB)
+      let backendError = null;
       try {
         const apiRes = await fetch('/api/orders', {
           method: 'POST',
@@ -128,9 +129,20 @@ export default function OrderConfirmationModal({
           })
         });
         const apiJson = await apiRes.json();
-        console.log('[Backend API / Neon DB Result]:', apiJson);
+        if (!apiRes.ok || apiJson.success === false) {
+          backendError = apiJson.error || 'Order creation failed.';
+        } else {
+          console.log('[Backend API / Neon DB Result]:', apiJson);
+        }
       } catch (apiErr) {
         console.warn('[Shared Backend Post Warning]:', apiErr.message);
+      }
+
+      if (backendError) {
+        setIsSubmitting(false);
+        setStatusMessage('');
+        alert(backendError);
+        return;
       }
 
       // 2. Also insert into Supabase if configured
