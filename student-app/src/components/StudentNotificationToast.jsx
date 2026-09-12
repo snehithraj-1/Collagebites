@@ -106,7 +106,8 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
           const allRes = await fetch('/api/orders');
           if (allRes.ok) {
             const allData = await allRes.json();
-            (allData.orders || []).forEach((o) => {
+            const ordersList = Array.isArray(allData) ? allData : (allData.orders || []);
+            ordersList.forEach((o) => {
               const isLocalMatch = localIds.has(o.id) || localOrders.some((lo) => lo.id === o.id || (lo.id && o.id && (lo.id.includes(o.id) || o.id.includes(lo.id))));
               const guestPhone = JSON.parse(localStorage.getItem('cb_delivery_details') || '{}')?.phone || '';
               const sPhone = String(o.student_phone || '').replace(/\D/g, '').slice(-10);

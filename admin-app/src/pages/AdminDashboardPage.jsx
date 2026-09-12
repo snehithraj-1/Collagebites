@@ -151,15 +151,16 @@ export default function AdminDashboardPage() {
       const res = await fetch('/api/orders');
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.orders)) {
-          setOrders(json.orders);
+        const ordersList = Array.isArray(json) ? json : (json.orders || []);
+        if (Array.isArray(ordersList)) {
+          setOrders(ordersList);
           setIsRefreshing(false);
 
           // Alert admin ONLY when a genuinely new order is placed or status changes
           if (!isFirstLoadRef.current) {
             // A. New live orders: must NOT be in prev map, NOT cancelled/delivered, and created in last 120 seconds!
             const now = Date.now();
-            const incoming = json.orders.filter((o) => {
+            const incoming = ordersList.filter((o) => {
               if (prevOrdersMapRef.current.has(o.id)) return false;
               if (o.status === 'CANCELLED' || o.status === 'DELIVERED') return false;
               const createdAt = new Date(o.created_at || 0).getTime();
@@ -168,7 +169,7 @@ export default function AdminDashboardPage() {
 
             // B. Existing orders status transitions
             const statusChanges = [];
-            json.orders.forEach((o) => {
+            ordersList.forEach((o) => {
               if (prevOrdersMapRef.current.has(o.id)) {
                 const prev = prevOrdersMapRef.current.get(o.id);
                 if (prev.status && prev.status !== o.status) {
@@ -241,7 +242,7 @@ export default function AdminDashboardPage() {
 
           // Update tracked orders map with all current orders
           const updatedMap = new Map();
-          json.orders.forEach((o) => {
+          ordersList.forEach((o) => {
             updatedMap.set(o.id, {
               status: o.status
             });

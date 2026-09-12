@@ -1078,10 +1078,10 @@ app.get('/api/orders', async (req, res) => {
         items: typeof r.items === 'string' ? JSON.parse(r.items) : r.items
       }));
 
-      if (req.query.format === 'object') {
-        return res.json({ success: true, orders: parsedOrders, source: 'neon' });
+      if (req.query.format === 'array') {
+        return res.json(parsedOrders);
       }
-      return res.json(parsedOrders);
+      return res.json({ success: true, orders: parsedOrders, source: 'neon' });
     } catch (err) {
       console.warn('[Neon Fetch Orders Error]:', err.message);
     }
@@ -1097,10 +1097,10 @@ app.get('/api/orders', async (req, res) => {
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
-  if (req.query.format === 'object') {
-    return res.json({ success: true, orders: sorted, source: 'local_cache' });
+  if (req.query.format === 'array') {
+    return res.json(sorted);
   }
-  res.json(sorted);
+  return res.json({ success: true, orders: sorted, source: 'local_cache' });
 });
 
 // GET /api/orders/student/:identifier - Fetch orders for a student (by email, phone, ID, or order ID)
