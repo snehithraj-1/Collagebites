@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Eye, Ban, Trash2, Search, Download, Calendar, MapPin, Phone, Mail, Clock, CheckCircle2, XCircle, Bike } from 'lucide-react';
+import React, { useState } from 'react';
+import { Eye, Ban, Trash2, Search, Download, Calendar, MapPin, Phone, Mail, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { exportOrdersToExcel } from '../lib/excelExport';
 
 function safeFormatDateTime(rawDate) {
@@ -51,48 +51,6 @@ export default function OrdersTable({
   const [exportTimeframe, setExportTimeframe] = useState('ALL');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  const [deliveryPartners, setDeliveryPartners] = useState([]);
-
-  // Load available delivery partners
-  useEffect(() => {
-    async function loadPartners() {
-      try {
-        const query = activeRestaurantTab && activeRestaurantTab !== 'all' ? `?restaurant_id=${activeRestaurantTab}` : '';
-        const res = await fetch(`/api/delivery-partners${query}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.partners)) {
-            setDeliveryPartners(json.partners);
-          }
-        }
-      } catch (e) {}
-    }
-    loadPartners();
-  }, [activeRestaurantTab]);
-
-  const handleAssignPartner = async (orderId, partnerId) => {
-    const partner = deliveryPartners.find(p => p.id === partnerId);
-    if (!partner) return;
-    try {
-      const res = await fetch('/api/orders/assign-partner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId,
-          partnerId: partner.id,
-          partnerName: partner.name,
-          partnerPhone: partner.phone
-        })
-      });
-      if (res.ok) {
-        if (onUpdateStatus) {
-          onUpdateStatus(orderId, 'ASSIGNED');
-        }
-      }
-    } catch (e) {
-      console.warn('[Assign Partner Error]:', e);
-    }
-  };
 
   // 1. Filter orders by restaurant tab, status, and search query
   const filteredOrders = orders.filter((order) => {
@@ -272,7 +230,6 @@ export default function OrdersTable({
               <th className="py-3 px-4">Order ID & Date</th>
               <th className="py-3 px-4">Student</th>
               <th className="py-3 px-4">Restaurant</th>
-              <th className="py-3 px-4">Delivery Partner</th>
               <th className="py-3 px-4">Ordered Items</th>
               <th className="py-3 px-4 text-right">Amount</th>
               <th className="py-3 px-4 text-center">Status</th>
@@ -282,7 +239,7 @@ export default function OrdersTable({
           <tbody className="divide-y divide-slate-800/60 text-slate-300">
             {filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-500 text-xs">
+                <td colSpan={7} className="py-12 text-center text-slate-500 text-xs">
                   No orders found matching the selected filter.
                 </td>
               </tr>
@@ -321,32 +278,6 @@ export default function OrdersTable({
                       <div className="font-semibold text-white text-xs truncate max-w-[140px]">
                         {order.restaurant_name || restaurantName}
                       </div>
-                    </td>
-
-                    {/* Delivery Partner */}
-                    <td className="py-3 px-4">
-                      {order.delivery_partner_name ? (
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <Bike size={14} className="text-indigo-400 shrink-0" />
-                          <div className="truncate max-w-[130px]">
-                            <div className="font-bold text-white truncate">{order.delivery_partner_name}</div>
-                            {order.delivery_partner_phone && (
-                              <div className="text-[10px] text-slate-400 font-mono">{order.delivery_partner_phone}</div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <select
-                          defaultValue=""
-                          onChange={(e) => handleAssignPartner(order.id, e.target.value)}
-                          className="bg-slate-950/90 border border-slate-700 hover:border-indigo-500 text-slate-300 hover:text-white text-[11px] font-semibold rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                        >
-                          <option value="" disabled>+ Assign Rider</option>
-                          {deliveryPartners.map(p => (
-                            <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>
-                          ))}
-                        </select>
-                      )}
                     </td>
 
                     {/* Items & Qty */}
@@ -481,33 +412,6 @@ export default function OrdersTable({
                     <span className="font-mono font-black text-emerald-400 text-sm block">₹{order.total_amount}</span>
                     <span className="text-slate-400 text-[10px] block truncate">{order.restaurant_name || restaurantName}</span>
                   </div>
-                </div>
-
-                {/* Delivery Partner */}
-                <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                    <Bike size={12} className="text-indigo-400" />
-                    Delivery Rider:
-                  </span>
-                  {order.delivery_partner_name ? (
-                    <div className="text-right">
-                      <span className="font-bold text-white text-xs">{order.delivery_partner_name}</span>
-                      {order.delivery_partner_phone && (
-                        <span className="text-[10px] text-slate-400 font-mono block">{order.delivery_partner_phone}</span>
-                      )}
-                    </div>
-                  ) : (
-                    <select
-                      defaultValue=""
-                      onChange={(e) => handleAssignPartner(order.id, e.target.value)}
-                      className="bg-slate-900 border border-indigo-500/50 text-indigo-300 text-[11px] font-semibold rounded-lg px-2 py-1 focus:outline-none cursor-pointer"
-                    >
-                      <option value="" disabled>+ Assign Rider</option>
-                      {deliveryPartners.map(p => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.phone})</option>
-                      ))}
-                    </select>
-                  )}
                 </div>
 
                 {/* Items Summary */}

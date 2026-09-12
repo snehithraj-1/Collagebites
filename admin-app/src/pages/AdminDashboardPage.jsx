@@ -13,7 +13,6 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import StudentsModal from '../components/StudentsModal';
 import MenuManagerModal from '../components/MenuManagerModal';
 import AdminSideMenuDrawer from '../components/AdminSideMenuDrawer';
-import DeliveryPartnersModal from '../components/DeliveryPartnersModal';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function AdminDashboardPage() {
@@ -40,7 +39,6 @@ export default function AdminDashboardPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isStudentsModalOpen, setIsStudentsModalOpen] = useState(false);
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
-  const [isDeliveryPartnersModalOpen, setIsDeliveryPartnersModalOpen] = useState(false);
   const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
 
   // New Order Notifications & Audio Alert
@@ -713,7 +711,6 @@ export default function AdminDashboardPage() {
         }}
         onOpenMenuManager={() => setIsMenuModalOpen(true)}
         onOpenStudentsModal={() => setIsStudentsModalOpen(true)}
-        onOpenDeliveryPartners={() => setIsDeliveryPartnersModalOpen(true)}
         onRefreshData={() => {
           loadOrders(false);
           loadRestaurants();
@@ -722,14 +719,6 @@ export default function AdminDashboardPage() {
         isRefreshing={isRefreshing}
         onLogout={logout}
       />
-
-      {/* Delivery Partners & Rider Access Modal */}
-      <DeliveryPartnersModal
-        isOpen={isDeliveryPartnersModalOpen}
-        onClose={() => setIsDeliveryPartnersModalOpen(false)}
-      />
-
-
 
     </div>
   );

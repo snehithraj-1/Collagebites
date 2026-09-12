@@ -9,7 +9,6 @@ import {
   LogOut,
   ShieldCheck,
   ChevronRight,
-  ExternalLink,
   Sparkles
 } from 'lucide-react';
 
@@ -21,7 +20,6 @@ export default function AdminSideMenuDrawer({
   onToggleSound,
   onOpenMenuManager,
   onOpenStudentsModal,
-  onOpenDeliveryPartners,
   onRefreshData,
   isRefreshing,
   onLogout
@@ -157,78 +155,6 @@ export default function AdminSideMenuDrawer({
               </div>
               <ChevronRight size={16} className="text-slate-500 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all" />
             </button>
-
-            {/* Delivery Partners & PIN Credentials */}
-            {onOpenDeliveryPartners && (
-              <button
-                onClick={() => {
-                  onClose();
-                  onOpenDeliveryPartners();
-                }}
-                className="w-full p-3.5 rounded-2xl bg-slate-900/90 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/40 text-left transition-all cursor-pointer flex items-center justify-between group active:scale-[0.98]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-lg border border-indigo-500/30 group-hover:scale-105 transition-transform">
-                    🚴
-                  </div>
-                  <div>
-                    <span className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors block">
-                      Delivery Partners & PINs
-                    </span>
-                    <p className="text-xs text-slate-400">
-                      Create rider credentials & secret PINs
-                    </p>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-slate-500 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
-              </button>
-            )}
-
-            {/* Delivery Partner Portal Link */}
-            <a
-              href={typeof window !== 'undefined' && window.location.hostname === 'clg-bites-srm.vercel.app' ? '/#delivery' : 'https://clg-bites-srm.vercel.app/#delivery'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full p-3.5 rounded-2xl bg-slate-900/90 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/40 text-left transition-all cursor-pointer flex items-center justify-between group active:scale-[0.98] no-underline"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-lg border border-indigo-500/30 group-hover:scale-105 transition-transform">
-                  📱
-                </div>
-                <div>
-                  <span className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors block">
-                    Open Rider Web App
-                  </span>
-                  <p className="text-xs text-slate-400">
-                    Live mobile rider portal view
-                  </p>
-                </div>
-              </div>
-              <ExternalLink size={15} className="text-slate-500 group-hover:text-indigo-400 transition-all" />
-            </a>
-
-            {/* Live Student Portal Link */}
-            <a
-              href={typeof window !== 'undefined' && window.location.hostname === 'clg-bites-srm.vercel.app' ? '/' : 'https://clg-bites-srm.vercel.app'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full p-3.5 rounded-2xl bg-slate-900/90 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/40 text-left transition-all cursor-pointer flex items-center justify-between group active:scale-[0.98] no-underline"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-lg border border-emerald-500/30 group-hover:scale-105 transition-transform">
-                  🎓
-                </div>
-                <div>
-                  <span className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors block">
-                    Student Portal
-                  </span>
-                  <p className="text-xs text-slate-400">
-                    Live food ordering interface
-                  </p>
-                </div>
-              </div>
-              <ExternalLink size={15} className="text-slate-500 group-hover:text-emerald-400 transition-all" />
-            </a>
           </div>
 
           {/* Quick Settings & Controls */}
