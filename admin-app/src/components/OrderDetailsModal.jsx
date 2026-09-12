@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, User, MapPin, Phone, Mail, Clock, ShieldCheck, Ban, Trash2, 
-  CheckCircle2, Check, Printer, Building, FileText, Bike
+  CheckCircle2, Check, Printer, Building, FileText
 } from 'lucide-react';
 
 // Safe date/time formatter that never throws Invalid Option or Invalid Date
@@ -68,68 +68,7 @@ export default function OrderDetailsModal({
   const formattedDate = formatDateTime(order.created_at);
 
   const isCancelled = order.status === 'CANCELLED';
-  const isDelivered = order.status === 'DELIVERED';
-
-  // Delivery partner assignment state
-  const [partners, setPartners] = useState([]);
-  const [selectedPartnerId, setSelectedPartnerId] = useState('');
-  const [isAssigning, setIsAssigning] = useState(false);
-  const [assignedPartner, setAssignedPartner] = useState({
-    name: order.delivery_partner_name || null,
-    phone: order.delivery_partner_phone || null
-  });
-
-  useEffect(() => {
-    if (order) {
-      setAssignedPartner({
-        name: order.delivery_partner_name || null,
-        phone: order.delivery_partner_phone || null
-      });
-      setSelectedPartnerId(order.delivery_partner_id || '');
-      const restId = order.restaurant_id || 'all';
-      fetch(`/api/delivery-partners?restaurant_id=${encodeURIComponent(restId)}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data && Array.isArray(data.partners)) {
-            setPartners(data.partners);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [order]);
-
-  const handleAssignPartner = async () => {
-    if (!selectedPartnerId || !order?.id) return;
-    const p = partners.find((x) => x.id === selectedPartnerId);
-    if (!p) return;
-    setIsAssigning(true);
-    try {
-      const res = await fetch(`/api/orders/${encodeURIComponent(order.id)}/assign-partner`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          partnerId: p.id,
-          partnerName: p.name,
-          partnerPhone: p.phone
-        })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setAssignedPartner({ name: p.name, phone: p.phone });
-        if (onUpdateStatus) {
-          onUpdateStatus(order.id, 'ASSIGNED', {
-            delivery_partner_id: p.id,
-            delivery_partner_name: p.name,
-            delivery_partner_phone: p.phone
-          });
-        }
-      }
-    } catch (e) {
-      console.warn('Assign partner error:', e);
-    } finally {
-      setIsAssigning(false);
-    }
-  };
+  const isCompleted = order.status === 'COMPLETED' || order.status === 'DELIVERED';
 
   const handlePrint = () => {
     window.print();
@@ -149,11 +88,11 @@ export default function OrderDetailsModal({
               <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide border ${
                 isCancelled
                   ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                  : isDelivered
+                  : isCompleted
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
               } print:border-black print:text-black`}>
-                {isDelivered ? 'DELIVERED' : (isCancelled ? 'CANCELLED' : 'CONFIRMED')}
+                {isCompleted ? 'COMPLETED' : (isCancelled ? 'CANCELLED' : 'CONFIRMED')}
               </span>
             </div>
             <div className="text-xs text-slate-400 mt-1 flex items-center gap-1.5 print:text-slate-600">
@@ -267,72 +206,7 @@ export default function OrderDetailsModal({
             )}
           </div>
 
-          {/* Delivery Partner Details */}
-          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5 print:border-slate-300 print:bg-slate-50">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between print:text-slate-600">
-              <span className="flex items-center gap-1.5">
-                <Bike size={13} className="text-indigo-400" />
-                Delivery Partner
-              </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                assignedPartner.name 
-                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                  : 'bg-slate-800 text-slate-400'
-              }`}>
-                {assignedPartner.name ? 'Assigned' : 'Unassigned'}
-              </span>
-            </div>
 
-            {assignedPartner.name ? (
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-white text-xs sm:text-sm print:text-black">
-                    {assignedPartner.name}
-                  </div>
-                  {assignedPartner.phone && (
-                    <a
-                      href={`tel:${assignedPartner.phone}`}
-                      className="font-mono text-[11px] text-indigo-300 hover:underline flex items-center gap-1 mt-0.5"
-                    >
-                      <Phone size={11} />
-                      <span>{assignedPartner.phone}</span>
-                    </a>
-                  )}
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 block">Collection Point:</span>
-                  <span className="font-bold text-white text-xs">SRM AP Gate 3</span>
-                </div>
-              </div>
-            ) : null}
-
-            {/* Quick Assign / Reassign Rider Control */}
-            {!isDelivered && !isCancelled && (
-              <div className="pt-1.5 border-t border-slate-800/80 print:hidden flex items-center gap-2">
-                <select
-                  value={selectedPartnerId}
-                  onChange={(e) => setSelectedPartnerId(e.target.value)}
-                  className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-                >
-                  <option value="">-- Choose Rider --</option>
-                  {partners.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.phone})
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  type="button"
-                  disabled={!selectedPartnerId || isAssigning}
-                  onClick={handleAssignPartner}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs transition-colors cursor-pointer border-none whitespace-nowrap shadow-xs"
-                >
-                  {isAssigning ? 'Assigning...' : assignedPartner.name ? 'Reassign' : 'Assign Rider'}
-                </button>
-              </div>
-            )}
-          </div>
 
           {/* Ordered Dishes Itemized List */}
           <div className="space-y-2">
@@ -386,8 +260,8 @@ export default function OrderDetailsModal({
             </div>
           </div>
 
-          {/* Quick Status Override Buttons - Only CONFIRMED and DELIVERED */}
-          {onUpdateStatus && (
+          {/* Quick Status Override Buttons - Only CONFIRMED and COMPLETED */}
+          {onUpdateStatus && !isCancelled && (
             <div className="space-y-1.5 pt-1 print:hidden">
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 Update Order Status
@@ -405,15 +279,15 @@ export default function OrderDetailsModal({
                   <span>CONFIRMED</span>
                 </button>
                 <button
-                  onClick={() => onUpdateStatus(order.id, 'DELIVERED')}
+                  onClick={() => onUpdateStatus(order.id, 'COMPLETED')}
                   className={`py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
-                    order.status === 'DELIVERED'
+                    isCompleted
                       ? 'bg-emerald-500/30 text-emerald-300 border-emerald-500 shadow-xs'
-                      : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 border-slate-700'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600 shadow-xs'
                   }`}
                 >
                   <CheckCircle2 size={13} />
-                  <span>DELIVERED</span>
+                  <span>{isCompleted ? 'COMPLETED' : 'MARK COMPLETED'}</span>
                 </button>
               </div>
             </div>

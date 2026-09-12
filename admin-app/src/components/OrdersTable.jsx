@@ -59,11 +59,13 @@ export default function OrdersTable({
       return false;
     }
 
-    // Status filter - only CONFIRMED and DELIVERED are supported
+    // Status filter - CONFIRMED, COMPLETED, CANCELLED
     if (filterStatus === 'CONFIRMED') {
-      if (order.status === 'DELIVERED') return false;
-    } else if (filterStatus === 'DELIVERED') {
-      if (order.status !== 'DELIVERED') return false;
+      if (order.status !== 'CONFIRMED') return false;
+    } else if (filterStatus === 'COMPLETED') {
+      if (order.status !== 'COMPLETED' && order.status !== 'DELIVERED') return false;
+    } else if (filterStatus === 'CANCELLED') {
+      if (order.status !== 'CANCELLED') return false;
     }
 
     // Search query
@@ -96,7 +98,7 @@ export default function OrdersTable({
   };
 
   const getStatusBadge = (status) => {
-    if (status === 'DELIVERED') {
+    if (status === 'COMPLETED' || status === 'DELIVERED') {
       return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 font-bold';
     }
     if (status === 'CANCELLED') {
@@ -181,7 +183,7 @@ export default function OrdersTable({
             />
           </div>
 
-          {/* Status Filter: Only CONFIRMED and DELIVERED */}
+          {/* Status Filter: CONFIRMED, COMPLETED, CANCELLED */}
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -189,7 +191,8 @@ export default function OrdersTable({
           >
             <option value="ALL">All Statuses</option>
             <option value="CONFIRMED">CONFIRMED</option>
-            <option value="DELIVERED">DELIVERED</option>
+            <option value="COMPLETED">COMPLETED</option>
+            <option value="CANCELLED">CANCELLED</option>
           </select>
 
           {/* 1-Click Instant Export to Excel */}
@@ -306,7 +309,7 @@ export default function OrdersTable({
                     {/* Status */}
                     <td className="py-3 px-4 text-center whitespace-nowrap">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] uppercase border ${getStatusBadge(order.status)}`}>
-                        {order.status === 'DELIVERED' ? 'DELIVERED' : (order.status === 'CANCELLED' ? 'CANCELLED' : 'CONFIRMED')}
+                        {(order.status === 'COMPLETED' || order.status === 'DELIVERED') ? 'COMPLETED' : (order.status === 'CANCELLED' ? 'CANCELLED' : 'CONFIRMED')}
                       </span>
                     </td>
 
@@ -321,21 +324,21 @@ export default function OrdersTable({
                           <Eye size={13} />
                         </button>
 
-                        {onUpdateStatus && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+                        {onUpdateStatus && order.status !== 'COMPLETED' && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
                           <button
-                            onClick={() => onUpdateStatus(order.id, 'DELIVERED')}
+                            onClick={() => onUpdateStatus(order.id, 'COMPLETED')}
                             className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer border-none shadow-xs"
-                            title="Mark Order as Delivered"
+                            title="Mark Order as Completed"
                           >
                             <CheckCircle2 size={11} />
-                            <span>Deliver</span>
+                            <span>Complete</span>
                           </button>
                         )}
 
-                        {order.status === 'DELIVERED' && (
+                        {(order.status === 'COMPLETED' || order.status === 'DELIVERED') && (
                           <span className="px-2 py-0.5 rounded-lg bg-emerald-950/60 border border-emerald-800/80 text-emerald-400 font-bold text-[10px] flex items-center gap-1">
                             <CheckCircle2 size={10} />
-                            <span>Delivered</span>
+                            <span>Completed</span>
                           </span>
                         )}
 
@@ -445,20 +448,20 @@ export default function OrdersTable({
                     <span>View</span>
                   </button>
 
-                  {onUpdateStatus && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+                  {onUpdateStatus && order.status !== 'COMPLETED' && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
                     <button
-                      onClick={() => onUpdateStatus(order.id, 'DELIVERED')}
+                      onClick={() => onUpdateStatus(order.id, 'COMPLETED')}
                       className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1 cursor-pointer border-none shadow-xs font-['Outfit']"
                     >
                       <CheckCircle2 size={12} />
-                      <span>Deliver</span>
+                      <span>Complete</span>
                     </button>
                   )}
 
-                  {order.status === 'DELIVERED' && (
+                  {(order.status === 'COMPLETED' || order.status === 'DELIVERED') && (
                     <span className="px-2.5 py-1 rounded-xl bg-emerald-950/60 border border-emerald-800/80 text-emerald-400 font-bold text-xs flex items-center gap-1">
                       <CheckCircle2 size={12} />
-                      <span>Delivered</span>
+                      <span>Completed</span>
                     </span>
                   )}
 

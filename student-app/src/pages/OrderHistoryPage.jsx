@@ -120,8 +120,9 @@ export default function OrderHistoryPage({ onBackToRestaurants, onTrackOrder }) 
 
   const getStatusBadge = (status) => {
     switch (status) {
+      case 'COMPLETED':
       case 'DELIVERED':
-        return { label: 'Delivered', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200 font-bold' };
+        return { label: 'Completed', bg: 'bg-emerald-50 text-emerald-800 border-emerald-200 font-bold' };
       case 'CANCELLED':
         return { label: 'Cancelled', bg: 'bg-rose-50 text-rose-800 border-rose-200 font-bold' };
       case 'CONFIRMED':

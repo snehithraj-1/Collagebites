@@ -15,7 +15,7 @@ export const AUTHENTIC_RESTAURANTS = [
   },
   {
     id: "clg-bites-biryani-nation",
-    name: "Clg Bites Biryani Nation",
+    name: "CLG Bites",
     description: "A Taste You'll Love... Fresh, Delicious Biryanis with Special Campus Discounts!",
     cuisine: "Chicken & Veg Biryanis",
     location: "Neerukonda Campus Hub, SRM University AP",

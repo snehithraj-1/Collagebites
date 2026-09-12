@@ -60,19 +60,37 @@ export default async function handler(req, res) {
 
   if (isStatusUpdate) {
     const orderId = req.params?.id || req.query.id || req.query.orderId || req.body?.orderId || req.body?.id;
-    const status = req.body?.status;
+    const rawStatus = (req.body?.status || '').toUpperCase().trim();
+    const status = rawStatus === 'DELIVERED' ? 'COMPLETED' : rawStatus;
 
     if (!orderId || !status) {
       return res.status(400).json({ success: false, error: 'Order ID and status are required' });
     }
 
     try {
-      const result = await sql`
-        UPDATE orders 
-        SET status = ${status}, updated_at = NOW() 
-        WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
-        RETURNING *;
-      `;
+      let result;
+      if (status === 'COMPLETED') {
+        result = await sql`
+          UPDATE orders 
+          SET status = ${status}, completed_at = NOW(), updated_at = NOW() 
+          WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
+          RETURNING *;
+        `;
+      } else if (status === 'CANCELLED') {
+        result = await sql`
+          UPDATE orders 
+          SET status = ${status}, cancelled_at = NOW(), updated_at = NOW() 
+          WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
+          RETURNING *;
+        `;
+      } else {
+        result = await sql`
+          UPDATE orders 
+          SET status = ${status}, updated_at = NOW() 
+          WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
+          RETURNING *;
+        `;
+      }
       if (result && result.length > 0) {
         return res.status(200).json({ success: true, order: result[0] });
       }

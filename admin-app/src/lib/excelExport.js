@@ -68,7 +68,6 @@ export function exportOrdersToExcel(orders, {
       'Email Address',
       'Delivery Location',
       'Restaurant Name',
-      'Delivery Partner',
       'Ordered Items',
       'Total Quantity',
       'Total Amount (INR)',
@@ -118,10 +117,6 @@ export function exportOrdersToExcel(orders, {
       // Excel formula `="9989955833"` forces Excel to treat Indian phone numbers as strings without scientific notation
       const phoneFormatted = cleanPhone ? `="${cleanPhone}"` : '';
 
-      const riderFormatted = order.delivery_partner_name 
-        ? `${order.delivery_partner_name}${order.delivery_partner_phone ? ` (${order.delivery_partner_phone})` : ''}`
-        : 'Unassigned';
-
       return [
         order.id ? String(order.id) : '',
         order.student_name ? String(order.student_name) : 'Student',
@@ -129,12 +124,11 @@ export function exportOrdersToExcel(orders, {
         order.student_email ? String(order.student_email) : '',
         order.delivery_location ? String(order.delivery_location) : 'Gate 3',
         order.restaurant_name ? String(order.restaurant_name) : (restaurantName || 'Campus Kitchen'),
-        riderFormatted,
         itemsDescription || 'Order items recorded',
         totalQty,
         order.total_amount ? Number(order.total_amount) : 0,
         order.payment_method ? String(order.payment_method).toUpperCase() : 'COD',
-        order.status ? String(order.status) : 'CONFIRMED',
+        (order.status === 'COMPLETED' || order.status === 'DELIVERED') ? 'COMPLETED' : (order.status === 'CANCELLED' ? 'CANCELLED' : 'CONFIRMED'),
         dateStr,
         timeStr
       ];

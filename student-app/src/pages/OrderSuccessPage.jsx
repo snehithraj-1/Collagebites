@@ -55,15 +55,15 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
             if (prevStatus && prevStatus !== newStatus) {
               prevStatusRef.current = newStatus;
 
-              if (newStatus === 'DELIVERED') {
+              if (newStatus === 'COMPLETED' || newStatus === 'DELIVERED') {
                 playStudentChime('DELIVERED');
-                const msg = `Your meal from ${data.order.restaurant_name || 'Kitchen'} has arrived at SRM Gate 3! Please collect your parcel.`;
+                const msg = `Your meal from ${data.order.restaurant_name || 'Kitchen'} has been completed! Enjoy your food.`;
                 setStageAlert({
-                  type: 'DELIVERED',
-                  title: 'Food Arrived at Gate 3! 🎉',
+                  type: 'COMPLETED',
+                  title: 'Order Completed! 🎉',
                   message: msg
                 });
-                sendStudentNotification('🎉 Food Delivered!', `Order #${order.id}: ${msg}`);
+                sendStudentNotification('🎉 Order Completed!', `Order #${order.id}: ${msg}`);
               }
             } else {
               prevStatusRef.current = newStatus;
@@ -100,7 +100,8 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
   }
 
   const currentStatus = liveOrder.status || order.status || 'CONFIRMED';
-  const restaurantName = liveOrder.restaurant_name || order.restaurant_name || (order.restaurant_id === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen');
+  const isCompleted = currentStatus === 'COMPLETED' || currentStatus === 'DELIVERED';
+  const restaurantName = liveOrder.restaurant_name || order.restaurant_name || 'Campus Kitchen';
   const kitchenPhone = '9989955833';
 
   const orderDate = liveOrder.created_at || order.created_at
@@ -157,11 +158,11 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
       {/* 1. Verified Order Confirmation Header */}
       <div className="bg-white rounded-2xl p-6 sm:p-8 text-center border border-[#E2D9D0] shadow-sm space-y-4">
         <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto shadow-md border ${
-          currentStatus === 'DELIVERED'
+          isCompleted
             ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
             : 'bg-emerald-50 text-emerald-600 border-emerald-200'
         }`}>
-          {currentStatus === 'DELIVERED' ? (
+          {isCompleted ? (
             <CheckCheck size={36} className="text-emerald-600" />
           ) : (
             <CheckCircle2 size={36} className="text-emerald-600" />
@@ -170,23 +171,23 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
         
         <div>
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
-            currentStatus === 'DELIVERED'
+            isCompleted
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
               : 'bg-amber-50 text-amber-700 border-amber-200'
           }`}>
-            {currentStatus === 'DELIVERED' ? '✅ Food Delivered' : '👨‍🍳 Order Confirmed'}
+            {isCompleted ? '✅ Order Completed' : '👨‍🍳 Order Confirmed'}
           </span>
           <h2 className="text-2xl sm:text-3xl font-black text-[#0F172A] font-['Outfit'] mt-2 tracking-tight">
-            {currentStatus === 'DELIVERED' ? 'Enjoy Your Meal!' : 'Thank You for Your Order!'}
+            {isCompleted ? 'Enjoy Your Meal!' : 'Order Confirmed!'}
           </h2>
           <p className="text-xs sm:text-sm text-[#64748B] mt-1">
-            {currentStatus === 'DELIVERED'
-              ? 'Your order has been delivered and handed over at SRM University Gate 3.'
-              : `Your order has been confirmed and is being prepared by ${order.restaurant_name}.`}
+            {isCompleted
+              ? 'Your order has been completed and prepared by the kitchen.'
+              : `Your order has been confirmed and is being handled by ${restaurantName}.`}
           </p>
         </div>
 
-        {/* Live Delivery Progress Pipeline - Confirmed & Delivered */}
+        {/* Live Order Progress Pipeline - Confirmed & Completed */}
         <div className="pt-3 border-t border-[#F1EAE4] grid grid-cols-2 gap-6 text-center text-xs max-w-xs mx-auto">
           <div className="flex flex-col items-center">
             <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">✓</div>
@@ -194,15 +195,15 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
           </div>
           <div className="flex flex-col items-center">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-sm transition-all ${
-              currentStatus === 'DELIVERED'
+              isCompleted
                 ? 'bg-emerald-500 text-white'
                 : 'bg-slate-200 text-slate-500'
             }`}>
-              {currentStatus === 'DELIVERED' ? '✓' : '🍽️'}
+              {isCompleted ? '✓' : '🍽️'}
             </div>
             <span className={`font-bold mt-1.5 text-xs ${
-              currentStatus === 'DELIVERED' ? 'text-emerald-600' : 'text-slate-400'
-            }`}>Delivered</span>
+              isCompleted ? 'text-emerald-600' : 'text-slate-400'
+            }`}>Completed</span>
           </div>
         </div>
 
@@ -247,12 +248,12 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
               #{order.id}
             </div>
             <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border mt-1 ${
-              currentStatus === 'DELIVERED'
+              isCompleted
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-amber-50 text-amber-700 border-amber-200'
             }`}>
               <ShieldCheck size={11} />
-              <span>Status: {currentStatus === 'DELIVERED' ? 'Delivered' : 'Confirmed'}</span>
+              <span>Status: {isCompleted ? 'Completed' : (currentStatus === 'CANCELLED' ? 'Cancelled' : 'Confirmed')}</span>
             </div>
           </div>
         </div>
@@ -320,7 +321,7 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
               className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold text-xs shadow-md shadow-orange-500/20 transition-all cursor-pointer no-underline active:scale-95"
             >
               <Phone size={13} />
-              <span>Call Kitchen (+91 {kitchenPhone})</span>
+              <span>Call Restaurant (99899 55833)</span>
             </a>
           </div>
 

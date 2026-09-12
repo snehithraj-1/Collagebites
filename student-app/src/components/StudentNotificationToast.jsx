@@ -26,9 +26,16 @@ const STATUS_DETAILS = {
     badge: 'bg-cyan-100 text-cyan-800'
   },
 
+  COMPLETED: {
+    title: 'Order Completed! 🎉',
+    desc: 'Your order has been completed by the restaurant. Enjoy your meal!',
+    icon: CheckCheck,
+    bg: 'bg-white border-2 border-emerald-500 text-emerald-950 shadow-emerald-500/30',
+    badge: 'bg-emerald-100 text-emerald-800'
+  },
   DELIVERED: {
-    title: 'Food Delivered! 🎉',
-    desc: 'Your parcel has arrived at SRM University Gate 3. Enjoy your meal!',
+    title: 'Order Completed! 🎉',
+    desc: 'Your order has been completed by the restaurant. Enjoy your meal!',
     icon: CheckCheck,
     bg: 'bg-white border-2 border-emerald-500 text-emerald-950 shadow-emerald-500/30',
     badge: 'bg-emerald-100 text-emerald-800'

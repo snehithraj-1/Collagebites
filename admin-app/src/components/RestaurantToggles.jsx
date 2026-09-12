@@ -5,9 +5,16 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 export default function RestaurantToggles({ restaurants, orderingEnabled, onRestaurantUpdate, assignedRestaurantId = null }) {
   const [updatingId, setUpdatingId] = useState(null);
 
+  const sanitized = restaurants.filter(
+    (r) => !['campus-delight', 'campus-delight-dhaba'].includes(r.id)
+  );
+  // Deduplicate by restaurant ID to guarantee exactly 3 individual cards
+  const uniqueRestaurants = Array.from(
+    new Map(sanitized.map((r) => [r.id, r])).values()
+  );
   const visibleRestaurants = assignedRestaurantId
-    ? restaurants.filter((r) => r.id === assignedRestaurantId)
-    : restaurants;
+    ? uniqueRestaurants.filter((r) => r.id === assignedRestaurantId)
+    : uniqueRestaurants;
 
   const handleToggle = async (restaurant) => {
     const nextState = !(restaurant.is_open !== false);
