@@ -21,7 +21,7 @@ const TOTAL_ORDERS_TO_PLACE = 100;    // 100 orders placed concurrently
 const TOTAL_READ_REQUESTS = 200;      // 200 high-frequency reads (admin polling + student tracking)
 
 console.log('====================================================');
-console.log('⚡ CAMPUSBITES HEAVY TRAFFIC STRESS & LOAD TEST ⚡');
+console.log('⚡ SRM : COLLEGE BITES HEAVY TRAFFIC STRESS & LOAD TEST ⚡');
 console.log('====================================================');
 console.log(`Target: ${BASE_URL}`);
 console.log(`Concurrent Simulated Users: ${TOTAL_CONCURRENT_USERS}`);

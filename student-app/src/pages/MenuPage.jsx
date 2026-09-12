@@ -11,7 +11,7 @@ const getFallbackImage = (isVeg) => {
 };
 
 export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
-  const { items, addToCart, updateQuantity, setIsCartOpen, totalItemsCount, totalAmount, validateCartAgainstMenu } = useCart();
+  const { items, addToCart, updateQuantity, isCartOpen, setIsCartOpen, totalItemsCount, totalAmount, validateCartAgainstMenu } = useCart();
   const [menuItems, setMenuItems] = useState([]);
   const [activeCategory, setActiveCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -338,7 +338,7 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
       )}
 
       {/* 4. Floating Cart Summary Bar (Strictly Above Mobile BottomNav) */}
-      {totalItemsCount > 0 && (
+      {totalItemsCount > 0 && !isCartOpen && (
         <div
           className="fixed left-4 right-4 z-40 max-w-lg mx-auto md:sticky md:bottom-6 md:left-auto md:right-auto md:max-w-xl transition-all animate-slide-up"
           style={{

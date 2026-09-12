@@ -4,15 +4,18 @@ import { useCart } from '../context/CartContext';
 import { useStudentAuth } from '../context/StudentAuthContext';
 
 export default function BottomNav({ currentView, onNavigate }) {
-  const { totalItemsCount, setIsCartOpen } = useCart();
+  const { totalItemsCount, setIsCartOpen, isCartOpen } = useCart();
   const { profile } = useStudentAuth();
+
+  // Hide BottomNav when cart drawer is open to prevent overlapping with checkout footer and inputs
+  if (isCartOpen) return null;
 
   const isHomeActive = currentView === 'restaurants' || currentView === 'menu';
   const isOrdersActive = currentView === 'history' || currentView === 'success';
   const isProfileActive = currentView === 'profile';
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-sm transition-all pb-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-sm transition-all pb-safe">
       <div className="max-w-md mx-auto px-4 h-15 flex items-center justify-around relative">
         
         {/* 1. Home Tab */}

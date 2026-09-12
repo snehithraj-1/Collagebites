@@ -74,7 +74,7 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden animate-fade-in">
+    <div className="fixed inset-0 z-[60] overflow-hidden animate-fade-in">
       {/* Backdrop */}
       <div 
         onClick={() => setIsCartOpen(false)}
@@ -83,10 +83,10 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
 
       {/* Drawer with Spring Slide Animation */}
       <div className="absolute inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
-        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col animate-drawer-right">
+        <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col h-full max-h-[100dvh] animate-drawer-right">
           
           {/* Header */}
-          <div className="p-5 border-b border-[#F1EAE4] flex items-center justify-between bg-[#FAF8F5]">
+          <div className="p-5 border-b border-[#F1EAE4] flex items-center justify-between bg-[#FAF8F5] shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-[#FFF0EB] text-[#FF5722] flex items-center justify-center font-bold">
                 <ShoppingBag size={18} />
@@ -121,7 +121,7 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
           </div>
 
           {/* Cart Body */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          <div className="flex-1 overflow-y-auto p-5 space-y-6 min-h-0">
             
             {/* Empty State */}
             {items.length === 0 ? (
@@ -287,11 +287,14 @@ export default function CartDrawer({ onProceedToConfirmation, orderingEnabled, i
 
           {/* Checkout Footer */}
           {items.length > 0 && (
-            <div className="p-4 border-t border-slate-200 bg-white space-y-2">
+            <div 
+              className="p-4 border-t border-slate-200 bg-white space-y-2 shrink-0"
+              style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))' }}
+            >
               <button
                 onClick={handleStartCheckout}
                 disabled={!orderingEnabled || !isRestaurantOpen}
-                className="btn-primary w-full py-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary w-full py-3.5 rounded-xl text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg active:scale-[0.99] transition-all"
               >
                 <span>Proceed to Confirmation • ₹{totalAmount}</span>
                 <ArrowRight size={15} />

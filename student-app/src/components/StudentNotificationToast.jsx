@@ -231,7 +231,7 @@ export default function StudentNotificationToast({ onTrackOrder, activeOrderId }
   const Icon = activeToast.icon;
 
   return (
-    <div className="fixed top-20 right-4 sm:right-6 z-50 max-w-sm w-full animate-slide-down">
+    <div className="fixed top-20 right-4 sm:right-6 z-[80] max-w-sm w-full animate-slide-down">
       <div className={`p-4 rounded-2xl bg-white border shadow-2xl flex flex-col gap-3 relative overflow-hidden ${activeToast.bg}`}>
         
         {/* Animated Accent Bar */}

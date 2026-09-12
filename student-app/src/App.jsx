@@ -244,7 +244,7 @@ function StudentAppInner() {
       />
 
       {/* Modern Student Footer */}
-      <footer className="bg-white border-t border-[#F1EAE4] py-8 text-xs text-[#64748B]">
+      <footer className="bg-white border-t border-[#F1EAE4] pt-8 pb-24 md:pb-8 text-xs text-[#64748B]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <div className="flex items-center gap-2">
             <span className="text-base font-black text-[#0F172A] font-['Outfit']">Srm : College Bites</span>
