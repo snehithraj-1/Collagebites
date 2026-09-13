@@ -15,7 +15,7 @@ export const DEFAULT_RESTAURANTS = [
   },
   {
     id: "clg-bites-biryani-nation",
-    name: " Biryani Nation",
+    name: "Biryani Nation",
     description: "A Taste You'll Love... Fresh, Delicious Biryanis with Special Campus Discounts!",
     cuisine: "Chicken & Veg Biryanis",
     location: "Neerukonda Campus Hub, SRM University AP",
@@ -48,7 +48,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-dum-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken Dum Biryani (Single)",
     description: "Authentic slow-cooked dum biryani with marinated tender chicken and fragrant basmati rice.",
@@ -59,7 +59,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-dum-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken Dum Biryani (Full)",
     description: "Full portion aromatic Hyderabadi dum biryani with juicy chicken pieces, boiled egg & mirchi ka salan.",
@@ -70,7 +70,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-fry-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken Fry Biryani (Single)",
     description: "Crispy Andhra spiced chicken fry served generously over flavorful dum biryani rice.",
@@ -81,7 +81,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-fry-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken Fry Biryani (Full)",
     description: "Large serving of spicy roasted chicken fry pieces over seasoned ghee biryani rice.",
@@ -92,7 +92,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-bone-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken Boneless Biryani (Single)",
     description: "Tender, succulent boneless chicken cubes tossed in rich spices layered with fragrant biryani.",
@@ -103,7 +103,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-bone-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken Boneless Biryani (Full)",
     description: "Full generous portion of boneless chicken bites with spicy caramelized onion biryani rice.",
@@ -114,7 +114,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-lol-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken Lollipop Biryani (Single)",
     description: "Crisp seasoned chicken lollipops paired with hot dum biryani rice and raita.",
@@ -125,7 +125,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-lol-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken Lollipop Biryani (Full)",
     description: "Family size aromatic biryani crowned with multiple spicy chicken lollipops.",
@@ -136,7 +136,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-mogh-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken Moghalai Biryani (Single)",
     description: "Royal Mughlai style biryani cooked with rich egg gravy, cashew nut paste and tender chicken.",
@@ -147,7 +147,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-mogh-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken Moghalai Biryani (Full)",
     description: "Rich Mughlai chicken biryani infused with saffron, egg shreds and creamy gravy.",
@@ -158,7 +158,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-65-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken 65 Biryani (Single)",
     description: "Spicy curry-leaf tempered Chicken 65 tossed over flavorful biryani rice.",
@@ -169,7 +169,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-65-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Chicken 65 Biryani (Full)",
     description: "Large serving of spicy South Indian Chicken 65 combined with fragrant basmati biryani.",
@@ -180,7 +180,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-mix-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "All Mix Chicken Biryani (Single)",
     description: "Chef special combination of Dum, Fry, and 65 chicken pieces in one grand biryani.",
@@ -191,7 +191,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-chk-mix-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "All Mix Chicken Biryani (Full)",
     description: "The ultimate chicken lover feast with assorted boneless, fry and dum cuts in rich biryani rice.",
@@ -202,7 +202,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-egg-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Egg Biryani (Single)",
     description: "Golden spiced boiled eggs served with aromatic basmati dum biryani rice & raita.",
@@ -213,7 +213,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-egg-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Chicken Biryani",
     name: "Egg Biryani (Full)",
     description: "Double boiled eggs roasted in Andhra masala served over full pot dum biryani rice.",
@@ -226,7 +226,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-veg-dum-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Veg Biryani",
     name: "Veg Dum Biryani (Single)",
     description: "Fresh garden vegetables, potatoes, beans & carrots layered in saffron dum basmati rice.",
@@ -237,7 +237,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-veg-dum-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Veg Biryani",
     name: "Veg Dum Biryani (Full)",
     description: "Family portion wholesome vegetable dum biryani served with creamy vegetable raita.",
@@ -248,7 +248,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-pan-bir-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Veg Biryani",
     name: "Paneer Biryani (Single)",
     description: "Soft fresh malai paneer cubes marinated in yogurt and spices layered with aromatic biryani.",
@@ -259,7 +259,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-pan-bir-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Veg Biryani",
     name: "Paneer Biryani (Full)",
     description: "Double paneer cubes simmered in biryani spices and layered with fragrant ghee rice.",
@@ -270,7 +270,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-kaju-bir-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Veg Biryani",
     name: "Cashew Biryani (Single)",
     description: "Roasted golden whole cashews (kaju) tossed in ghee masala and dum basmati rice.",
@@ -281,7 +281,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-kaju-bir-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Veg Biryani",
     name: "Cashew Biryani (Full)",
     description: "Royal treat loaded with crunchy roasted cashews cooked in rich Hyderabadi biryani spices.",
@@ -292,7 +292,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-kaju-pan-s",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Veg Biryani",
     name: "Cashew & Paneer Mixed Biryani (Single)",
     description: "Delicious combination of roasted whole cashews and tender fresh paneer in spicy biryani.",
@@ -303,7 +303,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-kaju-pan-f",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Veg Biryani",
     name: "Cashew & Paneer Mixed Biryani (Full)",
     description: "Deluxe vegetarian feast loaded with premium kaju nuts and melt-in-mouth paneer cubes.",
@@ -1062,7 +1062,7 @@ export const DEFAULT_MENU_ITEMS = [
   {
     id: "cbn-ext-drinks",
     restaurant_id: "clg-bites-biryani-nation",
-    restaurant_name: "Clg Bites Biryani Nation",
+    restaurant_name: "Biryani Nation",
     category: "Extras",
     name: "Soft Drinks (Chilled Can / Bottle)",
     description: "Ice-cold refreshing soft drink to pair with your hot biryani.",

@@ -385,7 +385,7 @@ async function initNeonSchema() {
         ('admin-super', 'collagebites1@gmail.com', 'Collage Bites (Super Admin)', 'super_admin', null, 'Clgbites123'),
         ('admin-super-alias', 'collagebites@gmail.com', 'Collage Bites Admin', 'super_admin', null, 'Clgbites123'),
         ('admin-lhk', 'lhk_admin', 'Local Home Kitchen Staff', 'restaurant_admin', 'local-home-kitchen', 'LHK@Campus2026'),
-        ('admin-clg', 'clgbites_admin', 'CLG Bites Admin', 'restaurant_admin', 'clg-bites-biryani-nation', 'CLG@Campus2026'),
+        ('admin-clg', 'clgbites_admin', 'Biryani Nation Staff', 'restaurant_admin', 'clg-bites-biryani-nation', 'CLG@Campus2026'),
         ('admin-vilasa', 'vilasa_admin', 'Vilasa Café Admin', 'restaurant_admin', 'vilasa-cafe', 'Vilasa@Campus2026')
       ON CONFLICT (id) DO UPDATE SET
         username = EXCLUDED.username,
@@ -1008,13 +1008,13 @@ app.post('/api/auth/admin-login', async (req, res) => {
       const clgProfile = {
         id: 'admin-clg',
         username: 'clgbites_admin',
-        name: 'CLG Bites Staff',
+        name: 'Biryani Nation Staff',
         email: 'clg@campusbites.com',
         role: 'restaurant_admin',
         restaurant_id: 'clg-bites-biryani-nation',
         created_at: new Date().toISOString()
       };
-      return res.json({ success: true, token: makeAdminToken(clgProfile), user: clgProfile, message: 'CLG Bites Admin authenticated' });
+      return res.json({ success: true, token: makeAdminToken(clgProfile), user: clgProfile, message: 'Biryani Nation Admin authenticated' });
     }
 
     if ((inputIdentifier === 'vilasa_admin' || inputIdentifier === 'vilasa@campusbites.com' || inputIdentifier === 'vilasa') && (cleanPassword === 'Vilasa@Campus2026' || cleanPassword === 'vilasa123')) {
@@ -2166,7 +2166,7 @@ app.post('/api/menu', async (req, res) => {
 
   const itemId = data.id || `dish-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   const restaurantName = data.restaurant_name || 
-    (data.restaurant_id === 'vilasa-cafe' ? 'Vilasa Café' : (data.restaurant_id === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen'));
+    (data.restaurant_id === 'vilasa-cafe' ? 'Vilasa Café' : (data.restaurant_id === 'clg-bites-biryani-nation' ? 'Biryani Nation' : 'Local Home Kitchen'));
 
   const defaultImg = data.is_veg 
     ? 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80'
@@ -2346,7 +2346,7 @@ const handleAvailabilityToggle = async (req, res) => {
             ) VALUES (
               ${seed.id},
               ${seed.restaurant_id},
-              ${seed.restaurant_name || (seed.restaurant_id === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen')},
+              ${seed.restaurant_name || (seed.restaurant_id === 'clg-bites-biryani-nation' ? 'Biryani Nation' : 'Local Home Kitchen')},
               ${seed.name},
               ${seed.description},
               ${Number(seed.price)},

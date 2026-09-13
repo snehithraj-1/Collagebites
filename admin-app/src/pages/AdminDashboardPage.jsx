@@ -455,7 +455,7 @@ export default function AdminDashboardPage() {
                     ? assignedRestaurantId === 'local-home-kitchen'
                       ? 'Local Home Kitchen'
                       : assignedRestaurantId === 'clg-bites-biryani-nation'
-                      ? 'Clg Bites Biryani Nation'
+                      ? 'Biryani Nation'
                       : assignedRestaurantId === 'vilasa-cafe'
                       ? 'Vilasa Café'
                       : `${profile?.name || 'Kitchen Staff'}`
@@ -660,7 +660,7 @@ export default function AdminDashboardPage() {
               (isRestaurantAdmin && assignedRestaurantId === 'local-home-kitchen') || activeRestaurantTab === 'local-home-kitchen'
                 ? 'Local Home Kitchen'
                 : (isRestaurantAdmin && assignedRestaurantId === 'clg-bites-biryani-nation') || activeRestaurantTab === 'clg-bites-biryani-nation'
-                ? 'CLG Bites Biryani Nation'
+                ? 'Biryani Nation'
                 : (isRestaurantAdmin && assignedRestaurantId === 'vilasa-cafe') || activeRestaurantTab === 'vilasa-cafe'
                 ? 'Vilasa Café'
                 : 'All Restaurants'

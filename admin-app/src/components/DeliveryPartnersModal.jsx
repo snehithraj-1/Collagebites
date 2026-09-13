@@ -348,7 +348,7 @@ export default function DeliveryPartnersModal({ isOpen, onClose, assignedRestaur
                               {p.restaurant_id === 'local-home-kitchen'
                                 ? 'Local Home Kitchen'
                                 : p.restaurant_id === 'clg-bites-biryani-nation'
-                                ? 'Clg Bites Biryani Nation'
+                                ? 'Biryani Nation'
                                 : p.restaurant_id === 'vilasa-cafe'
                                 ? 'Vilasa Café'
                                 : 'Campus Fleet'}

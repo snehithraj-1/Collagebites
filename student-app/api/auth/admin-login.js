@@ -96,18 +96,18 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, token: makeAdminToken(lhkProfile), user: lhkProfile, message: 'Local Home Kitchen Admin authenticated' });
     }
 
-    if ((inputIdentifier === 'clgbites_admin' || inputIdentifier === 'clg@campusbites.com' || inputIdentifier === 'clg') && 
-        (cleanPassword === 'CLG@Campus2026' || cleanPassword === 'clg123')) {
+    if ((inputIdentifier === 'clgbites_admin' || inputIdentifier === 'biryani_admin' || inputIdentifier === 'biryanination' || inputIdentifier === 'clg@campusbites.com' || inputIdentifier === 'clg') && 
+        (cleanPassword === 'CLG@Campus2026' || cleanPassword === 'clg123' || cleanPassword === 'biryani123')) {
       const clgProfile = {
         id: 'admin-clg',
         username: 'clgbites_admin',
-        name: 'CLG Bites Staff',
+        name: 'Biryani Nation Staff',
         email: 'clg@campusbites.com',
         role: 'restaurant_admin',
         restaurant_id: 'clg-bites-biryani-nation',
         created_at: new Date().toISOString()
       };
-      return res.status(200).json({ success: true, token: makeAdminToken(clgProfile), user: clgProfile, message: 'CLG Bites Admin authenticated' });
+      return res.status(200).json({ success: true, token: makeAdminToken(clgProfile), user: clgProfile, message: 'Biryani Nation Admin authenticated' });
     }
 
     if ((inputIdentifier === 'vilasa_admin' || inputIdentifier === 'vilasa@campusbites.com' || inputIdentifier === 'vilasa') && 
