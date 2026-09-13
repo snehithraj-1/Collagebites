@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# If you have a custom domain, replace with your domain (e.g. https://yourdomain.com/sitemap.xml)
+Sitemap: /sitemap.xml
