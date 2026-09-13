@@ -144,7 +144,7 @@ export default function OrdersTable({
                   : 'bg-transparent text-slate-400 hover:text-white'
               }`}
             >
-              CLG Bites
+              Clg Bites Biryani Nation
             </button>
             <button
               onClick={() => onSelectRestaurantTab('vilasa-cafe')}

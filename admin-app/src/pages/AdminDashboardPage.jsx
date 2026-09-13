@@ -455,7 +455,7 @@ export default function AdminDashboardPage() {
                     ? assignedRestaurantId === 'local-home-kitchen'
                       ? 'Local Home Kitchen'
                       : assignedRestaurantId === 'clg-bites-biryani-nation'
-                      ? 'CLG Bites'
+                      ? 'Clg Bites Biryani Nation'
                       : assignedRestaurantId === 'vilasa-cafe'
                       ? 'Vilasa Café'
                       : `${profile?.name || 'Kitchen Staff'}`
