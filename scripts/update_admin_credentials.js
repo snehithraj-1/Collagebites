@@ -71,6 +71,18 @@ async function updateAdmin() {
       updated_at = NOW();
   `;
 
+  await sql`
+    INSERT INTO admin_accounts (id, username, name, role, restaurant_id, password_hash, updated_at)
+    VALUES ('admin-super-raj', 'rajsrmap2@gmail.com', 'Raj (Super Admin)', 'super_admin', null, 'Clgbites123', NOW())
+    ON CONFLICT (id) DO UPDATE SET
+      username = EXCLUDED.username,
+      name = EXCLUDED.name,
+      password_hash = EXCLUDED.password_hash,
+      role = EXCLUDED.role,
+      restaurant_id = EXCLUDED.restaurant_id,
+      updated_at = NOW();
+  `;
+
   const accounts = await sql`SELECT id, username, name, role, password_hash FROM admin_accounts;`;
   console.log('✅ Successfully updated Admin Accounts in Neon DB:');
   console.table(accounts);
