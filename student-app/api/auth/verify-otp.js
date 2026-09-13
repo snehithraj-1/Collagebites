@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanOtp = otp.toString().trim();
+    const cleanOtp = otp.toString().replace(/\s+/g, '').trim();
 
     let isValid = false;
     let storedData = null;
@@ -35,12 +35,18 @@ export default async function handler(req, res) {
       const rows = await sql`
         SELECT * FROM otp_verifications 
         WHERE email = ${cleanEmail} 
-          AND otp = ${cleanOtp} 
-          AND expires_at > NOW();
+        ORDER BY created_at DESC 
+        LIMIT 1;
       `;
       if (rows && rows.length > 0) {
-        isValid = true;
-        storedData = rows[0];
+        const record = rows[0];
+        const recordOtp = (record.otp || '').toString().trim();
+        const recordExpiry = new Date(record.expires_at).getTime();
+        // Allow 60-second grace period for server clock differences
+        if (recordOtp === cleanOtp && recordExpiry > (Date.now() - 60000)) {
+          isValid = true;
+          storedData = record;
+        }
       }
     } catch (dbErr) {
       console.warn('[Neon DB OTP Verify Warning]:', dbErr.message);
@@ -63,11 +69,11 @@ export default async function handler(req, res) {
     // Upsert into Neon DB students table
     try {
       await sql`
-        INSERT INTO students (id, name, email, phone, role, created_at, updated_at)
-        VALUES (${studentId}, ${studentName}, ${cleanEmail}, ${studentPhone}, 'student', NOW(), NOW())
-        ON CONFLICT (id) DO UPDATE SET
+        INSERT INTO students (id, name, email, phone, updated_at)
+        VALUES (${studentId}, ${studentName}, ${cleanEmail}, ${studentPhone}, NOW())
+        ON CONFLICT (email) DO UPDATE SET
           name = EXCLUDED.name,
-          phone = EXCLUDED.phone,
+          phone = COALESCE(EXCLUDED.phone, students.phone),
           updated_at = NOW();
       `;
     } catch (upsertErr) {

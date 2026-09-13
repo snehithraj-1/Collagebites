@@ -102,6 +102,8 @@ export function StudentAuthProvider({ children }) {
         success: true, 
         message: data.message,
         otp: data.otp,
+        emailSent: data.emailSent,
+        emailError: data.emailError,
         fallbackCode: data.fallbackCode || '123456'
       };
     } catch (err) {

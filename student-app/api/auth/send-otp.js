@@ -6,16 +6,29 @@ const DATABASE_URL = process.env.DATABASE_URL ||
 
 const sql = neon(DATABASE_URL);
 
-const mailTransporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  family: 4,
-  auth: {
-    user: process.env.EMAIL_USER || 'collagebites1@gmail.com',
-    pass: (process.env.EMAIL_PASS || 'ufstkqiollxubvjg').replace(/\s+/g, '')
-  }
-});
+const rawUser = (process.env.EMAIL_USER || '').trim();
+const rawPass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '').trim();
+
+// Ensure we ignore old revoked credentials even if they remain in Vercel project env vars
+const isStale = !rawUser || rawUser.toLowerCase().includes('collagebites1') || rawPass.toLowerCase().includes('ufstkqio');
+const activeUser = isStale ? 'rajsrmap2@gmail.com' : rawUser;
+const activePass = isStale ? 'bgdsjrhzfpvltdnh' : rawPass;
+
+function getMailTransporter() {
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    family: 4,
+    connectionTimeout: 8000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
+    auth: {
+      user: activeUser,
+      pass: activePass
+    }
+  });
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -91,12 +104,13 @@ export default async function handler(req, res) {
     let emailError = null;
     let smtpResponse = null;
     try {
-      const activeSender = process.env.EMAIL_USER || 'collagebites1@gmail.com';
-      const info = await mailTransporter.sendMail({
-        from: '"Collage Bites Dining" <' + activeSender + '>',
+      const activeSender = activeUser;
+      const transporter = getMailTransporter();
+      const info = await transporter.sendMail({
+        from: '"Srm : College Bites" <' + activeSender + '>',
         to: cleanEmail,
         replyTo: activeSender,
-        subject: `${otp} is your Collage Bites Login Code`,
+        subject: `${otp} is your Srm : College Bites Login Code`,
         text: `Your Collage Bites verification code is: ${otp}\n\nThis code is valid for 10 minutes.\n\nSRM University-AP Campus Dining\nDelivery Support: 9989955833`,
         html: htmlTemplate
       });

@@ -82,44 +82,56 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 const otpMemoryCache = new Map();
 
 function getEmailCredentials() {
-  let user = process.env.EMAIL_USER || '';
-  let pass = process.env.EMAIL_PASS || '';
-  if (!user || !pass) {
-    try {
-      const envPath = path.resolve(__dirname, '../.env');
-      if (fs.existsSync(envPath)) {
-        const envText = fs.readFileSync(envPath, 'utf8');
-        const userMatch = envText.match(/EMAIL_USER=(.+)/);
-        const passMatch = envText.match(/EMAIL_PASS=(.+)/);
-        if (userMatch) user = userMatch[1].trim();
-        if (passMatch) pass = passMatch[1].trim();
-      }
-    } catch (e) {}
+  let user = '';
+  let pass = '';
+  try {
+    const envPath = path.resolve(__dirname, '../.env');
+    if (fs.existsSync(envPath)) {
+      const envText = fs.readFileSync(envPath, 'utf8');
+      const userMatch = envText.match(/^\s*EMAIL_USER\s*=\s*(.+)$/m);
+      const passMatch = envText.match(/^\s*EMAIL_PASS\s*=\s*(.+)$/m);
+      if (userMatch && userMatch[1]) user = userMatch[1].trim();
+      if (passMatch && passMatch[1]) pass = passMatch[1].trim();
+    }
+  } catch (e) {}
+
+  if (!user) user = (process.env.EMAIL_USER || '').trim();
+  if (!pass) pass = (process.env.EMAIL_PASS || '').trim();
+
+  // If credentials match the old revoked account, fallback to verified active credentials
+  if (!user || user.toLowerCase().includes('collagebites1') || pass.toLowerCase().includes('ufstkqio')) {
+    user = 'rajsrmap2@gmail.com';
+    pass = 'bgdsjrhzfpvltdnh';
   }
+
   return {
-    user: user || 'collagebites1@gmail.com',
-    pass: (pass || 'fvhkfaacapwrdmew').replace(/\s+/g, '')
+    user: user.trim(),
+    pass: pass.replace(/\s+/g, '').trim()
   };
 }
 
-const { user: emailUser, pass: emailPass } = getEmailCredentials();
-const mailTransporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  family: 4, // Force IPv4 to prevent cloud IPv6 DNS hangs
-  pool: true,
-  maxConnections: 5,
-  maxMessages: 100,
-  connectionTimeout: 8000,
-  greetingTimeout: 5000,
-  socketTimeout: 10000,
-  auth: {
-    user: emailUser,
-    pass: emailPass
-  }
-});
-console.log(`[Gmail Service] Configured with sender: ${emailUser} (Pool & IPv4 Active)`);
+function getMailTransporter() {
+  const { user, pass } = getEmailCredentials();
+  const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    family: 4, // Force IPv4 to prevent cloud IPv6 DNS hangs
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100,
+    connectionTimeout: 8000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
+    auth: {
+      user,
+      pass
+    }
+  });
+  return { user, transporter };
+}
+
+console.log(`[Gmail Service] Configured with sender: ${getEmailCredentials().user} (Dynamic Pool & IPv4 Active)`);
 
 // ----------------------------------------------------
 // 1. NEON POSTGRESQL CONNECTION & SCHEMA INITIALIZATION
@@ -785,12 +797,15 @@ app.post('/api/auth/send-otp', async (req, res) => {
 
     // Dispatch email and await completion so Vercel Serverless Lambda doesn't freeze the process
     let emailSent = false;
+    let emailError = null;
     try {
+      const { user: senderEmail, transporter } = getMailTransporter();
       await Promise.race([
-        mailTransporter.sendMail({
-          from: '"Collage Bites Dining" <' + emailUser + '>',
+        transporter.sendMail({
+          from: '"Srm : College Bites" <' + senderEmail + '>',
           to: cleanEmail,
-          subject: `${otp} is your Collage Bites Login Code`,
+          replyTo: senderEmail,
+          subject: `${otp} is your College Bites Login Code`,
           html: htmlTemplate
         }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP send timeout (6s)')), 6000))
@@ -798,6 +813,7 @@ app.post('/api/auth/send-otp', async (req, res) => {
       emailSent = true;
       console.log(`[Gmail OTP] Successfully delivered OTP ${otp} to ${cleanEmail}`);
     } catch (mailErr) {
+      emailError = mailErr.message;
       console.error('[Gmail SMTP Warning]:', mailErr.message);
       console.log(`[Dev Fallback OTP Available]: ${cleanEmail} -> ${otp}`);
     }
