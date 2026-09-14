@@ -114,9 +114,11 @@ export default function StudentLoginPage() {
       
       {/* Brand Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="w-14 h-14 rounded-2xl bg-[#FF5722] text-white mx-auto flex items-center justify-center text-2xl font-black shadow-md shadow-[#FF5722]/20 mb-3">
-          CB
-        </div>
+        <img 
+          src="/collegebites-logo.png" 
+          alt="College Bites Logo" 
+          className="w-16 h-16 rounded-full object-contain mx-auto shadow-md shadow-[#FF5722]/20 mb-3 border border-[#E2D9D0] bg-white"
+        />
         <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight font-['Outfit']">
           Srm : College Bites
         </h1>

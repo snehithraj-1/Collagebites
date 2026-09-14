@@ -16,9 +16,11 @@ export default function Navbar({ currentView, onNavigate }) {
           onClick={() => onNavigate('restaurants')}
           className="flex items-center gap-3 cursor-pointer select-none"
         >
-          <div className="w-10 h-10 rounded-xl bg-[#FF5722] flex items-center justify-center text-white font-black text-lg shadow-sm">
-            CB
-          </div>
+          <img 
+            src="/collegebites-logo.png" 
+            alt="College Bites Logo" 
+            className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-contain shadow-sm border border-[#F1EAE4] bg-white"
+          />
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-lg font-black text-[#0F172A] tracking-tight font-['Outfit']">
