@@ -176,11 +176,6 @@ export default function MenuPage({ restaurant, onBack, orderingEnabled }) {
                 </>
               )}
               <span>•</span>
-              <span className="flex items-center gap-1">
-                <Clock size={13} className="text-[#64748B]" />
-                {restaurant.prep_time || '15-20 min'}
-              </span>
-              <span>•</span>
               <span className="text-emerald-700 font-bold">Free Campus Delivery</span>
             </div>
           </div>

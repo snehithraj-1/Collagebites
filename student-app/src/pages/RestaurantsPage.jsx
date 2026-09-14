@@ -225,10 +225,7 @@ export default function RestaurantsPage({ onSelectRestaurant, orderingEnabled })
                     )}
 
                     <div className="flex items-center gap-2 text-xs text-slate-600">
-                      <Clock size={12} className="shrink-0 text-slate-400" />
-                      <span>Prep time: {restaurant.prep_time || '15-20 mins'}</span>
-                      <span>•</span>
-                      <span className="text-emerald-700 font-semibold">Free Delivery</span>
+                      <span className="text-emerald-700 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">Free Delivery</span>
                     </div>
 
                     <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed pt-1">
