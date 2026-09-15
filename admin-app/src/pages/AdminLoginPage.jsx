@@ -5,8 +5,8 @@ import { useAdminAuth } from '../context/AdminAuthContext';
 export default function AdminLoginPage() {
   const { loginAdmin, unauthorizedError } = useAdminAuth();
 
-  const [identifier, setIdentifier] = useState('collagebites1@gmail.com');
-  const [password, setPassword] = useState('Clgbites123');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -78,7 +78,8 @@ export default function AdminLoginPage() {
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="rajsrmap2@gmail.com"
+                placeholder="Enter admin email or username"
+                autoComplete="username"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FF5722]"
               />
             </div>
@@ -94,6 +95,7 @@ export default function AdminLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
+                autoComplete="current-password"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FF5722]"
               />
             </div>
