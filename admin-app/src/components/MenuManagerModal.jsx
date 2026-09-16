@@ -361,7 +361,7 @@ export default function MenuManagerModal({ isOpen, onClose, assignedRestaurantId
             <button
               onClick={() => {
                 const effectiveRest = assignedRestaurantId || (selectedRestaurant !== 'ALL' ? selectedRestaurant : 'local-home-kitchen');
-                const effectiveName = effectiveRest === 'vilasa-cafe' ? 'Vilasa Café' : (effectiveRest === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen');
+                const effectiveName = effectiveRest === 'clg-bites-biryani-nation' ? 'Clg Bites Biryani Nation' : 'Local Home Kitchen';
                 setEditingItem({
                   restaurant_id: effectiveRest,
                   restaurant_name: effectiveName,
@@ -420,9 +420,6 @@ export default function MenuManagerModal({ isOpen, onClose, assignedRestaurantId
               )}
               {(!assignedRestaurantId || assignedRestaurantId === 'clg-bites-biryani-nation') && (
                 <option value="clg-bites-biryani-nation">Clg Bites Biryani Nation</option>
-              )}
-              {(!assignedRestaurantId || assignedRestaurantId === 'vilasa-cafe') && (
-                <option value="vilasa-cafe">Vilasa Café</option>
               )}
             </select>
           </div>
@@ -723,10 +720,7 @@ export default function MenuManagerModal({ isOpen, onClose, assignedRestaurantId
                       setEditingItem({
                         ...editingItem,
                         restaurant_id: e.target.value,
-                        restaurant_name:
-                          e.target.value === 'vilasa-cafe'
-                            ? 'Vilasa Café'
-                            : e.target.value === 'clg-bites-biryani-nation'
+                        restaurant_name: e.target.value === 'clg-bites-biryani-nation'
                             ? 'Clg Bites Biryani Nation'
                             : 'Local Home Kitchen'
                       })
@@ -738,9 +732,6 @@ export default function MenuManagerModal({ isOpen, onClose, assignedRestaurantId
                     )}
                     {(!assignedRestaurantId || assignedRestaurantId === 'clg-bites-biryani-nation') && (
                       <option value="clg-bites-biryani-nation">Clg Bites Biryani Nation</option>
-                    )}
-                    {(!assignedRestaurantId || assignedRestaurantId === 'vilasa-cafe') && (
-                      <option value="vilasa-cafe">Vilasa Café</option>
                     )}
                   </select>
                 </div>
