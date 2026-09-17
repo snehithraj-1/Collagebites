@@ -17,12 +17,65 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // DELETE /api/orders or POST /api/orders/delete
+  // 1. PATCH /api/orders or POST /api/orders/status (Status update)
+  const isStatusUpdate = req.method === 'PATCH' || 
+    req.method === 'PUT' ||
+    (req.method === 'POST' && (
+      req.url.includes('status') || 
+      req.query?.action === 'status' || 
+      req.body?.action === 'status' || 
+      (Boolean(req.body?.status) && !req.body?.items)
+    ));
+
+  if (isStatusUpdate) {
+    const orderId = req.params?.id || req.query.id || req.query.orderId || req.body?.orderId || req.body?.id;
+    const rawStatus = (req.body?.status || '').toUpperCase().trim();
+    const status = rawStatus === 'DELIVERED' ? 'COMPLETED' : rawStatus;
+
+    if (!orderId || !status) {
+      return res.status(400).json({ success: false, error: 'Order ID and status are required' });
+    }
+
+    try {
+      const trimmedOrderId = String(orderId).trim();
+      let result;
+      if (status === 'COMPLETED') {
+        result = await sql`
+          UPDATE orders 
+          SET status = ${status}, completed_at = NOW(), updated_at = NOW() 
+          WHERE id = ${trimmedOrderId} OR id ILIKE ${trimmedOrderId + '%'}
+          RETURNING *;
+        `;
+      } else if (status === 'CANCELLED') {
+        result = await sql`
+          UPDATE orders 
+          SET status = ${status}, cancelled_at = NOW(), updated_at = NOW() 
+          WHERE id = ${trimmedOrderId} OR id ILIKE ${trimmedOrderId + '%'}
+          RETURNING *;
+        `;
+      } else {
+        result = await sql`
+          UPDATE orders 
+          SET status = ${status}, updated_at = NOW() 
+          WHERE id = ${trimmedOrderId} OR id ILIKE ${trimmedOrderId + '%'}
+          RETURNING *;
+        `;
+      }
+      if (result && result.length > 0) {
+        return res.status(200).json({ success: true, orderId: trimmedOrderId, status, order: result[0] });
+      }
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
+  // 2. DELETE /api/orders or POST /api/orders/delete
   const isDeleteRequest = req.method === 'DELETE' || 
     (req.method === 'POST' && (
       req.url.includes('delete') || 
       req.body?.action === 'delete' || 
-      (req.body?.orderId && !req.body?.items)
+      req.query?.action === 'delete'
     ));
 
   if (isDeleteRequest) {
@@ -42,59 +95,10 @@ export default async function handler(req, res) {
     }
 
     try {
-      await sql`DELETE FROM order_items WHERE order_id = ${orderId};`;
-      await sql`DELETE FROM orders WHERE id = ${orderId} OR id LIKE ${orderId + '%'};`;
-      return res.status(200).json({ success: true, message: `Order #${orderId} permanently deleted.` });
-    } catch (err) {
-      return res.status(500).json({ success: false, error: err.message });
-    }
-  }
-
-  // PATCH /api/orders (Status update)
-  const isStatusUpdate = req.method === 'PATCH' || 
-    (req.method === 'POST' && (
-      req.url.includes('status') || 
-      req.body?.action === 'status' || 
-      (req.body?.status && !req.body?.items)
-    ));
-
-  if (isStatusUpdate) {
-    const orderId = req.params?.id || req.query.id || req.query.orderId || req.body?.orderId || req.body?.id;
-    const rawStatus = (req.body?.status || '').toUpperCase().trim();
-    const status = rawStatus === 'DELIVERED' ? 'COMPLETED' : rawStatus;
-
-    if (!orderId || !status) {
-      return res.status(400).json({ success: false, error: 'Order ID and status are required' });
-    }
-
-    try {
-      let result;
-      if (status === 'COMPLETED') {
-        result = await sql`
-          UPDATE orders 
-          SET status = ${status}, completed_at = NOW(), updated_at = NOW() 
-          WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
-          RETURNING *;
-        `;
-      } else if (status === 'CANCELLED') {
-        result = await sql`
-          UPDATE orders 
-          SET status = ${status}, cancelled_at = NOW(), updated_at = NOW() 
-          WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
-          RETURNING *;
-        `;
-      } else {
-        result = await sql`
-          UPDATE orders 
-          SET status = ${status}, updated_at = NOW() 
-          WHERE id = ${orderId} OR id LIKE ${orderId + '%'}
-          RETURNING *;
-        `;
-      }
-      if (result && result.length > 0) {
-        return res.status(200).json({ success: true, order: result[0] });
-      }
-      return res.status(404).json({ success: false, error: 'Order not found' });
+      const trimmedOrderId = String(orderId).trim();
+      await sql`DELETE FROM order_items WHERE order_id = ${trimmedOrderId};`;
+      await sql`DELETE FROM orders WHERE id = ${trimmedOrderId} OR id ILIKE ${trimmedOrderId + '%'};`;
+      return res.status(200).json({ success: true, deletedOrderId: trimmedOrderId, message: `Order #${trimmedOrderId} permanently deleted.` });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });
     }
@@ -226,51 +230,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // POST /api/orders/status or query action=status
-  if (req.method === 'POST' && (req.query.action === 'status' || (req.body && req.body.orderId && req.body.status))) {
-    try {
-      const { orderId, status } = req.body;
-      const cleanStatus = (status === 'COMPLETED' || status === 'DELIVERED') ? 'COMPLETED' : (status === 'CANCELLED' ? 'CANCELLED' : 'CONFIRMED');
-      if (cleanStatus === 'COMPLETED') {
-        await sql`
-          UPDATE orders
-          SET status = ${cleanStatus}, completed_at = NOW(), updated_at = NOW()
-          WHERE id = ${orderId} OR id LIKE ${orderId + '%'};
-        `;
-      } else if (cleanStatus === 'CANCELLED') {
-        await sql`
-          UPDATE orders
-          SET status = ${cleanStatus}, cancelled_at = NOW(), updated_at = NOW()
-          WHERE id = ${orderId} OR id LIKE ${orderId + '%'};
-        `;
-      } else {
-        await sql`
-          UPDATE orders
-          SET status = ${cleanStatus}, updated_at = NOW()
-          WHERE id = ${orderId} OR id LIKE ${orderId + '%'};
-        `;
-      }
-      return res.status(200).json({ success: true, orderId, status: cleanStatus });
-    } catch (err) {
-      console.error('[Orders Status Update Error]:', err.message);
-      return res.status(500).json({ error: 'Failed to update order status: ' + err.message });
-    }
-  }
 
-  // POST /api/orders/delete or query action=delete
-  if (req.method === 'POST' && (req.query.action === 'delete' || (req.body && req.body.orderId && !req.body.items && !req.body.student_name && !req.body.studentName))) {
-    try {
-      const { orderId } = req.body;
-      await sql`
-        DELETE FROM orders
-        WHERE id = ${orderId} OR id LIKE ${orderId + '%'};
-      `;
-      return res.status(200).json({ success: true, deletedOrderId: orderId });
-    } catch (err) {
-      console.error('[Orders Delete Error]:', err.message);
-      return res.status(500).json({ error: 'Failed to delete order: ' + err.message });
-    }
-  }
 
   // POST /api/orders (Create Order)
   if (req.method === 'POST') {

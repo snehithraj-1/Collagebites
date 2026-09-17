@@ -355,7 +355,7 @@ export default function AdminDashboardPage() {
     return () => clearInterval(pollInterval);
   }, [loadSystemSettings, loadRestaurants, loadOrders]);
 
-  // Action: Update Order Status (PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED, CANCELLED)
+  // Action: Update Order Status (CONFIRMED, COMPLETED, CANCELLED)
   const handleUpdateStatus = async (orderId, targetStatus) => {
     if (!orderId || !targetStatus) return;
     const nextStatus = targetStatus === 'DELIVERED' ? 'COMPLETED' : targetStatus;
@@ -364,6 +364,9 @@ export default function AdminDashboardPage() {
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
     );
+    if (prevOrdersMapRef.current?.has(orderId)) {
+      prevOrdersMapRef.current.set(orderId, { status: nextStatus });
+    }
     // Keep inspecting modal synced with updated status
     setInspectingOrder((prev) =>
       prev && prev.id === orderId ? { ...prev, status: nextStatus } : prev
@@ -371,11 +374,14 @@ export default function AdminDashboardPage() {
 
     // 1. Update in Shared Central Backend API (Vercel Serverless Function)
     try {
-      await fetch('/api/orders/status', {
+      const res = await fetch('/api/orders/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId, status: nextStatus })
       });
+      if (res.ok) {
+        await loadOrders(true);
+      }
     } catch (e) {
       console.warn('[Shared Backend Status Error]:', e.message);
     }
