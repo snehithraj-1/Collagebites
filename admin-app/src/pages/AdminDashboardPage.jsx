@@ -149,7 +149,9 @@ export default function AdminDashboardPage() {
     if (!silent) setIsRefreshing(true);
 
     try {
-      const res = await fetch('/api/orders');
+      const res = await fetch(`/api/orders?_t=${Date.now()}`, {
+        headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' }
+      });
       if (res.ok) {
         const json = await res.json();
         const ordersList = Array.isArray(json) ? json : (json.orders || []);
@@ -663,6 +665,7 @@ export default function AdminDashboardPage() {
         <ErrorBoundary>
           <OrdersTable
             orders={orders}
+            isLoading={isRefreshing && orders.length === 0}
             activeRestaurantTab={isRestaurantAdmin ? assignedRestaurantId : activeRestaurantTab}
             isRestaurantAdmin={isRestaurantAdmin}
             onSelectRestaurantTab={isRestaurantAdmin ? null : (tab) => setActiveRestaurantTab(tab)}

@@ -36,6 +36,7 @@ function safeExtractItems(order) {
 
 export default function OrdersTable({
   orders = [],
+  isLoading = false,
   activeRestaurantTab = 'all',
   onSelectRestaurantTab,
   restaurantName = 'All Restaurants',
@@ -232,7 +233,16 @@ export default function OrdersTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60 text-slate-300">
-            {filteredOrders.length === 0 ? (
+            {isLoading ? (
+              <tr>
+                <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+                  <div className="flex flex-col items-center justify-center gap-2.5">
+                    <div className="w-6 h-6 border-2 border-[#FF5722] border-t-transparent rounded-full animate-spin" />
+                    <span className="font-medium text-slate-300">Connecting to PostgreSQL database & loading live orders...</span>
+                  </div>
+                </td>
+              </tr>
+            ) : filteredOrders.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-12 text-center text-slate-500 text-xs">
                   No orders found matching the selected filter.
