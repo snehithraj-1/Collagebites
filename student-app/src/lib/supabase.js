@@ -9,7 +9,9 @@ export const isSupabaseConfigured = () => {
     supabaseUrl &&
     supabaseAnonKey &&
     !supabaseUrl.includes('your-project-id') &&
-    supabaseUrl.startsWith('http')
+    supabaseUrl.startsWith('http') &&
+    !supabaseAnonKey.includes('...') &&
+    supabaseAnonKey.length > 50
   );
 };
 

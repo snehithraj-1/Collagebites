@@ -4,7 +4,6 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 const AdminAuthContext = createContext(null);
 
 export function AdminAuthProvider({ children }) {
-  const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(() => {
     try {
       const saved = localStorage.getItem('cb_admin_profile');
@@ -19,7 +18,21 @@ export function AdminAuthProvider({ children }) {
       return null;
     }
   });
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cb_admin_profile');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && (parsed.role === 'super_admin' || parsed.role === 'admin' || parsed.role === 'restaurant_admin')) {
+          return { id: parsed.id, email: parsed.email || parsed.username, role: parsed.role };
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(!isSupabaseConfigured() ? false : true);
   const [unauthorizedError, setUnauthorizedError] = useState('');
 
   // Persist admin session

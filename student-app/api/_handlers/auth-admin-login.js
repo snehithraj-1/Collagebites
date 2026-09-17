@@ -1,9 +1,9 @@
-import { neon } from '@neondatabase/serverless';
+import { createSql } from '../sqlClient.js';
 
 const DATABASE_URL = process.env.DATABASE_URL || 
-  'postgresql://neondb_owner:npg_1vc6drlGiWJT@ep-billowing-cake-b4cx6gae-pooler.c-6.us-east-2.aws.neon.tech/mute%20bites?sslmode=require&channel_binding=require';
+  'postgresql://postgres:Clgbites%40135@db.shudbvqjxauqiyfgvpfk.supabase.co:5432/postgres';
 
-const sql = neon(DATABASE_URL);
+const sql = createSql(DATABASE_URL);
 
 const makeAdminToken = (profile) => `cb_${Buffer.from(JSON.stringify(profile)).toString('base64')}`;
 

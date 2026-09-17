@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import dns from 'dns';
 import { fileURLToPath } from 'url';
-import { neon } from '@neondatabase/serverless';
+import { createSql } from './sqlClient.js';
 import nodemailer from 'nodemailer';
 import { AUTHENTIC_MENU_ITEMS, AUTHENTIC_RESTAURANTS } from './authenticMenuData.js';
 
@@ -150,7 +150,7 @@ function getDatabaseUrl() {
   } catch (e) {}
 
   if (!url) {
-    url = process.env.DATABASE_URL || process.env.POSTGRES_URL || 'postgresql://neondb_owner:npg_1vc6drlGiWJT@ep-billowing-cake-b4cx6gae-pooler.c-6.us-east-2.aws.neon.tech/mute%20bites?sslmode=require&channel_binding=require';
+    url = process.env.DATABASE_URL || process.env.POSTGRES_URL || 'postgresql://postgres:Clgbites%40135@db.shudbvqjxauqiyfgvpfk.supabase.co:5432/postgres';
   }
 
   if (url) {
@@ -169,10 +169,10 @@ let isNeonReady = false;
 
 if (DATABASE_URL) {
   try {
-    sql = neon(DATABASE_URL);
-    console.log('[Neon DB] Initializing connection to:', DATABASE_URL.replace(/:[^:@]+@/, ':****@'));
+    sql = createSql(DATABASE_URL);
+    console.log('[Database] Initializing connection to:', DATABASE_URL.replace(/:[^:@]+@/, ':****@'));
   } catch (err) {
-    console.error('[Neon DB Init Error]:', err.message);
+    console.error('[Database Init Error]:', err.message);
   }
 }
 
@@ -231,7 +231,9 @@ async function initNeonSchema() {
       ADD COLUMN IF NOT EXISTS student_email VARCHAR(255),
       ADD COLUMN IF NOT EXISTS user_id VARCHAR(255),
       ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ,
-      ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+      ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS items JSONB DEFAULT '[]'::jsonb,
+      ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'cod';
     `;
 
     // 3. Ensure order_status_history table
@@ -1463,19 +1465,24 @@ app.post('/api/orders', async (req, res) => {
       // Batch insert individual items
       if (Array.isArray(newOrder.items) && newOrder.items.length > 0) {
         for (const item of newOrder.items) {
+          const itemName = item.name || item.item_name || 'Dish';
+          const itemPrice = Number(item.price || item.unit_price) || 0;
+          const itemQty = Number(item.quantity || item.qty) || 1;
           parallelTasks.push(
             sql`
               INSERT INTO order_items (
-                order_id, item_name, quantity, unit_price, total_price, created_at
+                order_id, item_name, name, quantity, unit_price, price, total_price, created_at
               ) VALUES (
                 ${newOrder.id},
-                ${item.name},
-                ${item.quantity || 1},
-                ${item.price || 0},
-                ${(item.price || 0) * (item.quantity || 1)},
+                ${itemName},
+                ${itemName},
+                ${itemQty},
+                ${itemPrice},
+                ${itemPrice},
+                ${itemPrice * itemQty},
                 NOW()
               );
-            `.catch(e => {})
+            `.catch(e => console.warn('Order item insert warning:', e.message))
           );
         }
       }

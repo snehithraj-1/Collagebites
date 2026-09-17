@@ -301,9 +301,15 @@ export default function AdminDashboardPage() {
     loadRestaurants();
     loadOrders();
 
-    // Live Polling every 2s ensures instant order updates across ports
+    // Live Polling ensures instant synchronization across portals
+    let pollCount = 0;
     const pollInterval = setInterval(() => {
       loadOrders(true);
+      pollCount++;
+      if (pollCount % 2 === 0) {
+        loadSystemSettings();
+        loadRestaurants();
+      }
     }, 2000);
 
     if (isSupabaseConfigured() && supabase) {

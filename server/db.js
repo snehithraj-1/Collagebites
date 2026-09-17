@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless';
+import { createSql } from './sqlClient.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -26,7 +26,7 @@ export function getDatabaseUrl() {
        || process.env.POSTGRES_URL 
        || process.env.VITE_DATABASE_URL 
        || process.env.DATABASE_PUBLIC_URL 
-       || '';
+       || 'postgresql://postgres:Clgbites%40135@db.shudbvqjxauqiyfgvpfk.supabase.co:5432/postgres';
   }
 
   if (url) {
@@ -50,7 +50,7 @@ if (!DATABASE_URL) {
   console.warn('[Server DB] WARNING: DATABASE_URL is not set in environment variables!');
 }
 
-export const sql = neon(DATABASE_URL);
+export const sql = createSql(DATABASE_URL);
 
 // Health check function for /api/health diagnostic
 export async function checkDbHealth() {

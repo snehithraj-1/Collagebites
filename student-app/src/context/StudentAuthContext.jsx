@@ -4,7 +4,6 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 const StudentAuthContext = createContext(null);
 
 export function StudentAuthProvider({ children }) {
-  const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(() => {
     try {
       const saved = localStorage.getItem('cb_student_profile');
@@ -13,7 +12,19 @@ export function StudentAuthProvider({ children }) {
       return null;
     }
   });
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cb_student_profile');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.id ? { id: parsed.id, email: parsed.email } : null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(!isSupabaseConfigured() ? false : true);
 
   // Sync profile to localStorage for persistence
   useEffect(() => {
