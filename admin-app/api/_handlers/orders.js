@@ -1,7 +1,7 @@
 import { createSql } from '../sqlClient.js';
 
 const DATABASE_URL = process.env.DATABASE_URL || 
-  'postgresql://postgres:Clgbites%40135@db.shudbvqjxauqiyfgvpfk.supabase.co:5432/postgres';
+  'postgresql://postgres.shudbvqjxauqiyfgvpfk:Clgbites%40135@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres';
 
 const sql = createSql(DATABASE_URL);
 

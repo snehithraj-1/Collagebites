@@ -8,7 +8,7 @@ const sqlPath = path.resolve(__dirname, '../supabase/setup_all.sql');
 const sql = fs.readFileSync(sqlPath, 'utf8');
 
 const { Client } = pg;
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:Clgbites%40135@db.shudbvqjxauqiyfgvpfk.supabase.co:5432/postgres';
+const connectionString = process.env.DATABASE_URL || 'postgresql://postgres.shudbvqjxauqiyfgvpfk:Clgbites%40135@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres';
 
 async function runSetup() {
   const client = new Client({

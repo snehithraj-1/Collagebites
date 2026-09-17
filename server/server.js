@@ -150,7 +150,7 @@ function getDatabaseUrl() {
   } catch (e) {}
 
   if (!url) {
-    url = process.env.DATABASE_URL || process.env.POSTGRES_URL || 'postgresql://postgres:Clgbites%40135@db.shudbvqjxauqiyfgvpfk.supabase.co:5432/postgres';
+    url = process.env.DATABASE_URL || process.env.POSTGRES_URL || 'postgresql://postgres.shudbvqjxauqiyfgvpfk:Clgbites%40135@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres';
   }
 
   if (url) {
