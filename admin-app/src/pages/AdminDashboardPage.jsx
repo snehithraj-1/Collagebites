@@ -155,6 +155,9 @@ export default function AdminDashboardPage() {
         const ordersList = Array.isArray(json) ? json : (json.orders || []);
         if (Array.isArray(ordersList)) {
           setOrders(ordersList);
+          try {
+            localStorage.setItem('cb_shared_orders', JSON.stringify(ordersList));
+          } catch {}
           setIsRefreshing(false);
 
           // Alert admin ONLY when a genuinely new order is placed or status changes
@@ -266,8 +269,8 @@ export default function AdminDashboardPage() {
           `)
           .order('created_at', { ascending: false });
 
-        if (restaurantId && restaurantId !== 'all') {
-          query = query.eq('restaurant_id', restaurantId);
+        if (activeRestaurantTab && activeRestaurantTab !== 'all') {
+          query = query.eq('restaurant_id', activeRestaurantTab);
         }
 
         const { data, error } = await query;
@@ -284,8 +287,8 @@ export default function AdminDashboardPage() {
     // Local fallback
     try {
       const stored = JSON.parse(localStorage.getItem('cb_shared_orders') || '[]');
-      const filtered = restaurantId && restaurantId !== 'all'
-        ? stored.filter((o) => o.restaurant_id === restaurantId)
+      const filtered = activeRestaurantTab && activeRestaurantTab !== 'all'
+        ? stored.filter((o) => o.restaurant_id === activeRestaurantTab)
         : stored;
       setOrders(filtered);
     } catch {
@@ -506,6 +509,9 @@ export default function AdminDashboardPage() {
             {/* Quick Sync Button */}
             <button
               onClick={() => {
+                try {
+                  localStorage.removeItem('cb_shared_orders');
+                } catch {}
                 loadOrders(false);
                 loadRestaurants();
                 loadSystemSettings();
