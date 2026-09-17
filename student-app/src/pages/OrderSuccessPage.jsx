@@ -126,7 +126,9 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
   } catch {
     orderItems = [];
   }
-  const subtotal = Math.max(0, (Number(liveOrder.total_amount || order.total_amount) || 0) - 5);
+  const calculatedItemsTotal = orderItems.reduce((sum, it) => sum + (Number(it.price || it.unit_price || 0) * Number(it.quantity || it.qty || 1)), 0);
+  const totalBill = Number(liveOrder.total_amount || order.total_amount) || calculatedItemsTotal || 0;
+  const subtotal = calculatedItemsTotal > 0 ? calculatedItemsTotal : totalBill;
 
   const handlePrint = () => {
     window.print();
@@ -380,10 +382,6 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
             <span className="font-mono font-bold text-[#0F172A]">₹{subtotal}</span>
           </div>
           <div className="flex justify-between text-[#64748B]">
-            <span>Campus Platform Fee</span>
-            <span className="font-mono font-bold text-[#0F172A]">₹5</span>
-          </div>
-          <div className="flex justify-between text-[#64748B]">
             <span>Campus Delivery</span>
             <span className="font-bold text-emerald-700 uppercase text-[11px]">Free Campus Delivery</span>
           </div>
@@ -391,7 +389,7 @@ export default function OrderSuccessPage({ order, onGoHome, onViewHistory }) {
           <div className="pt-2 border-t border-[#E2D9D0] flex justify-between items-center text-base font-black text-[#0F172A]">
             <span>Total Amount</span>
             <span className="text-[#FF5722] font-mono font-black text-xl">
-              ₹{order.total_amount}
+              ₹{totalBill}
             </span>
           </div>
         </div>
