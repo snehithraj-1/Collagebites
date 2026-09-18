@@ -47,6 +47,7 @@ export default function AdminDashboardPage() {
   // New Order Notifications & Audio Alert
   const prevOrdersMapRef = useRef(new Map());
   const isFirstLoadRef = useRef(true);
+  const recentRestaurantTogglesRef = useRef(new Map());
   const [newOrderAlert, setNewOrderAlert] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const soundEnabledRef = useRef(soundEnabled);
@@ -107,12 +108,24 @@ export default function AdminDashboardPage() {
 
   // 2. Load Restaurants
   const loadRestaurants = useCallback(async () => {
+    // Protect recent manual toggles from being overwritten by lagging polling requests (5s guard)
+    const mergeWithRecentToggles = (list) => {
+      const now = Date.now();
+      return list.map((r) => {
+        const recent = recentRestaurantTogglesRef.current.get(r.id);
+        if (recent && (now - recent.timestamp) < 5000) {
+          return { ...r, is_open: recent.is_open };
+        }
+        return r;
+      });
+    };
+
     try {
       const res = await fetch('/api/restaurants');
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.restaurants)) {
-          setRestaurants(json.restaurants);
+          setRestaurants(mergeWithRecentToggles(json.restaurants));
           return;
         }
       }
@@ -125,9 +138,8 @@ export default function AdminDashboardPage() {
           .select('*')
           .order('name');
 
-        if (error) throw error;
-        if (data && data.length > 0) {
-          setRestaurants(data);
+        if (!error && data && data.length > 0) {
+          setRestaurants(mergeWithRecentToggles(data));
           return;
         }
       } catch (err) {
@@ -137,7 +149,7 @@ export default function AdminDashboardPage() {
 
     try {
       const stored = JSON.parse(localStorage.getItem('cb_shared_restaurants') || '[]');
-      if (stored.length > 0) setRestaurants(stored);
+      if (stored.length > 0) setRestaurants(mergeWithRecentToggles(stored));
     } catch {}
   }, []);
 
@@ -661,6 +673,10 @@ export default function AdminDashboardPage() {
           orderingEnabled={orderingEnabled}
           assignedRestaurantId={isRestaurantAdmin ? assignedRestaurantId : null}
           onRestaurantUpdate={(restaurantId, nextState) => {
+            recentRestaurantTogglesRef.current.set(restaurantId, {
+              is_open: nextState,
+              timestamp: Date.now()
+            });
             setRestaurants((prev) =>
               prev.map((r) => (r.id === restaurantId ? { ...r, is_open: nextState } : r))
             );

@@ -17,18 +17,51 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
     : uniqueRestaurants;
 
   const handleToggle = async (restaurant) => {
-    const nextState = !(restaurant.is_open !== false);
+    const currentState = restaurant.is_open !== false;
+    const nextState = !currentState;
     setUpdatingId(restaurant.id);
 
+    // 1. Optimistic UI update immediately
+    onRestaurantUpdate(restaurant.id, nextState);
+
+    // Also update localStorage cache immediately
     try {
-      // 1. Update Neon PostgreSQL shared backend
-      await fetch(`/api/restaurants/${restaurant.id}/toggle`, {
+      const updated = restaurants.map((r) =>
+        r.id === restaurant.id ? { ...r, is_open: nextState } : r
+      );
+      localStorage.setItem('cb_shared_restaurants', JSON.stringify(updated));
+    } catch {}
+
+    let success = false;
+
+    try {
+      const payload = {
+        id: restaurant.id,
+        restaurantId: restaurant.id,
+        restaurant_id: restaurant.id,
+        is_open: nextState
+      };
+
+      // 2. Primary request: /api/restaurants/:id/toggle
+      let res = await fetch(`/api/restaurants/${encodeURIComponent(restaurant.id)}/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_open: nextState })
+        body: JSON.stringify(payload)
       });
 
-      // 2. Also sync to Supabase if configured
+      if (res.ok) {
+        success = true;
+      } else {
+        // Fallback request: /api/restaurants/toggle
+        res = await fetch('/api/restaurants/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) success = true;
+      }
+
+      // 3. Also sync to Supabase if configured
       if (isSupabaseConfigured() && supabase) {
         try {
           await supabase
@@ -39,16 +72,8 @@ export default function RestaurantToggles({ restaurants, orderingEnabled, onRest
           console.warn('[Supabase Restaurant Sync Warning]:', supaErr.message);
         }
       }
-
-      // 3. Fallback localStorage
-      const updated = restaurants.map((r) =>
-        r.id === restaurant.id ? { ...r, is_open: nextState } : r
-      );
-      localStorage.setItem('cb_shared_restaurants', JSON.stringify(updated));
-      onRestaurantUpdate(restaurant.id, nextState);
     } catch (err) {
       console.error('[Restaurant Toggle Error]:', err);
-      onRestaurantUpdate(restaurant.id, nextState);
     } finally {
       setUpdatingId(null);
     }

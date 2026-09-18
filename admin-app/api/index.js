@@ -61,9 +61,20 @@ export default async function handler(req, res) {
 
   // 3. Restaurant routes
   if (pathname.includes('/toggle') || req.body?.action === 'toggle') {
+    const match = pathname.match(/\/api\/restaurants\/([^/?]+)\/toggle/i);
+    if (match && match[1]) {
+      req.query.id = req.query.id || decodeURIComponent(match[1]);
+    }
     return restaurantsToggleHandler(req, res);
   }
   if (pathname.startsWith('/api/restaurants')) {
+    if (req.method === 'POST' || req.method === 'PATCH' || req.method === 'PUT') {
+      const match = pathname.match(/\/api\/restaurants\/([^/?]+)/i);
+      if (match && match[1] && match[1] !== 'toggle') {
+        req.query.id = req.query.id || decodeURIComponent(match[1]);
+      }
+      return restaurantsToggleHandler(req, res);
+    }
     return restaurantsHandler(req, res);
   }
 

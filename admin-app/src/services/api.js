@@ -73,7 +73,7 @@ export const api = {
       res = await fetch(`/api/restaurants/${encodeURIComponent(restaurantId)}/toggle`, {
         method: 'POST',
         headers: jsonHeaders,
-        body: JSON.stringify({ is_open: isOpen })
+        body: JSON.stringify({ id: restaurantId, restaurantId, restaurant_id: restaurantId, is_open: isOpen })
       });
       if (res.ok) return handleResponse(res);
     } catch {}
@@ -82,7 +82,7 @@ export const api = {
     res = await fetch('/api/restaurants/toggle', {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify({ id: restaurantId, is_open: isOpen })
+      body: JSON.stringify({ id: restaurantId, restaurantId, restaurant_id: restaurantId, is_open: isOpen })
     });
     return handleResponse(res);
   },

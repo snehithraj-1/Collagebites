@@ -1933,7 +1933,14 @@ app.all(['/api/restaurants/toggle', '/api/restaurants/:id/toggle', '/api/restaur
     return; // Handled by app.get('/api/restaurants')
   }
 
-  const restId = req.params.id || req.body?.id || req.body?.restaurantId || req.body?.restaurant_id;
+  let restId = req.params.id || req.body?.id || req.body?.restaurantId || req.body?.restaurant_id || req.query?.id || req.query?.restaurantId;
+  if (!restId) {
+    const urlToCheck = req.originalUrl || req.url || req.path || '';
+    const match = urlToCheck.match(/\/api\/restaurants\/([^/?]+)/i);
+    if (match && match[1] && match[1] !== 'toggle') {
+      restId = decodeURIComponent(match[1]);
+    }
+  }
   if (!restId) {
     return res.status(400).json({ success: false, error: 'Restaurant ID is required.' });
   }
